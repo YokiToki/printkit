@@ -32,12 +32,12 @@ describe('Header: продукты и режимы', () => {
     expect(within(modes).getAllByRole('link')).toHaveLength(3)
     expect(screen.getByRole('link', { name: /back to start/ })).toHaveTextContent('Gridfinity Master')
   })
-  it('в списке продуктов три ссылки, в Rack активен Rack Master и два режима Panel и Enclosure', () => {
+  it('в списке продуктов три ссылки, в Rack активен Rack Master и три режима Panel, Enclosure и Shelf', () => {
     at('/rack/panel')
     const products = screen.getByRole('navigation', { name: 'Product' })
     expect(within(products).getAllByRole('link').map((l) => l.getAttribute('aria-label'))).toEqual(['Gridfinity Master', 'Keychain Master', 'Rack Master'])
     expect(within(products).getByRole('link', { name: 'Rack Master' })).toHaveAttribute('aria-current', 'page')
-    expect(within(screen.getByRole('navigation', { name: 'Mode' })).getAllByRole('link').map((l) => l.textContent)).toEqual(['Panel', 'Enclosure'])
+    expect(within(screen.getByRole('navigation', { name: 'Mode' })).getAllByRole('link').map((l) => l.textContent)).toEqual(['Panel', 'Enclosure', 'Shelf'])
     expect(screen.getByRole('link', { name: /back to start/ })).toHaveTextContent('Rack Master')
   })
   it('переход в Keychain: режимы Изображение и Форма, режимов Gridfinity нет, активен Keychain Master', async () => {

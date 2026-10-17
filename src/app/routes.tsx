@@ -11,6 +11,7 @@ import { ImageMode } from '../features/keychain/ImageMode'
 import { ShapeMode } from '../features/keychain/ShapeMode'
 import { RackPanelMode } from '../features/rack/RackPanelMode'
 import { CaseMode } from '../features/rack/CaseMode'
+import { ShelfMode } from '../features/rack/ShelfMode'
 
 /** Прежние адреса режимов (до появления продуктов) ведут на новые. */
 const legacy = (mode: string): RouteObject => ({ path: mode, element: <Navigate to={`${GRIDFINITY_PATH}/${mode}`} replace /> })
@@ -45,6 +46,7 @@ export const routes: RouteObject[] = [{
         { index: true, element: <ModeChooser product={productById('rack')!} /> },
         { path: 'panel', element: <RackPanelMode /> },
         { path: 'case', element: <CaseMode /> },
+        { path: 'shelf', element: <ShelfMode /> },
         { path: '*', element: <Navigate to={RACK_PATH} replace /> },
       ],
     },

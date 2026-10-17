@@ -16,8 +16,8 @@ vi.mock('../features/viewport/Viewport', () => ({ Viewport: () => <div data-test
 const BUDGET = 60 * 1024
 
 describe('иллюстрации карточек', () => {
-  it('семь иллюстраций (box, baseplate, cutout, keychainImage, keychainShape, rackPanel, rackCase): валидный SVG до 60 КБ, тона классами, без цветов', () => {
-    expect(ART_IDS.sort()).toEqual(['baseplate', 'box', 'cutout', 'keychainImage', 'keychainShape', 'rackCase', 'rackPanel'])
+  it('восемь иллюстраций (box, baseplate, cutout, keychainImage, keychainShape, rackPanel, rackCase, rackShelf): валидный SVG до 60 КБ, тона классами, без цветов', () => {
+    expect(ART_IDS.sort()).toEqual(['baseplate', 'box', 'cutout', 'keychainImage', 'keychainShape', 'rackCase', 'rackPanel', 'rackShelf'])
     for (const id of ART_IDS) {
       const svg = ART[id]
       expect(svg.length, id).toBeGreaterThan(500)

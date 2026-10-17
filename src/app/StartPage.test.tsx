@@ -76,7 +76,7 @@ describe('StartPage (выбор продукта)', () => {
 
 describe('ModeChooser (/rack)', () => {
   beforeEach(async () => { localStorage.clear(); await i18n.changeLanguage('en') })
-  it('две карточки Panel и Enclosure, клавиши 1 и 2', async () => {
+  it('три карточки Panel, Enclosure и Shelf, клавиши 1, 2 и 3', async () => {
     renderAt('/rack')
     expect(screen.getByTestId('card-panel')).toHaveAttribute('href', '/rack/panel')
     expect(screen.getByTestId('card-case')).toHaveAttribute('href', '/rack/case')
@@ -84,6 +84,15 @@ describe('ModeChooser (/rack)', () => {
     await userEvent.keyboard('2')
     expect(await screen.findByLabelText('Parameters')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Expand: Device/ })).toBeInTheDocument()
+  })
+  it('карточка Shelf с рендером ведёт на /rack/shelf, клавиша 3 открывает режим', async () => {
+    renderAt('/rack')
+    expect(screen.getByTestId('card-shelf')).toHaveAttribute('href', '/rack/shelf')
+    expect(screen.getByTestId('card-shelf')).toHaveTextContent('Shelf')
+    expect(screen.getByTestId('card-shelf').querySelector('[data-testid="art-rackShelf"] svg')).not.toBeNull()
+    await userEvent.keyboard('3')
+    expect(await screen.findByLabelText('Parameters')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Expand: Shelf/ })).toBeInTheDocument()
   })
 })
 

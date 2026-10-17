@@ -74,6 +74,11 @@
       "desc": "Front plate with rack ears and a shell around your device: mini PC, switch or router. Window, keystones, holes and vents.",
       "tag1": "device → shell",
       "tag2": "keystones"
+    },
+    "rackShelf": {
+      "desc": "A 10-inch rack front plate with a flat shelf behind it and optional lips. Prints lying on the bed, no supports.",
+      "tag1": "plate + shelf",
+      "tag2": "lips"
     }
   },
   "baseplate": {
@@ -984,7 +989,8 @@
   "rack": {
     "modes": {
       "panel": "Panel",
-      "case": "Enclosure"
+      "case": "Enclosure",
+      "shelf": "Shelf"
     },
     "error": {
       "units": "Choose 1 to 10 whole rack units.",
@@ -996,7 +1002,12 @@
       "margin": "Margin must be between 0 and 30 mm.",
       "region": "The margin leaves no room for a pattern.",
       "disconnected": "This pattern splits the panel into loose pieces. Increase the margin or the walls.",
-      "invalid": "Some values are out of range, the model is not updated."
+      "invalid": "Some values are out of range, the model is not updated.",
+      "shelfDepth": "Shelf depth must be between 20 and 400 mm.",
+      "clearance": "Clearance must be between 0 and 2 mm.",
+      "shelfThickness": "Shelf thickness must be between 1.5 and 10 mm and well below the plate height.",
+      "lipHeight": "The lip must stay below the top of the plate (0 to 60 mm).",
+      "lipWall": "Lip wall must be between 0.8 and 6 mm and leave room on the shelf."
     },
     "warning": {
       "thin": "{{setting}} is below the minimum printable width of 0.8 mm.",
@@ -1147,6 +1158,25 @@
         "wall": "Vent wall",
         "margin": "Vent margin",
         "help": "Cut through the wall only, away from the edges and the plate."
+      }
+    },
+    "shelf": {
+      "plate": {
+        "title": "Plate",
+        "summary": "{{u}} U · {{h}}"
+      },
+      "body": {
+        "title": "Shelf",
+        "summary": "{{d}} deep · {{lips}}",
+        "lipsOn": "lips {{h}}",
+        "lipsOff": "no lips",
+        "depth": "Depth",
+        "thickness": "Shelf thickness",
+        "clearance": "Clearance to the rails",
+        "lipHeight": "Lip height",
+        "lipWall": "Lip wall",
+        "width": "Shelf width {{w}}.",
+        "help": "The shelf lies flat on the bed and the plate stands at its front edge, so the layers run along the load. A lip height of 0 switches the lips off; the side next to the plate stays open."
       }
     }
   }

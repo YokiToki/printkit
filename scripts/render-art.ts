@@ -17,6 +17,7 @@ import { defaultKeychain, defaultMount } from '../src/geometry/keychain'
 import { defaultShape } from '../src/geometry/shapes'
 import { defaultRackPanel } from '../src/geometry/rack/panel'
 import { defaultRackCase } from '../src/geometry/rack/case'
+import { defaultRackShelf } from '../src/geometry/rack/shelf'
 import { defaultPattern } from '../src/geometry/rack/patterns/types'
 import { defaultShapeState, shapeParams } from '../src/features/keychain/shapeState'
 import { pawBitmap } from '../src/geometry/art/paw'
@@ -101,6 +102,12 @@ async function rackCaseModels(): Promise<Record<string, TriMesh>> {
   return { rackCase: meshOf(r) }
 }
 
+/** Rack: полка 2 U с бортиками по трём сторонам; пластина стоит у переднего края, полка на столе. */
+async function rackShelfModels(): Promise<Record<string, TriMesh>> {
+  const r = await generate('rackShelf', { ...defaultRackShelf, shelf: { ...defaultRackShelf.shelf, depth: 90 }, lips: { height: 8, wall: 2 }, ears: { ...defaultRackShelf.ears, positions: 'outer' } })
+  return { rackShelf: meshOf(r) }
+}
+
 /**
  * Рендерит группу и пишет SVG. Без `heightOf` у группы один общий масштаб (картинки одной группы одного размера). С `heightOf`
  * (имя детали → высота рисунка в единицах viewBox) эта деталь получает масштаб, при котором стоит в карточке той же высоты, что
@@ -126,6 +133,7 @@ writeGroup(await keychainModels(), { name: 'keychainImage', height: BOX_ART_HEIG
 // Rack: своя группа с одной деталью, чтобы остальные картинки не менялись
 writeGroup(await rackModels())
 writeGroup(await rackCaseModels())
+writeGroup(await rackShelfModels())
 if (!existsSync(SAMPLE)) {
   console.error(`Группа Gridfinity пропущена: нужен образец выреза ${SAMPLE} (STL, любая закрытая деталь). Картинки брелков записаны.`)
   process.exit(1)

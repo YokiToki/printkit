@@ -8,11 +8,11 @@
 
 ## 2. UI
 
-- [ ] 2.1 `ShelfMode` with sections Plate, Shelf and Ears (shared), persistence under `rack.shelf`, Start over, route `/rack/shelf`, third card on the Rack chooser with art `rackShelf` (`npm run art`, other pictures unchanged), en and ru strings. Component tests: collapsed by default, one highlight per change, steppers on every numeric input, error banners, key parity, three cards with hotkeys 1–3. No artboard: built from `ui/` and tokens, said in the commit.
+- [x] 2.1 `ShelfMode` with sections Plate, Shelf and Ears (shared), persistence under `rack.shelf`, Start over, route `/rack/shelf`, third card on the Rack chooser with art `rackShelf` (`npm run art`, other pictures unchanged), en and ru strings. Component tests: collapsed by default, one highlight per change, steppers on every numeric input, error banners, key parity, three cards with hotkeys 1–3. No artboard: built from `ui/` and tokens, said in the commit.
 
 ## 3. Version
 
-- [ ] 3.1 Bump to 1.2.0: `package.json` and a `CHANGELOG.md` entry `1.2.0 — 31-rack-shelf`. Test: the existing version test passes with the new number.
+- [x] 3.1 Bump to 1.2.0: `package.json` and a `CHANGELOG.md` entry `1.2.0 — 31-rack-shelf`. Test: the existing version test passes with the new number.
 
 ## 4. Verification
 

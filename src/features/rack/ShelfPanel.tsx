@@ -8,19 +8,20 @@ import { LengthField } from '../../ui/LengthField'
 import { NumberField } from '../../ui/NumberField'
 import { Toggle } from '../../ui/Toggle'
 import { Banner } from '../../ui/Banner'
+import { PatternFields } from './PatternSection'
 import { formatLength, useUnit } from '../../ui/units'
 import { EarsSection } from './EarsSection'
 
 export type ShelfPatch = (f: (o: RackShelfParams) => RackShelfParams) => void
 
-const platePick = (p: RackShelfParams) => ({ units: p.units, thickness: p.thickness, cornerRadius: p.cornerRadius, tolerance: p.tolerance })
-const bodyPick = (p: RackShelfParams) => ({ shelf: p.shelf, lips: p.lips })
+const platePick = (p: RackShelfParams) => ({ units: p.units, thickness: p.thickness, cornerRadius: p.cornerRadius, tolerance: p.tolerance, platePattern: p.platePattern })
+const bodyPick = (p: RackShelfParams) => ({ shelf: p.shelf, sides: p.sides, floorPattern: p.floorPattern })
 
 /** Панель параметров режима «Полка» Rack Master: передняя панель, полка с бортиками, уши. */
-export function ShelfPanel({ params: p, onChange }: { params: RackShelfParams; onChange: Dispatch<SetStateAction<RackShelfParams>> }) {
+export function ShelfPanel({ params: p, onChange, buildError = null }: { params: RackShelfParams; onChange: Dispatch<SetStateAction<RackShelfParams>>; buildError?: string | null }) {
   const { t } = useTranslation()
   const { unit } = useUnit()
-  const { errors } = validateRackShelf(p)
+  const { errors, floorWarnings, plateWarnings } = validateRackShelf(p)
   const d = defaultRackShelf, l = shelfLayout(p)
   const fmt = (mm: number) => `${formatLength(mm, unit)} ${t(`units.${unit}`)}`
   const err = (key: string) => (errors.includes(key) ? t(key) : undefined)
@@ -36,19 +37,21 @@ export function ShelfPanel({ params: p, onChange }: { params: RackShelfParams; o
         </div>
         <Toggle label={t('rack.size.tolerance')} checked={p.tolerance} onChange={(v) => update((o) => ({ ...o, tolerance: v }))} />
         <Banner>{t('rack.size.toleranceHelp')}</Banner>
+        <PatternFields kindLabel={t('rack.shelf.body.plateKind')} pattern={p.platePattern} onChange={(platePattern) => update((o) => ({ ...o, platePattern }))} errors={errors} warnings={plateWarnings} regionError="rack.error.plateRegion" buildError={buildError} />
       </Section>
-      <Section title={t('rack.shelf.body.title')} summary={t('rack.shelf.body.summary', { d: fmt(p.shelf.depth), lips: p.lips.height > 0 ? t('rack.shelf.body.lipsOn', { h: fmt(p.lips.height) }) : t('rack.shelf.body.lipsOff') })}
+      <Section title={t('rack.shelf.body.title')} summary={t('rack.shelf.body.summary', { d: fmt(p.shelf.depth), floor: t(`rack.pattern.kinds.${p.floorPattern.kind}`) })}
         modified={isChanged(bodyPick(p), bodyPick(d))} onReset={() => update((o) => ({ ...o, ...bodyPick(d) }))}>
         <div className="grid grid-cols-2 gap-2">
           <LengthField label={t('rack.shelf.body.depth')} value={p.shelf.depth} min={SHELF_LIMITS.depth[0]} max={SHELF_LIMITS.depth[1]} step={5} error={err('rack.error.shelfDepth')} onChange={(v) => update((o) => ({ ...o, shelf: { ...o.shelf, depth: v } }))} />
-          <LengthField label={t('rack.shelf.body.thickness')} value={p.shelf.thickness} min={SHELF_LIMITS.shelfThickness[0]} max={SHELF_LIMITS.shelfThickness[1]} step={0.1} error={err('rack.error.shelfThickness')} onChange={(v) => update((o) => ({ ...o, shelf: { ...o.shelf, thickness: v } }))} />
+          <LengthField label={t('rack.shelf.body.thickness')} value={p.shelf.thickness} min={SHELF_LIMITS.floor[0]} max={SHELF_LIMITS.floor[1]} step={0.1} error={err('rack.error.shelfThickness')} onChange={(v) => update((o) => ({ ...o, shelf: { ...o.shelf, thickness: v } }))} />
         </div>
         <LengthField label={t('rack.shelf.body.clearance')} value={p.shelf.clearance} min={SHELF_LIMITS.clearance[0]} max={SHELF_LIMITS.clearance[1]} step={0.05} error={err('rack.error.clearance')} onChange={(v) => update((o) => ({ ...o, shelf: { ...o.shelf, clearance: v } }))} />
         <Banner>{t('rack.shelf.body.width', { w: fmt(l.width) })}</Banner>
         <div className="grid grid-cols-2 gap-2">
-          <LengthField label={t('rack.shelf.body.lipHeight')} value={p.lips.height} min={SHELF_LIMITS.lipHeight[0]} max={SHELF_LIMITS.lipHeight[1]} step={1} error={err('rack.error.lipHeight')} onChange={(v) => update((o) => ({ ...o, lips: { ...o.lips, height: v } }))} />
-          {p.lips.height > 0 && <LengthField label={t('rack.shelf.body.lipWall')} value={p.lips.wall} min={SHELF_LIMITS.lipWall[0]} max={SHELF_LIMITS.lipWall[1]} step={0.1} error={err('rack.error.lipWall')} onChange={(v) => update((o) => ({ ...o, lips: { ...o.lips, wall: v } }))} />}
+          <LengthField label={t('rack.shelf.body.sideHeight')} value={p.sides.height} min={SHELF_LIMITS.sideHeight[0]} max={l.plateH} step={1} error={err('rack.error.sideHeight')} onChange={(v) => update((o) => ({ ...o, sides: { ...o.sides, height: v } }))} />
+          {p.sides.height > 0 && <LengthField label={t('rack.shelf.body.sideWall')} value={p.sides.wall} min={SHELF_LIMITS.sideWall[0]} max={SHELF_LIMITS.sideWall[1]} step={0.1} error={err('rack.error.sideWall')} onChange={(v) => update((o) => ({ ...o, sides: { ...o.sides, wall: v } }))} />}
         </div>
+        <PatternFields kindLabel={t('rack.shelf.body.floorKind')} pattern={p.floorPattern} onChange={(floorPattern) => update((o) => ({ ...o, floorPattern }))} errors={errors} warnings={floorWarnings} regionError="rack.error.floorRegion" buildError={buildError} />
         <Banner>{t('rack.shelf.body.help')}</Banner>
       </Section>
       <EarsSection ears={p.ears} defaults={d.ears} errors={errors} onChange={(ears) => onChange((o) => ({ ...o, ears }))} />

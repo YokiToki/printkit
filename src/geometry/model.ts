@@ -84,7 +84,7 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
     }
     case 'rackShelf': {
       const built = await buildRackShelf(params as RackShelfParams, wasmUrl)
-      const rack = { ...(built.error ? { error: built.error } : {}), warnings: [] }
+      const rack = { ...(built.error ? { error: built.error } : {}), warnings: built.warnings }
       try { return { parts: built.solid ? [{ label: 'shelf', col: 0, row: 0, oversize: false, mesh: meshOf(built.solid) }] : [], rack } } finally { built.solid?.delete() }
     }
     default:

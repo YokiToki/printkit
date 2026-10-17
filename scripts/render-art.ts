@@ -102,9 +102,9 @@ async function rackCaseModels(): Promise<Record<string, TriMesh>> {
   return { rackCase: meshOf(r) }
 }
 
-/** Rack: полка 2 U с бортиками по трём сторонам; пластина стоит у переднего края, полка на столе. */
+/** Rack: полка 2 U лицом на столе: щелевой пол и боковые стенки со скосом растут вверх. */
 async function rackShelfModels(): Promise<Record<string, TriMesh>> {
-  const r = await generate('rackShelf', { ...defaultRackShelf, shelf: { ...defaultRackShelf.shelf, depth: 90 }, lips: { height: 8, wall: 2 }, ears: { ...defaultRackShelf.ears, positions: 'outer' } })
+  const r = await generate('rackShelf', { ...defaultRackShelf, shelf: { ...defaultRackShelf.shelf, depth: 90 }, ears: { ...defaultRackShelf.ears, positions: 'outer' } })
   return { rackShelf: meshOf(r) }
 }
 

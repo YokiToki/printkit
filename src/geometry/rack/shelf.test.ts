@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { expectValidSolid } from '../testing'
 import { buildRackShelf, defaultRackShelf, shelfLayout, validateRackShelf, type RackShelfParams } from './shelf'
 import { plateBase } from './panel'
+import { defaultPattern } from './patterns/types'
 import { getWasm } from '../wasm'
 import { HEIGHT_TOLERANCE, RACK_UNIT } from './spec'
 
 const S = (o: Partial<RackShelfParams> = {}): RackShelfParams => ({ ...defaultRackShelf, ...o })
 const withShelf = (o: Partial<RackShelfParams['shelf']>) => S({ shelf: { ...defaultRackShelf.shelf, ...o } })
-const withLips = (height: number, wall = 2) => S({ lips: { height, wall } })
+const solidFloor = (o: Partial<RackShelfParams> = {}) => S({ floorPattern: { ...defaultPattern, kind: 'none' }, ...o })
 const build = async (p: RackShelfParams) => { const r = await buildRackShelf(p); expect(r.error).toBeUndefined(); return r.solid! }
 const area = (m: { slice(z: number): { area(): number; delete(): void } }, z: number) => { const s = m.slice(z); const a = s.area(); s.delete(); return a }
 
@@ -20,13 +21,24 @@ describe('полка: размеры и проверка', () => {
   it.each([[1, 44.0], [2, 88.45], [10, 444.05]])('высота пластины для %i U с допуском', (u, h) => {
     expect(shelfLayout(S({ units: u })).plateH).toBeCloseTo(u * RACK_UNIT - HEIGHT_TOLERANCE, 9)
     expect(shelfLayout(S({ units: u })).plateH).toBeCloseTo(h, 2)
-    expect(shelfLayout(S({ units: u, tolerance: false })).plateH).toBeCloseTo(u * RACK_UNIT, 9)
   })
-  it('умолчания допустимы', () => expect(validateRackShelf(defaultRackShelf).errors).toEqual([]))
-  it('бортик выше пластины отвергается', () => {
-    expect(validateRackShelf(S({ units: 1, lips: { height: 42, wall: 2 } })).errors).toEqual(['rack.error.lipHeight']) // 3 + 42 > 44
-    expect(validateRackShelf(S({ units: 1, lips: { height: 41, wall: 2 } })).errors).toEqual([])
-    expect(validateRackShelf(S({ units: 1, shelf: { ...defaultRackShelf.shelf, thickness: 10 } })).errors).toEqual([]) // 10 мм ещё меньше высоты пластины 1 U минус 2
+  it('области узоров: пол между стенками с полем, пластина над полом', () => {
+    const l = shelfLayout(defaultRackShelf) // стенка 3, поле пола 8, поле пластины 6
+    expect(l.floorRegion).toEqual({ x0: -(110.875 - 3 - 8), x1: 110.875 - 3 - 8, y0: 8, y1: 92 })
+    expect(l.plateRegion.y0).toBeCloseTo(3 + 6, 9); expect(l.plateRegion.y1).toBeCloseTo(88.45 - 6, 9)
+    expect(l.plateRegion.x1).toBeCloseTo(110.875 - 3 - 6, 9)
+    const bare = shelfLayout(S({ sides: { height: 0, wall: 3 } }))
+    expect(bare.floorRegion.x1).toBeCloseTo(110.875 - 8, 9)
+  })
+  it('умолчания допустимы: пол со щелями, пластина без узора', () => {
+    expect(validateRackShelf(defaultRackShelf).errors).toEqual([])
+    expect(defaultRackShelf.floorPattern.kind).toBe('pills'); expect(defaultRackShelf.platePattern.kind).toBe('none')
+  })
+  it('стенка выше пластины и ниже пола отвергаются, 0 — стенок нет', () => {
+    expect(validateRackShelf(S({ units: 1 })).errors).toEqual(['rack.error.sideHeight']) // 60 > 44
+    expect(validateRackShelf(S({ units: 1, sides: { height: 44, wall: 3 } })).errors).toEqual([])
+    expect(validateRackShelf(S({ sides: { height: 3.5, wall: 3 } })).errors).toEqual(['rack.error.sideHeight'])
+    expect(validateRackShelf(S({ sides: { height: 0, wall: 99 } })).errors).toEqual([])
   })
   it('значения вне диапазона отвергаются', () => {
     expect(validateRackShelf(S({ units: 0 })).errors).toContain('rack.error.units')
@@ -34,67 +46,89 @@ describe('полка: размеры и проверка', () => {
     expect(validateRackShelf(S({ thickness: 20 })).errors).toContain('rack.error.thickness')
     expect(validateRackShelf(withShelf({ depth: 10 })).errors).toContain('rack.error.shelfDepth')
     expect(validateRackShelf(withShelf({ clearance: 3 })).errors).toContain('rack.error.clearance')
-    expect(validateRackShelf(S({ lips: { height: 5, wall: 0.2 } })).errors).toContain('rack.error.lipWall')
+    expect(validateRackShelf(S({ sides: { height: 30, wall: 0.2 } })).errors).toContain('rack.error.sideWall')
     expect(validateRackShelf(S({ ears: { ...defaultRackShelf.ears, size: 20 } })).errors).toContain('rack.error.earSize')
+  })
+  it('поле узора так велико, что места нет: ошибка области пола и пластины', () => {
+    expect(validateRackShelf(S({ floorPattern: { ...defaultRackShelf.floorPattern, margin: 30 }, shelf: { ...defaultRackShelf.shelf, depth: 50 } })).errors).toContain('rack.error.floorRegion')
+    expect(validateRackShelf(S({ units: 1, sides: { height: 0, wall: 3 }, platePattern: { ...defaultPattern, kind: 'hex', margin: 25 } })).errors).toContain('rack.error.plateRegion')
   })
 })
 
-describe('полка: сборка', () => {
-  it('одно тело: габарит 254 × (толщина + глубина) × высота пластины, нижняя точка z = 0', async () => {
+describe('полка: сборка в положении печати', () => {
+  it('одно тело: габарит 254 × высота пластины × (толщина + глубина), лицо на z = 0', async () => {
     const m = await build(defaultRackShelf), l = shelfLayout(defaultRackShelf)
-    expectValidSolid(m, { min: [-127, 0, 0], max: [127, 103, l.plateH] })
+    expectValidSolid(m, { min: [-127, 0, 0], max: [127, l.plateH, 103] })
     expect(m.decompose()).toHaveLength(1)
   })
-  it('полка лежит на столе: сечение у стола — плита шириной 221.75 плюс низ пластины; выше полки только пластина', async () => {
-    const m = await build(defaultRackShelf)
-    const aBed = area(m, 2.9), aAbove = area(m, 12)
-    expect(aBed - aAbove).toBeCloseTo(221.75 * 100, 0) // плита на глубину 100 (пластина в обоих сечениях одна)
-    expect(aAbove).toBeGreaterThan(0)
-    const s = m.slice(12), b = s.bounds(); s.delete()
-    expect(b.min[1]).toBeCloseTo(0, 6); expect(b.max[1]).toBeCloseTo(3, 6) // над полкой — только пластина толщиной 3
+  it('на столе только лицевая грань пластины: сечение у стола — пластина, выше неё пол и стенки', async () => {
+    const w = await getWasm(), m = await build(solidFloor()), { base } = plateBase(w, 2, true, 3, defaultRackShelf.ears)
+    expect(Math.abs(area(m, 0.5) - base.area())).toBeLessThan(2) // лицевой слой — только пластина (в сечении щели ушей те же)
+    // за пластиной: пол 221.75 × 3 и две стенки 3 × 60..3 по скосу
+    const s = m.slice(20), polys = s.toPolygons(); s.delete()
+    const ys = polys.flat().map((q) => q[1]); expect(Math.min(...ys)).toBeCloseTo(0, 6)
+    // срез z = 20 лежит на 17 мм за задней гранью пластины: высота стенки по скосу 60 − (60 − 3) × 17 / 100
+    expect(Math.max(...ys)).toBeCloseTo(60 - 57 * 17 / 100, 1)
   })
-  it('полка по центру: симметрична по X и меняется с зазором', async () => {
-    const m = await build(withShelf({ clearance: 1 }))
-    const s = m.slice(2.9), b = s.bounds(); s.delete()
-    expect(b.min[0]).toBeCloseTo(-127, 1) // пластина шире полки
-    expect(area(m, 2.9) - area(m, 12)).toBeCloseTo((222.25 - 2) * 100, 0)
-    // полка по центру: сечение над пластиной (y > 3) симметрично
-    const top = m.slice(1.5).toPolygons().flat().filter((q) => q[1] > 10), xs = top.map((q) => q[0])
-    expect((Math.min(...xs) + Math.max(...xs)) / 2).toBeCloseTo(0, 6); expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(220.25, 6)
+  it('пол вровень с нижней кромкой пластины и шириной 221.75 по центру', async () => {
+    const m = await build(solidFloor(withShelf({}))), s = m.slice(60), b = s.bounds(); s.delete()
+    expect(b.min[1]).toBeCloseTo(0, 6); expect(b.min[0]).toBeCloseTo(-110.875, 6); expect(b.max[0]).toBeCloseTo(110.875, 6)
+    const m2 = await build(solidFloor(withShelf({ clearance: 1 }))), s2 = m2.slice(60), b2 = s2.bounds(); s2.delete()
+    expect(b2.max[0] - b2.min[0]).toBeCloseTo(220.25, 6); expect((b2.max[0] + b2.min[0]) / 2).toBeCloseTo(0, 6)
   })
-  it('бортики по трём сторонам: кольцо с открытой стороной у пластины, заданных высоты и стенки', async () => {
-    const p = withLips(6, 2), m = await build(p), plain = await build(withLips(0))
-    const l = shelfLayout(p), D = 100, w = 2
-    const ring = l.width * D - (l.width - 2 * w) * (D - w)
-    expect(area(m, 3 + 3) - area(plain, 3 + 3)).toBeCloseTo(ring, 0) // середина бортика по высоте
-    expect(area(m, 3 + 5.9) - area(plain, 3 + 5.9)).toBeCloseTo(ring, 0)
-    expect(area(m, 9.2) - area(plain, 9.2)).toBeCloseTo(0, 6) // выше бортика ничего
-    const bb = m.boundingBox(); expect(bb.max[2]).toBeCloseTo(l.plateH, 6) // габарит по высоте задаёт пластина
+  it('боковые стенки: высота у пластины, прямой скос до пола сзади, толщина, без отверстий', async () => {
+    const m = await build(solidFloor({ sides: { height: 40, wall: 4 } }))
+    const hAt = (z: number) => { const s = m.slice(z), ys = s.toPolygons().flat().map((q) => q[1]); s.delete(); return Math.max(...ys) }
+    expect(hAt(3.5)).toBeCloseTo(40, 0); expect(hAt(53)).toBeCloseTo(40 - 37 * 50 / 100, 1); expect(hAt(102.5)).toBeCloseTo(3 + 0.1, 0)
+    // сечение на середине: пол 221.75 × 3 плюс две стенки 4 × (высота − 3)
+    const h = 40 - 37 * 50 / 100
+    expect(area(m, 53)).toBeCloseTo(221.75 * 3 + 2 * 4 * (h - 3), 0)
     expect(m.decompose()).toHaveLength(1)
   })
-  it('бортик с высотой 0 — просто плита: объём равен пластине плюс плита', async () => {
-    const w = await getWasm(), m = await build(defaultRackShelf), l = shelfLayout(defaultRackShelf)
-    const { base } = plateBase(w, 2, true, 3, defaultRackShelf.ears)
-    const expected = base.area() * 3 + l.width * 100 * 3
-    expect(Math.abs(m.volume() - expected) / expected).toBeLessThan(0.01)
+  it('стенок нет при высоте 0: остаётся пластина и пол', async () => {
+    const m = await build(solidFloor({ sides: { height: 0, wall: 3 } }))
+    expect(area(m, 50)).toBeCloseTo(221.75 * 3, 1)
   })
-  it('объём с бортиками = пластина + плита + бортики (±1 %)', async () => {
-    const w = await getWasm(), p = withLips(8, 2), m = await build(p), l = shelfLayout(p)
+  it('пол по умолчанию в щелях, глухой при узоре «нет»; убрано ровно площадь узора × толщина пола, стенки не тронуты', async () => {
+    const w = await getWasm(), l = shelfLayout(defaultRackShelf)
+    const slotted = await build(defaultRackShelf), solid = await build(solidFloor())
+    const cut = (await import('./patterns')).cutPattern(w, defaultRackShelf.floorPattern, l.floorRegion)!
+    expect(cut.area()).toBeGreaterThan(500)
+    expect((solid.volume() - slotted.volume()) / (cut.area() * 3)).toBeCloseTo(1, 2)
+    // щели лежат внутри области пола, то есть между стенками: область не шире внутреннего просвета
+    expect(l.floorRegion.x1).toBeLessThan(110.875 - 3)
+    const b = cut.bounds(); expect(b.max[0]).toBeLessThanOrEqual(l.floorRegion.x1 + 1e-6); expect(b.min[1]).toBeGreaterThanOrEqual(l.floorRegion.y0 - 1e-6)
+  })
+  it('щели сквозные: на уровне пола сечение с щелями меньше глухого', async () => {
+    const m = await build(defaultRackShelf), solid = await build(solidFloor())
+    const at = (q: typeof m) => { const s = q.slice(60); const a = s.area(); s.delete(); return a }
+    expect(at(m)).toBeLessThan(at(solid) - 100)
+  })
+  it('узор пластины по умолчанию выключен; включённый вырезает пластину над полом внутри реек', async () => {
+    const off = await build(solidFloor()), on = await build(solidFloor({ platePattern: { ...defaultPattern, kind: 'hex', margin: 6 } }))
+    expect(off.volume() - on.volume()).toBeGreaterThan(500)
+    const s = on.slice(1.5), ys = s.toPolygons().flat().map((q) => q[1]); s.delete()
+    expect(ys.length).toBeGreaterThan(0)
+    expect(on.decompose()).toHaveLength(1)
+  })
+  it('объём: пластина + пол + стенки минус щели (±1 %), без узоров точно по формулам', async () => {
+    const w = await getWasm(), p = solidFloor({ sides: { height: 40, wall: 4 } }), m = await build(p), l = shelfLayout(p)
     const { base } = plateBase(w, 2, true, 3, p.ears)
-    const ring = l.width * 100 - (l.width - 4) * 98
-    const expected = base.area() * 3 + l.width * 100 * 3 + ring * 8
+    const wall = ((40 + 3) / 2) * 100 * 4 // трапеция: (h + пол) / 2 × глубина × толщина
+    const expected = base.area() * 3 + l.width * 100 * 3 + 2 * (wall - 4 * 100 * 3)
     expect(Math.abs(m.volume() - expected) / expected).toBeLessThan(0.01)
   })
   it('отверстия ушей следуют настройкам: из «все» в «по краям» четыре отверстия вместо двенадцати', async () => {
-    const all = await build(defaultRackShelf), edges = await build(S({ ears: { ...defaultRackShelf.ears, positions: 'edges' } }))
+    const all = await build(solidFloor()), edges = await build(solidFloor({ ears: { ...defaultRackShelf.ears, positions: 'edges' } }))
     const hole = (65 - (4 - Math.PI) * 3.25 * 3.25) * 3
     expect((edges.volume() - all.volume()) / hole).toBeCloseTo(8, 0)
   })
-  it('пластина с другим числом юнитов: высота и один кусок', async () => {
-    const m = await build(S({ units: 4 })); expectValidSolid(m, { max: [127, 103, 4 * RACK_UNIT - 0.45] }); expect(m.decompose()).toHaveLength(1)
+  it('узор, разрезающий деталь, отвергается', async () => {
+    const r = await buildRackShelf(S({ sides: { height: 0, wall: 3 }, floorPattern: { ...defaultPattern, kind: 'lines', margin: 0, lines: { height: 3, wall: 2 } } }))
+    expect(r.solid).toBeNull(); expect(r.error).toBe('rack.error.disconnected')
   })
   it('недопустимое состояние: тела нет, ключ ошибки', async () => {
-    const r = await buildRackShelf(S({ units: 1, lips: { height: 60, wall: 2 } }))
-    expect(r.solid).toBeNull(); expect(r.error).toBe('rack.error.lipHeight')
+    const r = await buildRackShelf(S({ units: 1 }))
+    expect(r.solid).toBeNull(); expect(r.error).toBe('rack.error.sideHeight')
   })
 })

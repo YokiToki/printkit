@@ -31,7 +31,7 @@ PrintKit is a set of products, each with its own modes. Every mode has a live 3D
 | --- | --- |
 | **Gridfinity Master** | **Box** (bin or tray with lip, scoop, dividers, magnets and screws), **Baseplate** (any grid, fractional cells, split to fit your bed, connectors, magnets and screws), **Cutout** (pockets from rectangles or imported STL parts) |
 | **Keychain Master** | **Image** (a picture becomes a silhouette with a relief, patterns, text, ring mount, two printable halves with pins), **Shape** (a ready-made shape with a rim, the same patterns, text and mounts) |
-| **Rack Master** | **Panel** (10-inch rack panel of 1–10 U with standard ear holes, Skadis, hexagon, pills, lines and opening patterns, optional separate back wall); **Enclosure** (front plate with ears and a shell around a device, with window, keystone sockets, holes and vents); a **Shelf** (front plate with ears, a ventilated floor and sloped side walls) is planned |
+| **Rack Master** | **Panel** (10-inch rack panel of 1–10 U with standard ear holes, Skadis, hexagon, pills, lines and opening patterns, optional separate back wall); **Enclosure** (front plate with ears and a shell around a device, with window, keystone sockets, holes and vents); a **Shelf** (front plate with ears, a ventilated floor and sloped side walls) |
 
 Highlights:
 

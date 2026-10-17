@@ -76,9 +76,9 @@
       "tag2": "keystones"
     },
     "rackShelf": {
-      "desc": "A 10-inch rack front plate with a flat shelf behind it and optional lips. Prints lying on the bed, no supports.",
+      "desc": "A 10-inch rack front plate with a ventilated shelf and sloped side walls. Prints with the front face on the bed.",
       "tag1": "plate + shelf",
-      "tag2": "lips"
+      "tag2": "ventilated"
     }
   },
   "baseplate": {
@@ -1005,9 +1005,11 @@
       "invalid": "Some values are out of range, the model is not updated.",
       "shelfDepth": "Shelf depth must be between 20 and 400 mm.",
       "clearance": "Clearance must be between 0 and 2 mm.",
-      "shelfThickness": "Shelf thickness must be between 1.5 and 10 mm and well below the plate height.",
-      "lipHeight": "The lip must stay below the top of the plate (0 to 60 mm).",
-      "lipWall": "Lip wall must be between 0.8 and 6 mm and leave room on the shelf."
+      "shelfThickness": "Floor thickness must be between 1.5 and 10 mm and well below the plate height.",
+      "sideHeight": "The side wall must be taller than the floor and not taller than the plate (0 turns it off).",
+      "sideWall": "Side wall thickness must be between 0.8 and 10 mm and leave room between the walls.",
+      "floorRegion": "The margin leaves no room for a floor pattern.",
+      "plateRegion": "The margin leaves no room for a pattern in the front plate."
     },
     "warning": {
       "thin": "{{setting}} is below the minimum printable width of 0.8 mm.",
@@ -1167,16 +1169,17 @@
       },
       "body": {
         "title": "Shelf",
-        "summary": "{{d}} deep · {{lips}}",
-        "lipsOn": "lips {{h}}",
-        "lipsOff": "no lips",
+        "summary": "{{d}} deep · floor: {{floor}}",
         "depth": "Depth",
-        "thickness": "Shelf thickness",
+        "thickness": "Floor thickness",
         "clearance": "Clearance to the rails",
-        "lipHeight": "Lip height",
-        "lipWall": "Lip wall",
+        "sideHeight": "Side wall height",
+        "sideWall": "Side wall thickness",
         "width": "Shelf width {{w}}.",
-        "help": "The shelf lies flat on the bed and the plate stands at its front edge, so the layers run along the load. A lip height of 0 switches the lips off; the side next to the plate stays open."
+        "floorKind": "Floor ventilation",
+        "plateKind": "Front plate ventilation",
+        "help": "The front face prints on the bed and the floor and the side walls grow upward from it. A side wall height of 0 removes the walls; they slope in a straight line down to the floor at the back. Pattern \"None\" gives a solid floor.",
+        "plateHelp": "Cut in the plate above the floor and between the side walls; \"None\" keeps the plate solid."
       }
     }
   }

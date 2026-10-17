@@ -37,33 +37,52 @@ describe('ShelfPanel', () => {
     render(<Harness start={S(over)} />)
     expect(sections().filter((s) => s.changed).map((s) => s.title)).toEqual([title])
   })
-  it('сводки: панель — юниты и высота, полка — глубина и бортики', () => {
-    render(<Harness start={S({ lips: { height: 6, wall: 2 } })} />)
-    expect(screen.getByText('2 U · 88.45 mm')).toBeInTheDocument(); expect(screen.getByText('100 mm deep · lips 6 mm')).toBeInTheDocument()
+  it('сводки: панель — юниты и высота, полка — глубина и вид пола', () => {
+    render(<Harness />)
+    expect(screen.getByText('2 U · 88.45 mm')).toBeInTheDocument(); expect(screen.getByText('100 mm deep · floor: Pills')).toBeInTheDocument()
   })
-  it('у каждого числового поля есть кнопки − и + (все секции раскрыты, бортики включены, ушки пазом)', async () => {
-    render(<Harness start={S({ lips: { height: 6, wall: 2 } })} />)
+  it('у каждого числового поля есть кнопки − и + (все секции раскрыты, узор пола — щели, стенки включены)', async () => {
+    render(<Harness />)
     await expectAllNumericSteppers()
   })
-  it('ширина полки показана и меняется с зазором; стенка бортика видна только при высоте больше нуля', async () => {
+  it('пол по умолчанию — щели, пластина — без узора; «Нет» у пола прячет поля узора и даёт глухой пол', async () => {
     render(<Harness />)
+    await openSection('Plate'); await openSection('Shelf')
+    expect(screen.getByLabelText('Floor ventilation')).toHaveValue('pills'); expect(screen.getByLabelText('Front plate ventilation')).toHaveValue('none')
+    expect(screen.getAllByLabelText('Margin')).toHaveLength(1)
+    await userEvent.selectOptions(screen.getByLabelText('Floor ventilation'), 'none')
+    expect(latest.floorPattern.kind).toBe('none'); expect(screen.queryByLabelText('Margin')).toBeNull()
+  })
+  it('вентиляция пластины включается выбором узора и показывает его поля', async () => {
+    render(<Harness />)
+    await openSection('Plate')
+    await userEvent.selectOptions(screen.getByLabelText('Front plate ventilation'), 'hex')
+    expect(latest.platePattern.kind).toBe('hex'); expect(screen.getAllByLabelText('Margin').length).toBeGreaterThan(0)
+  })
+  it('ширина полки показана и меняется с зазором; толщина стенок видна только при высоте больше нуля', async () => {
+    render(<Harness start={S({ sides: { height: 0, wall: 3 } })} />)
     await openSection('Shelf')
     expect(screen.getByText('Shelf width 221.75 mm.')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Lip wall')).toBeNull()
+    expect(screen.queryByLabelText('Side wall thickness')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Increase: Clearance to the rails' }))
     expect(latest.shelf.clearance).toBeCloseTo(0.3, 6); expect(screen.getByText('Shelf width 221.65 mm.')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Increase: Lip height' }))
-    expect(latest.lips.height).toBe(1); expect(screen.getByLabelText('Lip wall')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Increase: Side wall height' }))
+    expect(latest.sides.height).toBe(1); expect(screen.getByLabelText('Side wall thickness')).toBeInTheDocument()
   })
-  it('бортик выше пластины даёт ошибку и общее предупреждение', async () => {
-    render(<Harness start={S({ units: 1, lips: { height: 50, wall: 2 } })} />)
+  it('стенка выше панели даёт ошибку и общее предупреждение', async () => {
+    render(<Harness start={S({ units: 1 })} />)
     await openSection('Shelf')
-    expect(screen.getByText(/The lip must stay below the top of the plate/)).toBeInTheDocument()
+    expect(screen.getByText(/The side wall must be taller than the floor/)).toBeInTheDocument()
     expect(screen.getByText(/Some values are out of range/)).toBeInTheDocument()
   })
   it('глубина вне диапазона показывает ошибку', async () => {
     render(<Harness start={S({ shelf: { ...defaultRackShelf.shelf, depth: 10 } })} />)
     await openSection('Shelf')
     expect(screen.getByText('Shelf depth must be between 20 and 400 mm.')).toBeInTheDocument()
+  })
+  it('ошибка «нет места» для узора пола называет узор, а не узор пластины', async () => {
+    render(<Harness start={S({ floorPattern: { ...defaultRackShelf.floorPattern, margin: 30 }, shelf: { ...defaultRackShelf.shelf, depth: 50 } })} />)
+    await openSection('Shelf')
+    expect(screen.getByText('The margin leaves no room for a floor pattern.')).toBeInTheDocument()
   })
 })

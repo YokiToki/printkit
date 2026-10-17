@@ -2,9 +2,9 @@
 
 ## 1. Geometry
 
-- [ ] 1.1 `geometry/rack/shelf.ts`: params, defaults, layout (plate height from units and tolerance, shelf width = 222.25 − 2 × clearance, lip limits), `validateRackShelf` (`rack.error.*` keys for units, thicknesses, depth, clearance, lip height above the plate). Tests: shelf width 221.75 by default and changes by twice the clearance change, plate height for 1, 2 and 10 U, a lip above the plate and a shelf thicker than the plate allows are rejected.
-- [ ] 1.2 Assembly: the plate from `plateBase` stood up, the shelf slab with the 0.01 mm overlap, the lips ring. Tests with `expectValidSolid`: one connected piece, bounding box (254 wide, plate height tall, depth plate thickness + shelf depth), lowest z is 0, the slab's underside is at z = 0, lips only on three sides (the front strip is open) with the set height and wall, lip height 0 gives a plain slab, ear holes on the standard grid, volume equals plate plus slab plus lips within 1 %.
-- [ ] 1.3 `ModeParams.rackShelf`, `generate('rackShelf')` returning one part `shelf`, migration normalising nested objects. Tests: parameters round-trip, partial stored data gets defaults, corrupt data falls back, an invalid state returns no part and the error key.
+- [x] 1.1 `geometry/rack/shelf.ts`: params, defaults, layout (plate height from units and tolerance, shelf width = 222.25 − 2 × clearance, lip limits), `validateRackShelf` (`rack.error.*` keys for units, thicknesses, depth, clearance, lip height above the plate). Tests: shelf width 221.75 by default and changes by twice the clearance change, plate height for 1, 2 and 10 U, a lip above the plate and a shelf thicker than the plate allows are rejected.
+- [x] 1.2 Assembly: the plate from `plateBase` stood up, the shelf slab with the 0.01 mm overlap, the lips ring. Tests with `expectValidSolid`: one connected piece, bounding box (254 wide, plate height tall, depth plate thickness + shelf depth), lowest z is 0, the slab's underside is at z = 0, lips only on three sides (the front strip is open) with the set height and wall, lip height 0 gives a plain slab, ear holes on the standard grid, volume equals plate plus slab plus lips within 1 %.
+- [x] 1.3 `ModeParams.rackShelf`, `generate('rackShelf')` returning one part `shelf`, migration normalising nested objects. Tests: parameters round-trip, partial stored data gets defaults, corrupt data falls back, an invalid state returns no part and the error key.
 
 ## 2. UI
 

@@ -16,5 +16,5 @@
 
 ## 4. Verification
 
-- [ ] 4.1 `npm test` and `npm run build` are green, no console errors.
-- [ ] 4.2 In the browser, en and ru and at 390 px: the default 2 U shelf stands on the ground plane with the plate at the front, lips on three sides appear and disappear with the height, the clearance changes the width, the model is one part, the STL exports with the expected bounding box without flipping.
+- [x] 4.1 `npm test` and `npm run build` are green, no console errors.
+- [x] 4.2 In the browser, en and ru and at 390 px: the default 2 U shelf stands on the ground plane with the plate at the front, lips on three sides appear and disappear with the height, the clearance changes the width, the model is one part, the STL exports with the expected bounding box without flipping.

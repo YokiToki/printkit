@@ -4,6 +4,8 @@ import { loadPersisted } from '../../app/usePersistedState'
 import { defaultRackShelf, type RackShelfParams } from '../../geometry/rack/shelf'
 import { generate } from '../../geometry/model'
 import { migrateRackShelf } from './migrateShelf'
+import { layout } from '../../export/build'
+import { defaultExportSettings } from '../../export/settings'
 
 const load = () => loadPersisted('rack.shelf', defaultRackShelf, migrateRackShelf)
 
@@ -37,5 +39,13 @@ describe('generate("rackShelf")', () => {
   it('недопустимое состояние: частей нет, ключ ошибки', async () => {
     const r = await generate('rackShelf', { ...defaultRackShelf, units: 1, lips: { height: 60, wall: 2 } })
     expect(r.parts).toEqual([]); expect(r.rack?.error).toBe('rack.error.lipHeight')
+  })
+  it('экспорт без переворота: габарит 254 × 103 × 88.45 (с поворотом на столе допустим), нижняя точка z = 0', async () => {
+    const r = await generate('rackShelf', defaultRackShelf)
+    const { placed } = layout(r.parts, { ...defaultExportSettings, printerId: 'x1c', margin: 5, gap: 6 })
+    const sz = [...placed[0].mesh.size]
+    expect(sz[2]).toBeCloseTo(88.45, 3); expect(Math.max(sz[0], sz[1])).toBeCloseTo(254, 3); expect(Math.min(sz[0], sz[1])).toBeCloseTo(103, 3)
+    let mn = Infinity; for (let i = 2; i < placed[0].mesh.positions.length; i += 3) mn = Math.min(mn, placed[0].mesh.positions[i])
+    expect(mn).toBeCloseTo(0, 6)
   })
 })

@@ -1,20 +1,23 @@
 # Tasks
 
+The mode exists as a first draft (flat slab, standing plate, lips); the tasks below rebuild it to the new design. The draft's route, card, persistence and `generate` case stay.
+
 ## 1. Geometry
 
-- [x] 1.1 `geometry/rack/shelf.ts`: params, defaults, layout (plate height from units and tolerance, shelf width = 222.25 − 2 × clearance, lip limits), `validateRackShelf` (`rack.error.*` keys for units, thicknesses, depth, clearance, lip height above the plate). Tests: shelf width 221.75 by default and changes by twice the clearance change, plate height for 1, 2 and 10 U, a lip above the plate and a shelf thicker than the plate allows are rejected.
-- [x] 1.2 Assembly: the plate from `plateBase` stood up, the shelf slab with the 0.01 mm overlap, the lips ring. Tests with `expectValidSolid`: one connected piece, bounding box (254 wide, plate height tall, depth plate thickness + shelf depth), lowest z is 0, the slab's underside is at z = 0, lips only on three sides (the front strip is open) with the set height and wall, lip height 0 gives a plain slab, ear holes on the standard grid, volume equals plate plus slab plus lips within 1 %.
-- [x] 1.3 `ModeParams.rackShelf`, `generate('rackShelf')` returning one part `shelf`, migration normalising nested objects. Tests: parameters round-trip, partial stored data gets defaults, corrupt data falls back, an invalid state returns no part and the error key.
+- [ ] 1.1 `geometry/rack/shelf.ts` params and validation: units, plate thickness, corner radius, tolerance, ears, `shelf {depth, thickness, clearance}`, `sides {height, wall}`, `floorPattern` and `platePattern` (`PatternParams`; defaults pills and none); `shelfLayout` (plate height, width = 222.25 − 2 × clearance, floor and plate pattern regions); `validateRackShelf` with the keys of the design (lip keys removed). Tests: width 221.75 by default and twice the clearance change, plate height for 1, 2 and 10 U, the pattern regions, a side height above the plate and a floor thicker than allowed are rejected.
+- [ ] 1.2 Assembly in the print frame (plate flat on the bed, front face at z = 0, floor and sloped side walls standing on the back face): floor slab, two wall prisms with the straight slope, the 0.01 mm overlaps, the floor pattern cut through the floor outside the walls, the plate pattern cut through the plate, `rack.error.disconnected` when a pattern splits the part. Tests with `expectValidSolid`: one connected piece, bounding box (254 wide, plate height tall, thickness + depth high), lowest z is 0 and the front face is on it, floor flush with the plate's lower edge, the wall profile (height at the plate, straight slope to the floor at the back, no holes), side height 0 gives a floor only, solid floor with pattern `none`, the default floor has openings through it, plate pattern off by default and cutting when set, ear holes unchanged, volume equals plate plus floor plus walls minus the patterns within 1 %.
+- [ ] 1.3 `generate('rackShelf')` and the migration: new fields normalised, the stored `lips` of the draft dropped, partial and corrupt data fall back to defaults, an invalid state returns no part and the error key. Tests: round trip, old draft record, corrupt data, export without flipping (254 × 103 × 88.45 in some orientation of the bed, lowest z = 0 with the front face down).
 
 ## 2. UI
 
-- [x] 2.1 `ShelfMode` with sections Plate, Shelf and Ears (shared), persistence under `rack.shelf`, Start over, route `/rack/shelf`, third card on the Rack chooser with art `rackShelf` (`npm run art`, other pictures unchanged), en and ru strings. Component tests: collapsed by default, one highlight per change, steppers on every numeric input, error banners, key parity, three cards with hotkeys 1–3. No artboard: built from `ui/` and tokens, said in the commit.
+- [ ] 2.1 Make `PatternSection` edit a `PatternParams` (props: the pattern, its defaults, the title keys, update callback) and use it in the panel mode unchanged in look and behaviour. Existing panel tests stay green.
+- [ ] 2.2 `ShelfPanel` rewritten: sections Plate (with the plate pattern), Shelf (depth, floor thickness, clearance, side wall height and thickness, the floor pattern), Ears; the lips fields removed; `rack.shelf.*` and error strings in en and ru, key parity. Card art `rackShelf` redrawn (`npm run art`, other pictures unchanged). Component tests: collapsed by default, one highlight per change, steppers on every numeric input, the floor pattern defaults to pills and `none` hides its fields, the plate pattern defaults to none, error and warning banners, three cards with hotkeys 1–3. No artboard: built from `ui/` and tokens, said in the commit.
 
 ## 3. Version
 
-- [x] 3.1 Bump to 1.2.0: `package.json` and a `CHANGELOG.md` entry `1.2.0 — 31-rack-shelf`. Test: the existing version test passes with the new number.
+- [ ] 3.1 Version stays 1.2.0 (the draft was never released): check `package.json` and the `CHANGELOG.md` line read 1.2.0 and update the changelog text to the new shape. Test: the existing version test passes.
 
 ## 4. Verification
 
-- [x] 4.1 `npm test` and `npm run build` are green, no console errors.
-- [x] 4.2 In the browser, en and ru and at 390 px: the default 2 U shelf stands on the ground plane with the plate at the front, lips on three sides appear and disappear with the height, the clearance changes the width, the model is one part, the STL exports with the expected bounding box without flipping.
+- [ ] 4.1 `npm test` and `npm run build` are green, no console errors.
+- [ ] 4.2 In the browser, en and ru and at 390 px: the default 2 U shelf lies on the ground plane with its front face down, the slotted floor and the sloped side walls rise from it, a solid floor and the plate pattern switch on and off, the clearance changes the width, the model is one part, the STL exports with the expected bounding box without flipping.

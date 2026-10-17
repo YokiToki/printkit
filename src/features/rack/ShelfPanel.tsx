@@ -14,7 +14,7 @@ import { EarsSection } from './EarsSection'
 
 export type ShelfPatch = (f: (o: RackShelfParams) => RackShelfParams) => void
 
-const platePick = (p: RackShelfParams) => ({ units: p.units, thickness: p.thickness, cornerRadius: p.cornerRadius, tolerance: p.tolerance, platePattern: p.platePattern })
+const platePick = (p: RackShelfParams) => ({ units: p.units, thickness: p.thickness, cornerRadius: p.cornerRadius, tolerance: p.tolerance, closedFront: p.closedFront, platePattern: p.platePattern })
 const bodyPick = (p: RackShelfParams) => ({ shelf: p.shelf, sides: p.sides, floorPattern: p.floorPattern })
 
 /** Панель параметров режима «Полка» Rack Master: передняя панель, полка с бортиками, уши. */
@@ -28,7 +28,7 @@ export function ShelfPanel({ params: p, onChange, buildError = null }: { params:
   const update: ShelfPatch = onChange
   return (
     <>
-      <Section title={t('rack.shelf.plate.title')} summary={t('rack.shelf.plate.summary', { u: p.units, h: fmt(l.plateH) })}
+      <Section title={t('rack.shelf.plate.title')} summary={t('rack.shelf.plate.summary', { u: p.units, h: fmt(l.plateH), front: t(p.closedFront ? 'rack.shelf.plate.closedShort' : 'rack.shelf.plate.openShort') })}
         modified={isChanged(platePick(p), platePick(d))} onReset={() => update((o) => ({ ...o, ...platePick(d) }))}>
         <NumberField label={t('rack.size.units')} value={p.units} min={MIN_UNITS} max={MAX_UNITS} digits={0} error={err('rack.error.units')} onChange={(v) => update((o) => ({ ...o, units: Math.round(v) }))} />
         <div className="grid grid-cols-2 gap-2">
@@ -37,7 +37,9 @@ export function ShelfPanel({ params: p, onChange, buildError = null }: { params:
         </div>
         <Toggle label={t('rack.size.tolerance')} checked={p.tolerance} onChange={(v) => update((o) => ({ ...o, tolerance: v }))} />
         <Banner>{t('rack.size.toleranceHelp')}</Banner>
-        <PatternFields kindLabel={t('rack.shelf.body.plateKind')} pattern={p.platePattern} onChange={(platePattern) => update((o) => ({ ...o, platePattern }))} errors={errors} warnings={plateWarnings} regionError="rack.error.plateRegion" buildError={buildError} />
+        <Toggle label={t('rack.shelf.plate.closed')} checked={p.closedFront} onChange={(v) => update((o) => ({ ...o, closedFront: v }))} />
+        <Banner>{t(p.closedFront ? 'rack.shelf.plate.closedHelp' : 'rack.shelf.plate.openHelp')}</Banner>
+        {p.closedFront && <PatternFields kindLabel={t('rack.shelf.body.plateKind')} pattern={p.platePattern} onChange={(platePattern) => update((o) => ({ ...o, platePattern }))} errors={errors} warnings={plateWarnings} regionError="rack.error.plateRegion" buildError={buildError} />}
       </Section>
       <Section title={t('rack.shelf.body.title')} summary={t('rack.shelf.body.summary', { d: fmt(p.shelf.depth), floor: t(`rack.pattern.kinds.${p.floorPattern.kind}`) })}
         modified={isChanged(bodyPick(p), bodyPick(d))} onReset={() => update((o) => ({ ...o, ...bodyPick(d) }))}>

@@ -39,23 +39,27 @@ describe('ShelfPanel', () => {
   })
   it('сводки: панель — юниты и высота, полка — глубина и вид пола', () => {
     render(<Harness />)
-    expect(screen.getByText('2 U · 88.45 mm')).toBeInTheDocument(); expect(screen.getByText('100 mm deep · floor: Pills')).toBeInTheDocument()
+    expect(screen.getByText('1 U · 44 mm · open')).toBeInTheDocument(); expect(screen.getByText('100 mm deep · floor: Pills')).toBeInTheDocument()
   })
   it('у каждого числового поля есть кнопки − и + (все секции раскрыты, узор пола — щели, стенки включены)', async () => {
     render(<Harness />)
     await expectAllNumericSteppers()
   })
-  it('пол по умолчанию — щели, пластина — без узора; «Нет» у пола прячет поля узора и даёт глухой пол', async () => {
+  it('пол по умолчанию — щели; «Нет» у пола прячет поля узора и даёт глухой пол', async () => {
     render(<Harness />)
-    await openSection('Plate'); await openSection('Shelf')
-    expect(screen.getByLabelText('Floor ventilation')).toHaveValue('pills'); expect(screen.getByLabelText('Front plate ventilation')).toHaveValue('none')
+    await openSection('Shelf')
+    expect(screen.getByLabelText('Floor ventilation')).toHaveValue('pills')
     expect(screen.getAllByLabelText('Margin')).toHaveLength(1)
     await userEvent.selectOptions(screen.getByLabelText('Floor ventilation'), 'none')
     expect(latest.floorPattern.kind).toBe('none'); expect(screen.queryByLabelText('Margin')).toBeNull()
   })
-  it('вентиляция пластины включается выбором узора и показывает его поля', async () => {
+  it('передняя панель по умолчанию открытая и без узора; глухая включается переключателем и открывает вентиляцию панели', async () => {
     render(<Harness />)
     await openSection('Plate')
+    expect(screen.getByRole('switch', { name: 'Closed front plate' })).not.toBeChecked()
+    expect(screen.queryByLabelText('Front plate ventilation')).toBeNull()
+    await userEvent.click(screen.getByRole('switch', { name: 'Closed front plate' }))
+    expect(latest.closedFront).toBe(true); expect(screen.getByLabelText('Front plate ventilation')).toHaveValue('none')
     await userEvent.selectOptions(screen.getByLabelText('Front plate ventilation'), 'hex')
     expect(latest.platePattern.kind).toBe('hex'); expect(screen.getAllByLabelText('Margin').length).toBeGreaterThan(0)
   })
@@ -70,7 +74,7 @@ describe('ShelfPanel', () => {
     expect(latest.sides.height).toBe(1); expect(screen.getByLabelText('Side wall thickness')).toBeInTheDocument()
   })
   it('стенка выше панели даёт ошибку и общее предупреждение', async () => {
-    render(<Harness start={S({ units: 1 })} />)
+    render(<Harness start={S({ sides: { height: 50, wall: 3 } })} />)
     await openSection('Shelf')
     expect(screen.getByText(/The side wall must be taller than the floor/)).toBeInTheDocument()
     expect(screen.getByText(/Some values are out of range/)).toBeInTheDocument()

@@ -12,8 +12,9 @@ The first version of this change (a flat slab on the bed with a standing plate a
 - **Shape (from the owner's reference pictures, simplified).** The floor is as wide as the window between the rails less a clearance and as deep as chosen. The side walls stand on the floor edges, as tall as chosen at the plate and sloping in a straight line down to the floor at the back; they are plain, with no holes. There is no back wall.
 - **Print orientation.** The front face of the plate lies on the bed (z = 0), exactly as for the enclosure; the floor and the side walls grow upward from it. The export needs no flipping.
 - **Floor ventilation.** The floor is not solid by default: it carries a through pattern (slots, from the existing patterns of the panel mode), and a solid floor is an option (pattern "none"). The default pattern is pills (slots), as in the reference.
-- **Front plate ventilation.** An optional through pattern in the plate above the floor, off by default (a solid plate).
-- **Settings:** plate height in rack units (default 2), plate thickness, shelf depth (default 100 mm), floor thickness (default 3 mm), clearance to the rails (default 0.25 mm each side), side wall height at the plate (default most of the plate height, 0 = no side walls) and wall thickness, the floor pattern and the plate pattern, plate corner radius, height tolerance and the ear holes shared with the panel mode.
+- **Open front by default.** Like the reference, the plate is open above the floor between the side walls (ears and a strip at the floor remain); a closed plate is an option, and only a closed plate can carry a ventilation pattern (off by default).
+- **Default size 1 U** (side walls 35 mm at the plate).
+- **Settings:** plate height in rack units (default 1), plate thickness, shelf depth (default 100 mm), floor thickness (default 3 mm), clearance to the rails (default 0.25 mm each side), side wall height at the plate (default most of the plate height, 0 = no side walls) and wall thickness, the floor pattern and the plate pattern, plate corner radius, height tolerance and the ear holes shared with the panel mode.
 
 ## Capabilities
 

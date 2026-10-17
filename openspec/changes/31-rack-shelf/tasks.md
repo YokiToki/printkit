@@ -1,5 +1,7 @@
 # Tasks
 
+After the first rework the owner asked for an open front plate by default (closed as an option, ventilation only for a closed plate) and a 1 U default; the geometry, panel, migration, art and tests were updated for it (`closedFront`, side height 35).
+
 The mode exists as a first draft (flat slab, standing plate, lips); the tasks below rebuild it to the new design. The draft's route, card, persistence and `generate` case stay.
 
 ## 1. Geometry

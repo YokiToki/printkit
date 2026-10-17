@@ -20,17 +20,20 @@ export interface RackShelfParams {
   sides: ShelfSides
   /** Сквозной узор пола (вид «нет» — глухой пол). */
   floorPattern: PatternParams
-  /** Сквозной узор в пластине над полом (по умолчанию нет). */
+  /** Передняя пластина глухая (по умолчанию открытая: между ушами и боковыми стенками над полом пусто). */
+  closedFront: boolean
+  /** Сквозной узор в глухой пластине над полом (по умолчанию нет). */
   platePattern: PatternParams
 }
 
 export const defaultRackShelf: RackShelfParams = {
-  units: 2, thickness: 3, cornerRadius: 3, tolerance: true,
+  units: 1, thickness: 3, cornerRadius: 3, tolerance: true,
   ears: defaultRackPanel.ears,
   shelf: { depth: 100, thickness: 3, clearance: 0.25 },
-  sides: { height: 60, wall: 3 },
+  sides: { height: 35, wall: 3 },
   // щели вдоль глубины, ряды со сдвигом, как на образце
   floorPattern: { ...defaultPattern, kind: 'pills', margin: 8, rotate: true, pills: { width: 8, length: 34, wall: 4, edgePills: true } },
+  closedFront: false,
   platePattern: { ...defaultPattern, kind: 'none', margin: 6 },
 }
 
@@ -77,7 +80,7 @@ export function validateRackShelf(p: RackShelfParams): { errors: string[]; floor
   if (p.sides.height > 0 && p.sides.wall * 2 >= l.width - 4) errors.push('rack.error.sideWall')
   const floorWarnings: Issue[] = [], plateWarnings: Issue[] = []
   if (p.floorPattern.kind !== 'none') { if (empty(l.floorRegion)) errors.push('rack.error.floorRegion'); else floorWarnings.push(...patternIssues(p.floorPattern, l.floorRegion)) }
-  if (p.platePattern.kind !== 'none') { if (empty(l.plateRegion)) errors.push('rack.error.plateRegion'); else plateWarnings.push(...patternIssues(p.platePattern, l.plateRegion)) }
+  if (p.closedFront && p.platePattern.kind !== 'none') { if (empty(l.plateRegion)) errors.push('rack.error.plateRegion'); else plateWarnings.push(...patternIssues(p.platePattern, l.plateRegion)) }
   return { errors, floorWarnings, plateWarnings }
 }
 
@@ -86,18 +89,19 @@ export interface BuiltRackShelf { solid: Manifold | null; error?: string; warnin
 /**
  * Полка в положении печати (как корпус): лицевая грань пластины на z = 0, задняя при z = толщина; X от середины, Y от нижней кромки.
  * Пол — плита у нижней кромки (y от 0 до толщины пола) от задней грани пластины назад на глубину; боковые стенки стоят на краях пола,
- * высотой sides.height у пластины с прямым скосом до пола сзади. Узор пола режется сквозь пол между стенками, узор пластины — сквозь пластину над полом.
+ * высотой sides.height у пластины с прямым скосом до пола сзади. Узор пола режется сквозь пол между стенками, у глухой пластины узор режется сквозь неё над полом, у открытой (по умолчанию) над полом вырез между стенками.
  */
 export async function buildRackShelf(p: RackShelfParams, wasmUrl?: string): Promise<BuiltRackShelf> {
   const v = validateRackShelf(p)
   if (v.errors.length) return { solid: null, error: v.errors[0], warnings: [] }
-  const warnings = [...v.floorWarnings, ...v.plateWarnings]
+  const warnings = [...v.floorWarnings, ...(p.closedFront ? v.plateWarnings : [])]
   const w = await getWasm(wasmUrl)
   const { Manifold, CrossSection } = w
   const t = p.thickness, s = p.shelf, l = shelfLayout(p)
   const { base } = plateBase(w, p.units, p.tolerance, p.cornerRadius, p.ears)
-  const plateCut = cutPattern(w, p.platePattern, l.plateRegion)
-  const plate = Manifold.extrude(plateCut ? base.subtract(plateCut) : base, t)
+  // открытая пластина: между боковыми стенками над полом пусто (остаются уши и полоса у пола); глухая может нести узор
+  const front = p.closedFront ? cutPattern(w, p.platePattern, l.plateRegion) : CrossSection.square([2 * l.inner, l.plateH + 1 - s.thickness], false).translate([-l.inner, s.thickness])
+  const plate = Manifold.extrude(front ? base.subtract(front) : base, t)
   // пол: плита width × толщина, z от пластины на глубину; узор пола — сквозь пол (вырез из осей x–глубина переводится в x–z)
   let floor = Manifold.cube([l.width, s.thickness, s.depth + OVERLAP], false).translate([-l.width / 2, 0, t - OVERLAP])
   const floorCut = cutPattern(w, p.floorPattern, l.floorRegion)

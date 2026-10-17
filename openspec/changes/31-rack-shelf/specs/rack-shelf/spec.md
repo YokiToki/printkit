@@ -10,7 +10,7 @@ The Shelf mode SHALL generate one part consisting of a 10-inch rack front plate 
 
 #### Scenario: Default shelf
 - **WHEN** the shelf is made with the defaults
-- **THEN** the part has a 254 mm wide plate 2 U high less the tolerance, a 3 mm floor 100 mm deep behind its lower edge, and two side walls
+- **THEN** the part has a 254 mm wide plate 1 U high less the tolerance (44 mm), open above the floor, a 3 mm floor 100 mm deep behind its lower edge, and two side walls
 
 #### Scenario: One piece
 - **WHEN** the shelf is generated
@@ -61,16 +61,20 @@ The shelf floor SHALL be perforated by default with a through pattern chosen fro
 - **WHEN** a pattern would split the floor into loose pieces
 - **THEN** an error says so and no model is generated
 
-### Requirement: Front plate ventilation
-The front plate SHALL be solid by default, and the user SHALL be able to cut a through pattern in the plate above the floor, inside the rails. The ear holes SHALL keep their standard places.
+### Requirement: Front plate
+The front plate SHALL be open by default, like a sheet-metal shelf: above the floor, between the side walls, nothing remains of the plate except the ears and the strip at the floor. The user SHALL be able to make the plate closed, and a closed plate SHALL be solid by default with an optional through pattern above the floor and between the side walls. The ear holes SHALL keep their standard places.
 
-#### Scenario: Default plate
+#### Scenario: Open by default
 - **WHEN** the shelf is made with the defaults
-- **THEN** the front plate has only the ear holes
+- **THEN** the front plate is open above the floor and the shelf is still one solid piece
 
-#### Scenario: Plate pattern
-- **WHEN** a plate pattern is chosen
-- **THEN** it is cut through the plate above the floor and inside the rails
+#### Scenario: Closed plate
+- **WHEN** the closed front plate is switched on
+- **THEN** the plate closes the front and is solid
+
+#### Scenario: Plate ventilation
+- **WHEN** the plate is closed and a pattern is chosen
+- **THEN** the pattern is cut through the plate above the floor, between the side walls
 
 ### Requirement: Print orientation
 The model SHALL be oriented for printing like the enclosure: the front face of the plate lies on the ground plane (z = 0) and the floor and the side walls rise from its back face, so no flipping is required for export.

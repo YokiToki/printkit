@@ -18,6 +18,7 @@ export function migrateRackShelf(raw: Record<string, unknown>): Record<string, u
     shelf: { depth: num(s.depth, d.shelf.depth), thickness: num(s.thickness, d.shelf.thickness), clearance: num(s.clearance, d.shelf.clearance) },
     // бортики первого черновика (lips) не переносятся: у них другой смысл
     sides: { height: num(sd.height, d.sides.height), wall: num(sd.wall, d.sides.wall) },
+    closedFront: bool(raw.closedFront, d.closedFront),
     floorPattern: normalizePattern(raw.floorPattern, d.floorPattern),
     platePattern: normalizePattern(raw.platePattern, d.platePattern),
   }

@@ -1165,7 +1165,12 @@
     "shelf": {
       "plate": {
         "title": "Plate",
-        "summary": "{{u}} U · {{h}}"
+        "summary": "{{u}} U · {{h}} · {{front}}",
+        "closed": "Closed front plate",
+        "closedShort": "closed",
+        "openShort": "open",
+        "openHelp": "The front is open above the floor between the side walls: only the ears and a strip at the floor remain, as on a sheet-metal shelf.",
+        "closedHelp": "The plate closes the front. It can be ventilated with a pattern above the floor."
       },
       "body": {
         "title": "Shelf",
@@ -1178,8 +1183,7 @@
         "width": "Shelf width {{w}}.",
         "floorKind": "Floor ventilation",
         "plateKind": "Front plate ventilation",
-        "help": "The front face prints on the bed and the floor and the side walls grow upward from it. A side wall height of 0 removes the walls; they slope in a straight line down to the floor at the back. Pattern \"None\" gives a solid floor.",
-        "plateHelp": "Cut in the plate above the floor and between the side walls; \"None\" keeps the plate solid."
+        "help": "The front face prints on the bed and the floor and the side walls grow upward from it. A side wall height of 0 removes the walls; they slope in a straight line down to the floor at the back. Pattern \"None\" gives a solid floor."
       }
     }
   }

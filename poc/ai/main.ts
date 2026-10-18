@@ -5,6 +5,7 @@ import { guessPaper } from '../../src/geometry/photo/aspect'
 import { paperSize } from '../../src/geometry/photo/paper'
 import { rectify, type Rectified } from '../../src/geometry/photo/homography'
 import { segment } from '../../src/geometry/photo/segment'
+import { gaussianBlur, MIN_SIGMA } from '../../src/geometry/raster/blur'
 import { fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
 import { CANDIDATES, type Candidate } from './models'
 
@@ -146,6 +147,23 @@ async function run() {
   const o = out[session.outputNames[0]]
   const alpha = toAlpha(o.data as Float32Array, s, W, H, c.sigmoid)
 
+  state = { rect, seg, alpha, runs, c, ep, threads, s }
+  evaluate()
+  $('status').textContent = 'готово'
+}
+
+interface State { rect: Rectified; seg: ReturnType<typeof segment>; alpha: Float32Array; runs: number[]; c: Candidate; ep: string; threads: number; s: number }
+let state: State | null = null
+
+/** Всё после инференса: сглаживание альфы, порог, компоненты, сравнение. Модель не запускается, поэтому ползунки работают мгновенно. */
+function evaluate() {
+  if (!state) return
+  const { rect, seg, runs, c, ep, threads, s } = state
+  const W = rect.image.width, H = rect.image.height
+  const thr = +$<HTMLInputElement>('thr').value, margin = +$<HTMLInputElement>('margin').value, smoothMm = +$<HTMLInputElement>('smooth').value
+  let alpha = state.alpha
+  if (smoothMm > 0) alpha = gaussianBlur(alpha, W, H, Math.max(MIN_SIGMA, smoothMm * rect.scale), new Uint8Array(W * H).fill(1))
+  drawAlpha(alpha, W, H)
   const mask = new Uint8Array(W * H); for (let i = 0; i < mask.length; i++) mask[i] = alpha[i] >= thr ? 1 : 0
   const ai = components(mask, W, H, rect.scale, margin)
   draw(rect, seg.labels, ai.labels)
@@ -167,8 +185,20 @@ async function run() {
   const extra = ai.sils.length - seg.silhouettes.length
   $('tbl').innerHTML = rows.join('') + `<tr><td colspan=7>всего: классика ${seg.silhouettes.length}, AI ${ai.sils.length}${extra ? ' (лишние/слитые!)' : ''}; общий IoU ${(inter / uni).toFixed(3)}; инференс ${runs[1].toFixed(0)} мс</td></tr>`
   ;(window as unknown as { __poc: unknown }).__poc = { model: c.id, ep, threads, size: s, classic: seg.silhouettes.map((x) => [x.widthMm, x.heightMm, x.areaMm2]), ai: ai.sils.map((x) => [x.wMm, x.hMm, x.areaMm2]), iou: inter / uni, ms: runs }
-  $('status').textContent = 'готово'
+  // длина границы: меньше — гладче контур (дрожащий край = много лишних угловых пикселей)
+  let edgePx = 0; for (let i = 1; i < W * H - W; i++) if (ai.labels[i] && (!ai.labels[i - 1] || !ai.labels[i + 1] || !ai.labels[i - W] || !ai.labels[i + W])) edgePx++
+  $('edge').textContent = `граница AI: ${(edgePx / rect.scale).toFixed(0)} мм, мягкая зона альфы (0.1…0.9): ${(softPx(alpha) / rect.scale / rect.scale).toFixed(0)} мм²`
 }
+
+function softPx(alpha: Float32Array): number { let n = 0; for (const a of alpha) if (a > 0.1 && a < 0.9) n++; return n }
+
+function drawAlpha(alpha: Float32Array, w: number, h: number) {
+  const cv = $<HTMLCanvasElement>('c3'); cv.width = w; cv.height = h
+  const g = cv.getContext('2d')!, im = g.createImageData(w, h)
+  for (let i = 0; i < w * h; i++) { const v = Math.round(alpha[i] * 255); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255 }
+  g.putImageData(im, 0, 0)
+}
+for (const id of ['thr', 'smooth', 'margin']) $(id).addEventListener('input', () => evaluate())
 const scaleMm = (scale: number) => 1 / (scale * scale)
 
 $('run').addEventListener('click', () => { run().catch((e) => { log('ОШИБКА: ' + (e?.stack ?? e)); $('status').textContent = 'ошибка' }) })

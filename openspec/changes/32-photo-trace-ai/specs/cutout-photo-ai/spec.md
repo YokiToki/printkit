@@ -111,6 +111,29 @@ The AI engine SHALL run the straightened sheet through the model, turn its foreg
 - **WHEN** the model finds nothing
 - **THEN** the message for no silhouettes is shown and Create is disabled
 
+### Requirement: Mask tuning
+With the AI engine the user SHALL be able to tune how the network's soft mask becomes a silhouette: a threshold (where inside the soft edge the outline is drawn, moving it outward or inward) and a smoothing radius in mm (how much the soft mask is blurred before the threshold, which evens out a jagged or wavy outline). Changing either SHALL update the silhouettes without running the network again, and the effect on each silhouette's size in mm SHALL be visible. The defaults SHALL be a threshold of 0.5 and a small smoothing radius, and a reset SHALL restore them. The soft mask SHALL be viewable as a greyscale image next to the silhouettes.
+
+#### Scenario: Live update
+- **WHEN** the user moves the threshold or the smoothing slider
+- **THEN** the silhouettes and their sizes update at once and the network is not run again
+
+#### Scenario: Threshold direction
+- **WHEN** the threshold is lowered
+- **THEN** the outlines grow outward into the soft edge, and when it is raised they shrink
+
+#### Scenario: Smoother outline
+- **WHEN** the smoothing radius is raised
+- **THEN** a wavy or jagged outline becomes smoother and the outline length shown does not grow
+
+#### Scenario: Thin parts
+- **WHEN** the smoothing radius is large enough to erase a thin part of a tool
+- **THEN** the size change is visible in the list and a hint says that a smaller radius keeps thin parts
+
+#### Scenario: Reset
+- **WHEN** the user resets the mask settings
+- **THEN** threshold and smoothing return to their defaults
+
 ### Requirement: Accurate edge
 The AI engine SHALL place the silhouette edge by the paper-colour test within a narrow band around the network's mask and SHALL use the network's own edge only where that test does not separate the object from the paper. The sizes it reports SHALL stay within 0.5 mm of the classic result wherever the classic result is accurate.
 

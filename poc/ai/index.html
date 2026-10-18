@@ -5,7 +5,7 @@ body{font:13px system-ui;margin:12px;background:#fafafa;color:#222}
 fieldset{display:inline-block;vertical-align:top;margin:0 8px 8px 0}
 button{padding:4px 10px}
 table{border-collapse:collapse;margin:8px 0}td,th{border:1px solid #bbb;padding:2px 8px;text-align:right}th{background:#eee}
-canvas{max-width:48%;border:1px solid #888;margin:4px}
+canvas{max-width:32%;border:1px solid #888;margin:4px}
 #log{white-space:pre-wrap;font:12px ui-monospace,monospace;background:#fff;border:1px solid #ccc;padding:6px;max-height:220px;overflow:auto}
 </style></head><body>
 <h3>PoC: нейросетевые силуэты на выпрямленном листе</h3>
@@ -19,11 +19,11 @@ canvas{max-width:48%;border:1px solid #888;margin:4px}
  потоки <input id="threads" type="number" value="1" min="1" max="16" style="width:3em">
  вход <input id="size" type="number" placeholder="по умолч." style="width:5em">
 </fieldset>
-<fieldset><legend>Край</legend>порог <input id="thr" type="number" value="0.5" step="0.05" style="width:4em"> поле мм <input id="margin" type="number" value="3" style="width:3em"></fieldset>
+<fieldset><legend>Край (пересчёт без модели)</legend>порог <input id="thr" type="range" min="0.05" max="0.95" value="0.5" step="0.01" oninput="this.nextElementSibling.textContent=this.value"><b>0.5</b> сглаживание мм <input id="smooth" type="range" min="0" max="3" value="0" step="0.1" oninput="this.nextElementSibling.textContent=this.value"><b>0</b> поле мм <input id="margin" type="number" value="3" style="width:3em"></fieldset>
 <button id="run">Запустить</button> <span id="status"></span>
 <div>cross-origin isolated: <b id="coi"></b>, WebGPU: <b id="gpu"></b>, cores: <b id="cores"></b></div>
 <table id="tbl"></table>
-<div><canvas id="c1"></canvas><canvas id="c2"></canvas></div>
+<div id="edge"></div><div><canvas id="c1"></canvas><canvas id="c2"></canvas><canvas id="c3"></canvas></div>
 <div id="log"></div>
 <script type="module" src="./main.ts"></script>
 </body></html>

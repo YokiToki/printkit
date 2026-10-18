@@ -36,23 +36,28 @@ async function fetchModel(c: Candidate): Promise<ArrayBuffer> {
   return buf
 }
 
-async function loadImage(): Promise<ImageData> {
+async function loadImage(maxSide = 0): Promise<ImageData> {
   const f = $<HTMLInputElement>('file').files?.[0]
   const src = f ? URL.createObjectURL(f) : `./samples/${$<HTMLSelectElement>('sample').value}.jpeg`
   const img = new Image(); img.src = src; await img.decode()
-  const cv = document.createElement('canvas'); cv.width = img.naturalWidth; cv.height = img.naturalHeight
-  const g = cv.getContext('2d')!; g.drawImage(img, 0, 0)
+  const k = maxSide ? Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight)) : 1
+  const cv = document.createElement('canvas'); cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k)
+  const g = cv.getContext('2d')!; g.drawImage(img, 0, 0, cv.width, cv.height)
   return g.getImageData(0, 0, cv.width, cv.height)
 }
 
 /** Нормализованный вход NCHW float32: лист из rgb растра, масштабированный до s × s. */
-function toInput(rect: Rectified, c: Candidate, s: number): Float32Array {
+function toInput(rect: Rectified, c: Candidate, s: number, pad = false): Float32Array {
   const w = rect.image.width, h = rect.image.height
   const src = new ImageData(w, h)
   for (let i = 0; i < w * h; i++) { src.data[i * 4] = rect.rgb![i * 3]; src.data[i * 4 + 1] = rect.rgb![i * 3 + 1]; src.data[i * 4 + 2] = rect.rgb![i * 3 + 2]; src.data[i * 4 + 3] = 255 }
   const a = document.createElement('canvas'); a.width = w; a.height = h; a.getContext('2d')!.putImageData(src, 0, 0)
   const b = document.createElement('canvas'); b.width = s; b.height = s
-  const bg = b.getContext('2d')!; bg.imageSmoothingQuality = 'high'; bg.drawImage(a, 0, 0, s, s)
+  const bg = b.getContext('2d')!; bg.imageSmoothingQuality = 'high'
+  if (pad) { // вписать с сохранением пропорций, поля — цвет, нейтральный для модели (среднее по ImageNet)
+    bg.fillStyle = `rgb(${c.mean.map((m) => Math.round(m * 255)).join(',')})`; bg.fillRect(0, 0, s, s)
+    const r = Math.min(s / w, s / h); bg.drawImage(a, (s - w * r) / 2, (s - h * r) / 2, w * r, h * r)
+  } else bg.drawImage(a, 0, 0, s, s)
   const d = bg.getImageData(0, 0, s, s).data
   const out = new Float32Array(3 * s * s)
   for (let i = 0; i < s * s; i++) for (let k = 0; k < 3; k++) out[k * s * s + i] = (d[i * 4 + k] / 255 - c.mean[k]) / c.std[k]
@@ -60,15 +65,17 @@ function toInput(rect: Rectified, c: Candidate, s: number): Float32Array {
 }
 
 /** Выход модели s × s → альфа w × h (билинейно), 0…1. Модели с несколькими выходами: берётся первый. */
-function toAlpha(o: Float32Array, s: number, w: number, h: number, sigmoid: boolean): Float32Array {
+function toAlpha(o: Float32Array, s: number, w: number, h: number, sigmoid: boolean, pad = false): Float32Array {
   // значения вне 0…1 — логиты: sigmoid (признак из реестра подстраховывается самим диапазоном выхода)
   let lo = Infinity, hi = -Infinity; for (const x of o) { if (x < lo) lo = x; if (x > hi) hi = x }
   const v = sigmoid || lo < -0.001 || hi > 1.001 ? o.map((x) => 1 / (1 + Math.exp(-x))) : o
   const out = new Float32Array(w * h)
+  const r = pad ? Math.min(s / w, s / h) : 0
+  const kx = pad ? r : s / w, ky = pad ? r : s / h, ox = pad ? (s - w * r) / 2 : 0, oy = pad ? (s - h * r) / 2 : 0
   for (let j = 0; j < h; j++) {
-    const fy = Math.min(s - 1.001, Math.max(0, (j + 0.5) * s / h - 0.5)), y0 = Math.floor(fy), ty = fy - y0
+    const fy = Math.min(s - 1.001, Math.max(0, (j + 0.5) * ky + oy - 0.5)), y0 = Math.floor(fy), ty = fy - y0
     for (let i = 0; i < w; i++) {
-      const fx = Math.min(s - 1.001, Math.max(0, (i + 0.5) * s / w - 0.5)), x0 = Math.floor(fx), tx = fx - x0
+      const fx = Math.min(s - 1.001, Math.max(0, (i + 0.5) * kx + ox - 0.5)), x0 = Math.floor(fx), tx = fx - x0
       const a = v[y0 * s + x0], b = v[y0 * s + x0 + 1], cc = v[(y0 + 1) * s + x0], d = v[(y0 + 1) * s + x0 + 1]
       out[j * w + i] = (a * (1 - tx) + b * tx) * (1 - ty) + (cc * (1 - tx) + d * tx) * ty
     }
@@ -115,19 +122,27 @@ async function run() {
   const s = +($<HTMLInputElement>('size').value || c.size), thr = +$<HTMLInputElement>('thr').value, margin = +$<HTMLInputElement>('margin').value
   log(`модель ${c.id}, лицензия ${c.license}, вход ${s}, бэкенд ${ep}, потоков ${threads}, isolated=${self.crossOriginIsolated}`)
 
-  const im = await loadImage()
+  const whole = $<HTMLInputElement>('whole').checked
+  const im = await loadImage(whole ? 2048 : 0)
   const gray = toGrayImage(im.data, im.width, im.height), color = toColorImage(im.data, im.width, im.height)
-  const found = detectPaper(color)
-  if (!found) { log('лист не найден'); return }
-  const guess = guessPaper(found.corners, im.width, im.height)
-  const paper = paperSize(guess?.preset ?? 'a4', guess?.orientation ?? 'portrait')
-  const rect = rectify(gray, found.corners, paper, color.rgb)!
+  let rect: Rectified, seg: ReturnType<typeof segment>
+  if (whole) {
+    // режим Keychain: вся картинка как есть, без листа; масштаб 1 пиксель = 1 «мм» (размеры в таблице — в пикселях)
+    rect = { image: gray, rgb: color.rgb, scale: 1, paper: { width: im.width, height: im.height } }
+    seg = { width: im.width, height: im.height, scale: 1, labels: new Int32Array(im.width * im.height), silhouettes: [], sensitivity: 0, defaultSensitivity: 0 }
+    log(`режим Keychain: картинка ${im.width}×${im.height}, вписывание с полями до ${s}×${s}`)
+  } else {
+    const found = detectPaper(color)
+    if (!found) { log('лист не найден'); return }
+    const guess = guessPaper(found.corners, im.width, im.height)
+    const paper = paperSize(guess?.preset ?? 'a4', guess?.orientation ?? 'portrait')
+    rect = rectify(gray, found.corners, paper, color.rgb)!
+    log(`снимок ${im.width}×${im.height}, лист ${paper.width}×${paper.height} мм (${guess?.preset}/${guess?.orientation}), растр ${rect.image.width}×${rect.image.height}, ${rect.scale.toFixed(2)} px/мм`)
+    const t0 = performance.now(); seg = segment(rect)
+    log(`классика: ${seg.silhouettes.length} силуэтов за ${(performance.now() - t0).toFixed(0)} мс`)
+  }
   const W = rect.image.width, H = rect.image.height
-  log(`снимок ${im.width}×${im.height}, лист ${paper.width}×${paper.height} мм (${guess?.preset}/${guess?.orientation}), растр ${W}×${H}, ${rect.scale.toFixed(2)} px/мм`)
-
   let t = performance.now()
-  const seg = segment(rect)
-  log(`классика: ${seg.silhouettes.length} силуэтов за ${(performance.now() - t).toFixed(0)} мс`)
 
   const key = `${c.id}|${ep}|${threads}`
   let session = sessions.get(key)
@@ -140,25 +155,25 @@ async function run() {
     sessions.set(key, session)
   }
   const inName = session.inputNames[0]
-  const data = toInput(rect, c, s)
+  const data = toInput(rect, c, s, whole)
   const runs: number[] = []; let out!: ort.InferenceSession.OnnxValueMapType
   for (let i = 0; i < 2; i++) { t = performance.now(); out = await session.run({ [inName]: new ort.Tensor('float32', data.slice(), [1, 3, s, s]) }); runs.push(performance.now() - t) }
   log(`инференс: 1-й ${runs[0].toFixed(0)} мс (прогрев), 2-й ${runs[1].toFixed(0)} мс`)
   const o = out[session.outputNames[0]]
-  const alpha = toAlpha(o.data as Float32Array, s, W, H, c.sigmoid)
+  const alpha = toAlpha(o.data as Float32Array, s, W, H, c.sigmoid, whole)
 
-  state = { rect, seg, alpha, runs, c, ep, threads, s }
+  state = { rect, seg, alpha, runs, c, ep, threads, s, whole }
   evaluate()
   $('status').textContent = 'готово'
 }
 
-interface State { rect: Rectified; seg: ReturnType<typeof segment>; alpha: Float32Array; runs: number[]; c: Candidate; ep: string; threads: number; s: number }
+interface State { rect: Rectified; seg: ReturnType<typeof segment>; alpha: Float32Array; runs: number[]; c: Candidate; ep: string; threads: number; s: number; whole: boolean }
 let state: State | null = null
 
 /** Всё после инференса: сглаживание альфы, порог, компоненты, сравнение. Модель не запускается, поэтому ползунки работают мгновенно. */
 function evaluate() {
   if (!state) return
-  const { rect, seg, runs, c, ep, threads, s } = state
+  const { rect, seg, runs, c, ep, threads, s, whole } = state
   const W = rect.image.width, H = rect.image.height
   const thr = +$<HTMLInputElement>('thr').value, margin = +$<HTMLInputElement>('margin').value, smoothMm = +$<HTMLInputElement>('smooth').value
   let alpha = state.alpha
@@ -182,7 +197,8 @@ function evaluate() {
     const px = scaleMm(rect.scale)
     rows.push(`<tr><td>${cs.widthMm.toFixed(1)}×${cs.heightMm.toFixed(1)}</td><td>${a.wMm.toFixed(1)}×${a.hMm.toFixed(1)}</td><td>${(a.wMm - cs.widthMm).toFixed(2)}</td><td>${(a.hMm - cs.heightMm).toFixed(2)}</td><td>${(i2 / u2).toFixed(3)}</td><td>${(big * px).toFixed(0)} мм²</td><td>${(small * px).toFixed(0)} мм²</td></tr>`)
   }
-  const extra = ai.sils.length - seg.silhouettes.length
+  if (whole) for (const a of ai.sils) rows.push(`<tr><td colspan=2>объект ${a.id}</td><td colspan=5>${a.wMm.toFixed(0)}×${a.hMm.toFixed(0)} px, площадь ${a.areaMm2.toFixed(0)} px²</td></tr>`)
+  const extra = whole ? 0 : ai.sils.length - seg.silhouettes.length
   $('tbl').innerHTML = rows.join('') + `<tr><td colspan=7>всего: классика ${seg.silhouettes.length}, AI ${ai.sils.length}${extra ? ' (лишние/слитые!)' : ''}; общий IoU ${(inter / uni).toFixed(3)}; инференс ${runs[1].toFixed(0)} мс</td></tr>`
   ;(window as unknown as { __poc: unknown }).__poc = { model: c.id, ep, threads, size: s, classic: seg.silhouettes.map((x) => [x.widthMm, x.heightMm, x.areaMm2]), ai: ai.sils.map((x) => [x.wMm, x.hMm, x.areaMm2]), iou: inter / uni, ms: runs }
   // длина границы: меньше — гладче контур (дрожащий край = много лишних угловых пикселей)

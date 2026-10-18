@@ -36,11 +36,11 @@ On the silhouette step the user SHALL be able to choose the detection engine, Cl
 - **THEN** the sensitivity control, which belongs to the classic detector, is not offered for it, and the margin still applies
 
 ### Requirement: Model manager
-The app SHALL have a model manager window, reachable from the engine switch and from the footer, that lists the available models with their name, purpose, size, licence class and status, and lets the user download, cancel, delete and choose the model used by the AI engine. Several models SHALL be downloadable and stored side by side. The models SHALL be kept in the browser's storage on the device; the window SHALL show the space they use and offer to delete all of them.
+The app SHALL have a model manager window, reachable from the engine switch and from the footer, that lists the available models with their name, purpose, size, licence and status, and lets the user download, cancel, delete and choose the model used by the AI engine. Several models SHALL be downloadable and stored side by side. The models SHALL be kept in the browser's storage on the device; the window SHALL show the space they use and offer to delete all of them.
 
 #### Scenario: List
 - **WHEN** the manager is opened
-- **THEN** every model is listed with its size, licence class and status
+- **THEN** every model is listed with its size, licence and status
 
 #### Scenario: Download and delete
 - **WHEN** the user downloads a model and later deletes it
@@ -55,19 +55,11 @@ The app SHALL have a model manager window, reachable from the engine switch and 
 - **THEN** the manager opens, and nothing is downloaded until the user starts a download
 
 ### Requirement: Model download and consent
-A model SHALL be downloaded only after the user confirms. Before the first download of a model the app SHALL show its name, size, source host and licence. For a model whose licence restricts use to non-commercial purposes, the app SHALL additionally require the user to confirm that the model is used for non-commercial purposes and that its licence is accepted, and SHALL NOT start the download without it. Such models, and models under copyleft licences, SHALL never be the default, SHALL NOT be bundled with or hosted by the app, SHALL be fetched from the rights holder's repository at a fixed revision, and SHALL be listed on the References page as third-party models outside the app's own licence. Downloads SHALL show progress and be cancellable. If the download or the model fails, or the file's checksum does not match, the classic engine SHALL stay usable and the failure SHALL be shown.
+A model SHALL be downloaded only after the user confirms. Before the first download of a model the app SHALL show its name, size, source host and licence, and the models offered SHALL be under permissive licences (MIT, Apache-2.0, BSD or CC0). Downloads SHALL show progress and be cancellable. If the download or the model fails, or the file's checksum does not match, the classic engine SHALL stay usable and the failure SHALL be shown.
 
 #### Scenario: Consent first
 - **WHEN** the user starts the first download of a model
 - **THEN** a dialog states the size and that the source host sees the user's address, and nothing is downloaded until the user confirms
-
-#### Scenario: Non-commercial model
-- **WHEN** the user starts the download of a model with a non-commercial licence
-- **THEN** the Download button stays disabled until the user ticks the non-commercial-use and licence confirmation, and the dialog links the licence
-
-#### Scenario: Third-party label
-- **WHEN** the References page is opened
-- **THEN** models that are not under a permissive licence appear in a separate section as optional third-party models not covered by the app's licence
 
 #### Scenario: Cached
 - **WHEN** the model was downloaded earlier and the storage is intact
@@ -82,7 +74,7 @@ A model SHALL be downloaded only after the user confirms. Before the first downl
 - **THEN** the model works for the session and a notice says it will be downloaded again next time
 
 ### Requirement: Privacy
-The photo, the straightened image and the masks SHALL be processed in the browser only and SHALL NOT be sent anywhere by the AI engine. The only network traffic added by the AI engine SHALL be the download of the model files, from a fixed, versioned location, after consent. The user interface and the References page SHALL say so, and SHALL list every model with its licence and source. The default AI model SHALL be under a permissive licence (MIT, Apache-2.0, BSD or CC0).
+The photo, the straightened image and the masks SHALL be processed in the browser only and SHALL NOT be sent anywhere by the AI engine. The only network traffic added by the AI engine SHALL be the download of the model files, from a fixed, versioned location, after consent. The user interface and the References page SHALL say so, and SHALL list every model with its licence and source. Only models under permissive licences (MIT, Apache-2.0, BSD or CC0) SHALL be offered.
 
 #### Scenario: No image upload
 - **WHEN** a photo is processed by the AI engine

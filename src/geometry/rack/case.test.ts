@@ -109,70 +109,71 @@ describe('корпус: пластина, оболочка, окно', () => {
   })
 })
 
-import { frontExtras } from './case'
-import { KEYSTONE_H, KEYSTONE_PITCH, KEYSTONE_W } from './spec'
+import { KEYSTONE } from './spec'
+import type { OpeningGroup } from './openings'
 
-describe('корпус: keystone и кабельные отверстия', () => {
+const G = (o: Partial<OpeningGroup> = {}): OpeningGroup => ({ kind: 'keystone', count: 1, perRow: 1, zone: 'right', diameter: 8, ...o })
+
+describe('корпус: окно по умолчанию и группы проёмов', () => {
   const base = C({ device: dev(100, 80, 40), window: { enabled: true, lip: 3 } })
-  const withKeys = (count: number, side: 'left' | 'right' | 'below') => C({ ...base, keystones: { count, side } })
 
-  it('keystone справа: два проёма в столбце с шагом 19, по центру свободной зоны и высоты пластины', () => {
-    const p = withKeys(2, 'right'), l = caseLayout(p), e = frontExtras(p)
-    expect(e.keystones).toHaveLength(2); expect(e.warnings).toEqual([])
-    expect(e.keystones[1].y - e.keystones[0].y).toBeCloseTo(KEYSTONE_PITCH, 9)
-    expect((e.keystones[0].y + e.keystones[1].y) / 2).toBeCloseTo(l.centreY, 9)
-    const x = (l.outerW / 2 + 3 + (111.125 - 3)) / 2
-    e.keystones.forEach((k) => expect(k.x).toBeCloseTo(x, 9))
+  it('по умолчанию: окно включено, групп нет', () => {
+    expect(defaultRackCase.window.enabled).toBe(true); expect(defaultRackCase.openings).toEqual([])
+    expect(validateRackCase(defaultRackCase).warnings).toEqual([])
   })
-  it('проёмы внутри пластины, вне корпуса, ушей и рейки', () => {
-    for (const side of ['left', 'right'] as const) {
-      const p = withKeys(3, side), l = caseLayout(p)
-      for (const k of frontExtras(p).keystones) {
-        expect(Math.abs(k.x) - KEYSTONE_W / 2).toBeGreaterThanOrEqual(l.outerW / 2) // вне оболочки
-        expect(Math.abs(k.x) + KEYSTONE_W / 2).toBeLessThanOrEqual(111.125 - 3 + 1e-9) // в пределах рейки, ушные отверстия дальше
-        expect(k.y - KEYSTONE_H / 2).toBeGreaterThanOrEqual(3 - 1e-9); expect(k.y + KEYSTONE_H / 2).toBeLessThanOrEqual(l.plateH - 3 + 1e-9)
-        expect(Math.sign(k.x)).toBe(side === 'right' ? 1 : -1)
-      }
-    }
+
+  it('проверка групп: больше шести и неверные значения — ошибка, не помещающаяся группа — предупреждение', () => {
+    expect(validateRackCase(C({ ...base, openings: Array.from({ length: 7 }, () => G()) })).errors).toEqual(['rack.error.openings'])
+    expect(validateRackCase(C({ ...base, openings: [G({ count: 0 })] })).errors).toEqual(['rack.error.openings'])
+    expect(validateRackCase(C({ ...base, openings: [G({ count: 6 })] })).warnings).toEqual([{ key: 'rack.warning.fit', setting: 'group1' }])
+    expect(validateRackCase(C({ ...base, openings: [G({ count: 2 })] })).warnings).toEqual([])
   })
-  it('keystone под корпусом: ряд по центру, если пластина выше оболочки', () => {
-    const tall = C({ ...base, units: { auto: false, value: 4 }, keystones: { count: 3, side: 'below' } })
-    const e = frontExtras(tall), l = caseLayout(tall)
-    expect(e.keystones).toHaveLength(3); expect(e.warnings).toEqual([])
-    expect(e.keystones.map((k) => k.x)).toEqual([-19, 0, 19])
-    e.keystones.forEach((k) => expect(k.y + KEYSTONE_H / 2).toBeLessThanOrEqual(l.centreY - l.outerH / 2 - 3 + 1e-9))
-    // без запаса высоты под корпусом: предупреждение и проёмов нет
-    const tight = frontExtras(C({ ...base, keystones: { count: 2, side: 'below' } }))
-    expect(tight.keystones).toEqual([]); expect(tight.warnings).toEqual([{ key: 'rack.warning.fit', setting: 'keystones' }])
+
+  it('закрытая пластина (окно выключено) остаётся вариантом: нет выреза окна', async () => {
+    const closed = await build(C({ ...base, window: { enabled: false, lip: 3 } })), open = await build(base)
+    expect(area(closed, 1.5) - area(open, 1.5)).toBeCloseTo(94 * 34 - (4 - Math.PI) * 4, 0)
   })
-  it('не помещается: широкое устройство оставляет мало места сбоку — предупреждение, проёмы не режутся', () => {
-    const p = C({ ...base, device: dev(200, 80, 40), keystones: { count: 1, side: 'right' } })
-    const e = frontExtras(p)
-    expect(e.keystones).toEqual([]); expect(e.warnings).toEqual([{ key: 'rack.warning.fit', setting: 'keystones' }])
-    expect(frontExtras(withKeys(6, 'right')).warnings).toEqual([{ key: 'rack.warning.fit', setting: 'keystones' }]) // столбец 111 мм выше пластины 2 U
-    expect(frontExtras(C({ ...base, units: { auto: false, value: 4 }, keystones: { count: 6, side: 'right' } })).keystones).toHaveLength(6)
+
+  it('пластина с гнёздами: одна компонента, проёмы сквозные, обоймы за пластиной', async () => {
+    const p = C({ ...base, openings: [G({ count: 2, perRow: 1 })] }), l = caseLayout(p)
+    const plain = await build(base), m = await build(p)
+    expect(m.decompose()).toHaveLength(1)
+    // лицо на z = 0 (после зеркала): вырез в плоскости пластины ≈ два проёма, лицо без выступов
+    const cutFace = area(plain, 0.1) - area(m, 0.1)
+    expect(cutFace).toBeGreaterThan(2 * (KEYSTONE.openingW * KEYSTONE.openingH) * 0.95)
+    expect(cutFace).toBeLessThan(2 * (KEYSTONE.openingW + 0.2) * (KEYSTONE.openingH + 0.2) + 1)
+    // обойма даёт материал за пластиной: на глубине 6 мм от лица сечение больше, чем у модели без гнёзд
+    expect(area(m, 6)).toBeGreaterThan(area(plain, 6) + 100)
+    const bb = m.boundingBox(); expect(bb.min[2]).toBeCloseTo(0, 6)
+    void l
   })
-  it('кабельные отверстия: одно справа, два по обе стороны, у keystone занятая сторона пропускается', () => {
-    const l = caseLayout(base)
-    expect(frontExtras(C({ ...base, cable: { count: 1, diameter: 8 } })).cables).toHaveLength(1)
-    expect(frontExtras(C({ ...base, cable: { count: 1, diameter: 8 } })).cables[0].x).toBeGreaterThan(0)
-    const two = frontExtras(C({ ...base, cable: { count: 2, diameter: 8 } }))
-    expect(two.cables.map((c) => Math.sign(c.x)).sort()).toEqual([-1, 1]); two.cables.forEach((c) => expect(c.y).toBeCloseTo(l.centreY, 9))
-    const mixed = frontExtras(C({ ...base, keystones: { count: 1, side: 'right' }, cable: { count: 1, diameter: 8 } }))
-    expect(mixed.cables[0].x).toBeLessThan(0)
-    expect(frontExtras(C({ ...base, keystones: { count: 1, side: 'right' }, cable: { count: 2, diameter: 8 } })).warnings).toEqual([{ key: 'rack.warning.fit', setting: 'cable' }])
+
+  it('объём: пластина плюс обоймы (без захода в пластину) минус проёмы в пластине и в обоймах (±1 %)', async () => {
+    const p = C({ ...base, openings: [G({ count: 2, perRow: 1 })] })
+    const plain = await build(base), m = await build(p), w = await getWasm()
+    const { keystoneSocket } = await import('./keystone')
+    const s = keystoneSocket(w, 3)
+    const slab = w.Manifold.cube([40, 40, 3], false).translate([-20, -20, 0])
+    const inPlate = slab.intersect(s.pocket), inCollar = s.collar!.subtract(s.pocket)
+    // обойма заходит на 0.5 мм в пластину: этот слой уже есть в пластине, а проём в нём вычтен как часть проёма в пластине
+    const overlap = s.collar!.intersect(slab), overlapNet = overlap.subtract(s.pocket)
+    const added = inCollar.volume() - overlapNet.volume(), removed = inPlate.volume()
+    const expected = plain.volume() + 2 * (added - removed)
+    expect(Math.abs(m.volume() - expected) / expected).toBeLessThan(0.01)
+    for (const x of [slab, inPlate, inCollar, overlap, overlapNet, s.collar!, s.pocket]) x.delete()
   })
-  it('в модели: вырезаны ровно заданные проёмы, окно не задето, одна компонента', async () => {
-    const p = C({ ...withKeys(2, 'right'), cable: { count: 1, diameter: 8 } })
-    const plain = await build(C({ ...base })), m = await build(p)
-    const cut = area(plain, 1.5) - area(m, 1.5)
-    expect(cut).toBeCloseTo(2 * KEYSTONE_W * KEYSTONE_H + Math.PI * 16, 0) // круг 48-угольником чуть меньше π r²
+
+  it('отверстия режутся как раньше: круг 8 мм, одна компонента', async () => {
+    const p = C({ ...base, openings: [G({ kind: 'hole', zone: 'left', count: 1, diameter: 8 })] })
+    const plain = await build(base), m = await build(p)
+    expect(area(plain, 1.5) - area(m, 1.5)).toBeCloseTo(Math.PI * 16, 0)
     expect(m.decompose()).toHaveLength(1)
   })
-  it('сочетание, которое не помещается, не вырезается: пластина как без проёмов', async () => {
-    const p = C({ ...base, device: dev(200, 80, 40), keystones: { count: 1, side: 'right' } })
-    const plain = await build(C({ ...p, keystones: { count: 0, side: 'right' } })), m = await build(p)
-    expect(area(m, 1.5)).toBeCloseTo(area(plain, 1.5), 6)
+
+  it('сочетание, которое не помещается, не вырезается: модель как без проёмов', async () => {
+    const p = C({ ...base, device: dev(200, 80, 40), openings: [G()] })
+    const plain = await build(C({ ...p, openings: [] })), m = await build(p)
+    expect(m.volume()).toBeCloseTo(plain.volume(), 6)
   })
 })
 

@@ -21,21 +21,21 @@ const FIELDS: Record<Exclude<PatternKind, 'none'>, { key: string; min: number; m
   passthrough: [{ key: 'borderX', min: 0, max: 100, step: 0.5 }, { key: 'borderY', min: 0, max: 40, step: 0.5 }, { key: 'radius', min: 0, max: 20, step: 0.5 }],
 }
 
-/** Сквозной узор: вид, поле, поворот и настройки выбранного узора; предупреждения о тонких стенках и ошибка «разрезает панель». */
-export function PatternSection({ params: p, defaults, errors, warnings, buildError, update }: {
-  params: RackPanelParams; defaults: RackPanelParams; errors: string[]; warnings: Issue[]; /** Ключ ошибки построения (узор разрезал панель). */ buildError: string | null; update: PanelPatch
+/**
+ * Поля сквозного узора: вид, поле, поворот и настройки выбранного узора; предупреждения о тонких стенках и ошибки. Не знает, где стоит
+ * узор: панель, пол полки и пластина полки передают свой `PatternParams` и получают новый. `regionError` — ключ ошибки «нет места».
+ */
+export function PatternFields({ pattern: pat, onChange, errors, warnings, regionError = 'rack.error.region', buildError, kindLabel }: {
+  pattern: PatternParams; onChange: (p: PatternParams) => void; errors: string[]; warnings: Issue[]; regionError?: string; /** Ключ ошибки построения (узор разрезал деталь). */ buildError: string | null; kindLabel?: string
 }) {
   const { t } = useTranslation()
-  const pat = p.pattern
-  const set = (patch: Partial<PatternParams>) => update((o) => ({ ...o, pattern: { ...o.pattern, ...patch } }))
-  const setField = (kind: Exclude<PatternKind, 'none'>, key: string, v: number | boolean) =>
-    update((o) => ({ ...o, pattern: { ...o.pattern, [kind]: { ...o.pattern[kind], [key]: v } } }))
+  const set = (patch: Partial<PatternParams>) => onChange({ ...pat, ...patch })
+  const setField = (k: Exclude<PatternKind, 'none'>, key: string, v: number | boolean) => onChange({ ...pat, [k]: { ...pat[k], [key]: v } })
   const kind = pat.kind
   const marginError = errors.includes('rack.error.margin') ? t('rack.error.margin') : undefined
   return (
-    <Section title={t('rack.pattern.title')} summary={t('rack.pattern.summary', { kind: t(`rack.pattern.kinds.${kind}`) })}
-      modified={isChanged(pat, defaults.pattern)} onReset={() => update((o) => ({ ...o, pattern: defaults.pattern }))}>
-      <Select label={t('rack.pattern.kind')} value={kind} onChange={(v) => set({ kind: v as PatternKind })}
+    <>
+      <Select label={kindLabel ?? t('rack.pattern.kind')} value={kind} onChange={(v) => set({ kind: v as PatternKind })}
         options={PATTERN_KINDS.map((k) => ({ value: k, label: t(`rack.pattern.kinds.${k}`) }))} />
       {kind !== 'none' && (
         <>
@@ -52,11 +52,24 @@ export function PatternSection({ params: p, defaults, errors, warnings, buildErr
           <Banner>{t('rack.pattern.help')}</Banner>
           {kind === 'asanoha' && <Banner>{t('rack.pattern.asanohaHelp')}</Banner>}
           {kind === 'hicks' && <Banner>{t('rack.pattern.hicksHelp')}</Banner>}
-          {errors.includes('rack.error.region') && <Banner kind="warn">{t('rack.error.region')}</Banner>}
+          {errors.includes(regionError) && <Banner kind="warn">{t(regionError)}</Banner>}
           {buildError === 'rack.error.disconnected' && <Banner kind="warn">{t('rack.error.disconnected')}</Banner>}
           {warnings.map((w, i) => <Banner key={`${w.key}${w.setting}${i}`} kind="warn">{t(w.key, { setting: t(`rack.field.${w.setting}`) })}</Banner>)}
         </>
       )}
+    </>
+  )
+}
+
+/** Сквозной узор панели: секция вокруг PatternFields. */
+export function PatternSection({ params: p, defaults, errors, warnings, buildError, update }: {
+  params: RackPanelParams; defaults: RackPanelParams; errors: string[]; warnings: Issue[]; /** Ключ ошибки построения (узор разрезал панель). */ buildError: string | null; update: PanelPatch
+}) {
+  const { t } = useTranslation()
+  return (
+    <Section title={t('rack.pattern.title')} summary={t('rack.pattern.summary', { kind: t(`rack.pattern.kinds.${p.pattern.kind}`) })}
+      modified={isChanged(p.pattern, defaults.pattern)} onReset={() => update((o) => ({ ...o, pattern: defaults.pattern }))}>
+      <PatternFields pattern={p.pattern} onChange={(pattern) => update((o) => ({ ...o, pattern }))} errors={errors} warnings={warnings} buildError={buildError} />
     </Section>
   )
 }

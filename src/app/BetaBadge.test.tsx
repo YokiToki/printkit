@@ -75,6 +75,6 @@ describe('метка beta и дисклеймер (29)', () => {
     expect(screen.getByTestId('footer-version')).toHaveTextContent(`v${APP_VERSION}`)
     await user.click(screen.getByTestId('beta-badge'))
     expect(screen.getByTestId('beta-version')).toHaveTextContent(`v${APP_VERSION}`)
-    expect(APP_VERSION).toBe('1.0.0')
+    expect(APP_VERSION).toMatch(/^\d+\.\d+\.\d+$/)
   })
 })

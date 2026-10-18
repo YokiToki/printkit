@@ -17,6 +17,7 @@ import { defaultKeychain, defaultMount } from '../src/geometry/keychain'
 import { defaultShape } from '../src/geometry/shapes'
 import { defaultRackPanel } from '../src/geometry/rack/panel'
 import { defaultRackCase } from '../src/geometry/rack/case'
+import { defaultRackShelf } from '../src/geometry/rack/shelf'
 import { defaultPattern } from '../src/geometry/rack/patterns/types'
 import { defaultShapeState, shapeParams } from '../src/features/keychain/shapeState'
 import { pawBitmap } from '../src/geometry/art/paw'
@@ -95,10 +96,16 @@ async function rackModels(): Promise<Record<string, TriMesh>> {
 /** Rack: корпус 2 U с окном, двумя keystone и сотами; лицевая грань на столе, оболочка растёт вверх открытой стороной к зрителю. */
 async function rackCaseModels(): Promise<Record<string, TriMesh>> {
   const r = await generate('rackCase', {
-    ...defaultRackCase, device: { width: 120, depth: 90, height: 60 }, keystones: { count: 2, side: 'right' },
+    ...defaultRackCase, device: { width: 120, depth: 90, height: 60 }, openings: [{ kind: 'keystone', count: 2, perRow: 1, zone: 'right', diameter: 8 }],
     vents: { enabled: true, width: 14, wall: 2.4, margin: 8 }, ears: { ...defaultRackCase.ears, positions: 'outer' },
   })
   return { rackCase: meshOf(r) }
+}
+
+/** Rack: открытая полка 2 U лицом на столе: щелевой пол и боковые стенки со скосом растут вверх. */
+async function rackShelfModels(): Promise<Record<string, TriMesh>> {
+  const r = await generate('rackShelf', { ...defaultRackShelf, units: 2, sides: { height: 55, wall: 3 }, shelf: { ...defaultRackShelf.shelf, depth: 90 }, ears: { ...defaultRackShelf.ears, positions: 'outer' } })
+  return { rackShelf: meshOf(r) }
 }
 
 /**
@@ -126,6 +133,7 @@ writeGroup(await keychainModels(), { name: 'keychainImage', height: BOX_ART_HEIG
 // Rack: своя группа с одной деталью, чтобы остальные картинки не менялись
 writeGroup(await rackModels())
 writeGroup(await rackCaseModels())
+writeGroup(await rackShelfModels())
 if (!existsSync(SAMPLE)) {
   console.error(`Группа Gridfinity пропущена: нужен образец выреза ${SAMPLE} (STL, любая закрытая деталь). Картинки брелков записаны.`)
   process.exit(1)

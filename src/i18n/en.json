@@ -71,9 +71,14 @@
       "tag2": "patterns"
     },
     "rackCase": {
-      "desc": "Front plate with rack ears and a shell around your device: mini PC, switch or router. Window, keystones, cable holes and vents.",
+      "desc": "Front plate with rack ears and a shell around your device: mini PC, switch or router. Window, keystones, holes and vents.",
       "tag1": "device → shell",
       "tag2": "keystones"
+    },
+    "rackShelf": {
+      "desc": "A 10-inch rack front plate with a ventilated shelf and sloped side walls. Prints with the front face on the bed.",
+      "tag1": "plate + shelf",
+      "tag2": "ventilated"
     }
   },
   "baseplate": {
@@ -984,7 +989,8 @@
   "rack": {
     "modes": {
       "panel": "Panel",
-      "case": "Enclosure"
+      "case": "Enclosure",
+      "shelf": "Shelf"
     },
     "error": {
       "units": "Choose 1 to 10 whole rack units.",
@@ -996,11 +1002,18 @@
       "margin": "Margin must be between 0 and 30 mm.",
       "region": "The margin leaves no room for a pattern.",
       "disconnected": "This pattern splits the panel into loose pieces. Increase the margin or the walls.",
-      "invalid": "Some values are out of range, the model is not updated."
+      "invalid": "Some values are out of range, the model is not updated.",
+      "shelfDepth": "Shelf depth must be between 20 and 400 mm.",
+      "clearance": "Clearance must be between 0 and 2 mm.",
+      "shelfThickness": "Floor thickness must be between 1.5 and 10 mm and well below the plate height.",
+      "sideHeight": "The side wall must be taller than the floor and not taller than the plate (0 turns it off).",
+      "sideWall": "Side wall thickness must be between 0.8 and 10 mm and leave room between the walls.",
+      "floorRegion": "The margin leaves no room for a floor pattern.",
+      "plateRegion": "The margin leaves no room for a pattern in the front plate."
     },
     "warning": {
       "thin": "{{setting}} is below the minimum printable width of 0.8 mm.",
-      "fit": "{{setting}} do not fit on the front plate and are not cut."
+      "fit": "{{setting}} does not fit on the front plate and is not cut."
     },
     "field": {
       "slotWidth": "Slot width",
@@ -1022,8 +1035,6 @@
       "stroke": "Stroke",
       "gap": "Whitespace",
       "edgeCells": "Edge cells",
-      "keystones": "Keystone openings",
-      "cable": "Cable holes",
       "ventWall": "Vent wall"
     },
     "size": {
@@ -1085,11 +1096,10 @@
         "wall": "Wall must be between 0.8 and 10 mm.",
         "lip": "The lip is too large for the device front.",
         "vents": "Vent size is out of range.",
-        "keystones": "Choose 0 to 6 keystone jacks.",
-        "cable": "Cable hole diameter must be between 2 and 30 mm.",
         "tooWide": "The device is {{excess}} too wide for the 222.25 mm window between the rails.",
         "tooTall": "The device needs more than 10 rack units.",
-        "invalid": "Some values are out of range, the model is not updated."
+        "invalid": "Some values are out of range, the model is not updated.",
+        "openings": "Use up to 6 groups of 1 to 24 openings; a hole is 2 to 30 mm."
       },
       "device": {
         "title": "Device",
@@ -1115,22 +1125,31 @@
       },
       "front": {
         "title": "Front plate",
-        "summary": "{{window}}",
+        "summary": "{{window}}{{groups}}",
         "windowOn": "window, lip {{lip}}",
         "windowOff": "closed",
+        "groupsSummary": " · {{n}} groups",
+        "windowTitle": "Window",
         "window": "Window on the device front",
         "lip": "Front lip",
-        "keystones": "Keystone jacks",
-        "side": "Keystone position",
-        "left": "Left",
-        "right": "Right",
-        "below": "Below",
-        "cable": "Cable holes",
-        "cable0": "None",
-        "cable1": "One",
-        "cable2": "Two",
-        "diameter": "Cable hole diameter",
-        "help": "Openings go beside the shell (or below it) and stay clear of the ears."
+        "openingsTitle": "Keystones and holes",
+        "empty": "No keystones or holes.",
+        "add": "Add group",
+        "remove": "Remove group {{n}}",
+        "group": "Group {{n}}",
+        "kind": "Kind",
+        "keystone": "Keystone socket",
+        "hole": "Hole",
+        "count": "Count",
+        "perRow": "Per row",
+        "zone": "Zone",
+        "left": "Left of the shell",
+        "right": "Right of the shell",
+        "above": "Above the shell",
+        "below": "Below the shell",
+        "diameter": "Hole diameter",
+        "help": "Keystone sockets hold a standard jack behind the plate; a hole can serve any purpose. One per row makes a column, as many as the count a row, in between a grid. Groups in one zone go outward from the shell and stay clear of the ears.",
+        "zoneNote": "Zones above and below need a plate taller than the shell."
       },
       "vents": {
         "title": "Vents",
@@ -1141,6 +1160,30 @@
         "wall": "Vent wall",
         "margin": "Vent margin",
         "help": "Cut through the wall only, away from the edges and the plate."
+      }
+    },
+    "shelf": {
+      "plate": {
+        "title": "Plate",
+        "summary": "{{u}} U · {{h}} · {{front}}",
+        "closed": "Closed front plate",
+        "closedShort": "closed",
+        "openShort": "open",
+        "openHelp": "The front is open above the floor between the side walls: only the ears and a strip at the floor remain, as on a sheet-metal shelf.",
+        "closedHelp": "The plate closes the front. It can be ventilated with a pattern above the floor."
+      },
+      "body": {
+        "title": "Shelf",
+        "summary": "{{d}} deep · floor: {{floor}}",
+        "depth": "Depth",
+        "thickness": "Floor thickness",
+        "clearance": "Clearance to the rails",
+        "sideHeight": "Side wall height",
+        "sideWall": "Side wall thickness",
+        "width": "Shelf width {{w}}.",
+        "floorKind": "Floor ventilation",
+        "plateKind": "Front plate ventilation",
+        "help": "The front face prints on the bed and the floor and the side walls grow upward from it. A side wall height of 0 removes the walls; they slope in a straight line down to the floor at the back. Pattern \"None\" gives a solid floor."
       }
     }
   }

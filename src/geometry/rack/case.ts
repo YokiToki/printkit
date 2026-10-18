@@ -4,14 +4,13 @@ import { getWasm } from '../wasm'
 import { defaultRackPanel, plateBase, type EarParams } from './panel'
 import { hexCut } from './patterns/hex'
 import { MIN_FEATURE, type Issue } from './patterns/types'
-import { HEIGHT_TOLERANCE, KEYSTONE_H, KEYSTONE_PITCH, KEYSTONE_W, MAX_UNITS, RACK_UNIT, RACK_WINDOW } from './spec'
+import { keystoneSocket } from './keystone'
+import { layoutOpenings, MAX_GROUPS, validGroup, type OpeningGroup, type PlacedOpening } from './openings'
+import { HEIGHT_TOLERANCE, MAX_UNITS, RACK_UNIT, RACK_WINDOW } from './spec'
 
-export type KeystoneSide = 'left' | 'right' | 'below'
 export interface DeviceParams { width: number; depth: number; height: number }
 export interface UnitsParams { /** true — минимальное число юнитов, иначе value (не меньше минимального). */ auto: boolean; value: number }
 export interface WindowParams { enabled: boolean; /** Насколько пластина заходит на край устройства. */ lip: number }
-export interface KeystoneParams { count: number; side: KeystoneSide }
-export interface CableParams { /** 0, 1 или 2 отверстия: по одному в свободной зоне сбоку от корпуса. */ count: number; diameter: number }
 export interface VentParams { enabled: boolean; /** Ширина шестиугольника между гранями. */ width: number; wall: number; /** Отступ узора от краёв стенки и от пластины. */ margin: number }
 
 export interface RackCaseParams {
@@ -25,8 +24,8 @@ export interface RackCaseParams {
   tolerance: boolean
   ears: EarParams
   window: WindowParams
-  keystones: KeystoneParams
-  cable: CableParams
+  /** Группы проёмов передней пластины (keystone и круглые отверстия), не больше MAX_GROUPS. */
+  openings: OpeningGroup[]
   vents: VentParams
 }
 
@@ -37,12 +36,11 @@ export const defaultRackCase: RackCaseParams = {
   cornerRadius: 3, tolerance: true,
   ears: defaultRackPanel.ears,
   window: { enabled: true, lip: 3 },
-  keystones: { count: 0, side: 'right' },
-  cable: { count: 0, diameter: 8 },
+  openings: [],
   vents: { enabled: false, width: 8, wall: 1.6, margin: 6 },
 }
 
-export const CASE_LIMITS = { width: [10, 260], depth: [10, 400], height: [10, 500], gap: [0, 5], wall: [0.8, 10], plate: [1.5, 8], lip: [0, 50], cable: [2, 30], vent: [3, 40], ventWall: [0.2, 10], ventMargin: [1, 40], keystones: [0, 6] } as const
+export const CASE_LIMITS = { width: [10, 260], depth: [10, 400], height: [10, 500], gap: [0, 5], wall: [0.8, 10], plate: [1.5, 8], lip: [0, 50], vent: [3, 40], ventWall: [0.2, 10], ventMargin: [1, 40] } as const
 const between = (v: number, [lo, hi]: readonly [number, number]) => v >= lo && v <= hi
 /** Поле между свободной зоной пластины и рейками / краем корпуса. */
 const EDGE = 3
@@ -78,65 +76,25 @@ export function validateRackCase(p: RackCaseParams): { errors: string[]; warning
   else if (p.ears.shape === 'slot' && p.ears.slotLength < p.ears.size) errors.push('rack.error.slotLength')
   if (p.window.enabled && (p.window.lip < 0 || p.window.lip > (Math.min(d.width, d.height) - 4) / 2)) errors.push('rack.error.lip')
   if (p.vents.enabled && (!between(p.vents.width, CASE_LIMITS.vent) || !between(p.vents.wall, CASE_LIMITS.ventWall) || !between(p.vents.margin, CASE_LIMITS.ventMargin))) errors.push('rack.error.vents')
-  if (!between(p.keystones.count, CASE_LIMITS.keystones) || !Number.isInteger(p.keystones.count)) errors.push('rack.error.keystones')
-  if (![0, 1, 2].includes(p.cable.count) || (p.cable.count > 0 && !between(p.cable.diameter, CASE_LIMITS.cable))) errors.push('rack.error.cable')
+  if (!Array.isArray(p.openings) || p.openings.length > MAX_GROUPS || !p.openings.every(validGroup)) errors.push('rack.error.openings')
   if (errors.length) return { errors, warnings: [], excess: 0 }
   const l = caseLayout(p)
   if (l.excess > 1e-9) errors.push('rack.error.tooWide')
   if (l.units > MAX_UNITS) errors.push('rack.error.tooTall')
   const warnings: Issue[] = []
   if (p.vents.enabled && p.vents.wall < MIN_FEATURE - 1e-9) warnings.push({ key: 'rack.warning.thin', setting: 'ventWall' })
-  if (!errors.length) warnings.push(...frontExtras(p, l).warnings)
+  if (!errors.length) warnings.push(...layoutOpenings(p.openings, l).warnings)
   return { errors, warnings, excess: Math.max(0, l.excess) }
-}
-
-export interface Opening { x: number; y: number }
-/**
- * Положение keystone и кабельных отверстий в свободной зоне пластины: между корпусом и рейками (по бокам) или под корпусом. Что не
- * помещается, не вырезается, а предупреждение называет, что именно (setting: keystones | cable).
- */
-export function frontExtras(p: RackCaseParams, l = caseLayout(p)): { keystones: Opening[]; cables: Opening[]; warnings: Issue[] } {
-  const rail = RACK_WINDOW / 2 - EDGE, warnings: Issue[] = []
-  const sideWidth = rail - (l.outerW / 2 + EDGE) // ширина свободной зоны с каждой стороны
-  const sideX = (side: 'left' | 'right') => (side === 'right' ? 1 : -1) * ((l.outerW / 2 + EDGE + rail) / 2)
-  const keystones: Opening[] = [], cables: Opening[] = []
-  const n = p.keystones.count
-  const usedSides = new Set<string>()
-  if (n > 0) {
-    if (p.keystones.side === 'below') {
-      const strip = l.centreY - l.outerH / 2 - 2 * EDGE // высота полосы под корпусом
-      const rowW = (n - 1) * KEYSTONE_PITCH + KEYSTONE_W
-      if (strip >= KEYSTONE_H && rowW <= 2 * rail) {
-        const y = EDGE + strip / 2
-        for (let i = 0; i < n; i++) keystones.push({ x: (i - (n - 1) / 2) * KEYSTONE_PITCH, y })
-      } else warnings.push({ key: 'rack.warning.fit', setting: 'keystones' })
-    } else {
-      const colH = (n - 1) * KEYSTONE_PITCH + KEYSTONE_H
-      if (sideWidth >= KEYSTONE_W && colH <= l.plateH - 2 * EDGE) {
-        usedSides.add(p.keystones.side)
-        for (let i = 0; i < n; i++) keystones.push({ x: sideX(p.keystones.side), y: l.centreY + (i - (n - 1) / 2) * KEYSTONE_PITCH })
-      } else warnings.push({ key: 'rack.warning.fit', setting: 'keystones' })
-    }
-  }
-  // кабельные отверстия: по стороне без keystone; сначала правая
-  const sides = (['right', 'left'] as const).filter((s) => !usedSides.has(s)).slice(0, p.cable.count)
-  if (p.cable.count > 0) {
-    if (sides.length < p.cable.count || sideWidth < p.cable.diameter || p.cable.diameter > l.plateH - 2 * EDGE) warnings.push({ key: 'rack.warning.fit', setting: 'cable' })
-    else for (const s of sides) cables.push({ x: sideX(s), y: l.centreY })
-  }
-  return { keystones, cables, warnings }
 }
 
 export interface BuiltRackCase { solid: Manifold | null; error?: string; excess?: number; warnings: Issue[] }
 
-/** Вырез окна и отверстий в плоскости пластины: X от середины, Y от нижней кромки. */
-function frontCut(w: ManifoldToplevel, p: RackCaseParams, l: ReturnType<typeof caseLayout>, extras: ReturnType<typeof frontExtras>): CrossSection | null {
+/** Вырез окна и круглых отверстий в плоскости пластины: X от середины, Y от нижней кромки. */
+function frontCut(w: ManifoldToplevel, p: RackCaseParams, l: ReturnType<typeof caseLayout>, items: PlacedOpening[]): CrossSection | null {
   const { CrossSection } = w
   const parts: CrossSection[] = []
   if (p.window.enabled) parts.push(roundedRectCS(w, l.window.width, l.window.height, 2, 24).translate([0, l.centreY]))
-  const key = CrossSection.square([KEYSTONE_W, KEYSTONE_H], true)
-  for (const o of extras.keystones) parts.push(key.translate([o.x, o.y]))
-  for (const o of extras.cables) parts.push(CrossSection.circle(p.cable.diameter / 2, 48).translate([o.x, o.y]))
+  for (const o of items) if (o.kind === 'hole') parts.push(CrossSection.circle(o.diameter / 2, 48).translate([o.x, o.y]))
   return parts.length ? CrossSection.union(parts) : null
 }
 
@@ -171,14 +129,22 @@ export async function buildRackCase(p: RackCaseParams, wasmUrl?: string): Promis
   const { Manifold } = w
   const l = caseLayout(p)
   const { base } = plateBase(w, l.units, p.tolerance, p.cornerRadius, p.ears)
-  const extras = frontExtras(p, l)
-  const front = frontCut(w, p, l, extras)
+  const items = layoutOpenings(p.openings, l).items
+  const front = frontCut(w, p, l, items)
   const plate = Manifold.extrude(front ? base.subtract(front) : base, p.plateThickness)
   const outer = Manifold.extrude(roundedRectCS(w, l.outerW, l.outerH, 0, 4), l.shellLen).translate([0, l.centreY, -l.shellLen])
   const cavity = Manifold.extrude(roundedRectCS(w, l.cavityW, l.cavityH, 0, 4), l.shellLen + 1).translate([0, l.centreY, -l.shellLen - 1])
   let shell = outer.subtract(cavity)
   if (p.vents.enabled) for (const c of ventCutters(w, p, l)) { shell = shell.subtract(c) }
-  const built = plate.add(shell)
+  // гнёзда keystone: обоймы срастаются с пластиной, потом вычитаются проёмы с рампой и защёлкой
+  const sockets = items.filter((o) => o.kind === 'keystone').map((o) => ({ o, s: keystoneSocket(w, p.plateThickness) }))
+  const collars = sockets.flatMap(({ o, s }) => (s.collar ? [s.collar.translate([o.x, o.y, 0])] : []))
+  const pockets = sockets.map(({ o, s }) => s.pocket.translate([o.x, o.y, 0]))
+  const body = collars.length ? Manifold.union([plate, shell, ...collars]) : plate.add(shell)
+  const built = pockets.length ? body.subtract(Manifold.union(pockets)) : body
+  if (built !== body) body.delete()
+  sockets.forEach(({ s }) => { s.collar?.delete(); s.pocket.delete() })
+  ;[...collars, ...pockets].forEach((m) => m.delete())
   const solid = built.mirror([0, 0, 1]).translate([0, 0, p.plateThickness])
   built.delete()
   const parts = solid.decompose(), pieces = parts.length

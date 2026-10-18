@@ -17,11 +17,11 @@ describe('products', () => {
     expect(kc.modes).toBe(KEYCHAIN_MODES)
     expect(PRODUCTS.find((p) => p.id === 'gridfinity')?.modes).toHaveLength(3)
   })
-  it('Rack: путь /rack, режимы panel и case, пути с префиксом, три продукта', () => {
+  it('Rack: путь /rack, режимы panel, case и shelf, пути с префиксом, три продукта', () => {
     expect(PRODUCTS.map((p) => p.id)).toEqual(['gridfinity', 'keychain', 'rack'])
     const r = PRODUCTS.find((p) => p.id === 'rack')!
     expect(r.path).toBe('/rack')
-    expect(r.modes?.map((m) => [m.id, m.path])).toEqual([['panel', '/rack/panel'], ['case', '/rack/case']])
+    expect(r.modes?.map((m) => [m.id, m.path])).toEqual([['panel', '/rack/panel'], ['case', '/rack/case'], ['shelf', '/rack/shelf']])
     expect(productOf('/rack/panel')?.id).toBe('rack')
     expect(productOf('/racket')).toBeUndefined()
   })

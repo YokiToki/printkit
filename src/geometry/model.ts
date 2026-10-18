@@ -2,6 +2,7 @@ import { buildBaseplateParts, type BaseplateGeometry } from './baseplate'
 import { buildBox, type BoxParams } from './box'
 import { buildRackCase, type RackCaseParams } from './rack/case'
 import { buildRackPanel, type RackPanelParams } from './rack/panel'
+import { buildRackShelf, type RackShelfParams } from './rack/shelf'
 import type { Issue } from './rack/patterns/types'
 import type { Assembly } from './keychainAssembly'
 import { buildKeychainSheet, type ImageRegistry, type KeychainInfo, type KeychainParams } from './keychain'
@@ -13,7 +14,7 @@ import { getWasm } from './wasm'
 import { meshOf, type MeshData } from './mesh'
 
 /** Параметры по режимам. Новые режимы (box, cutout) добавляются сюда. */
-export interface ModeParams { baseplate: BaseplateGeometry; box: BoxParams; cutout: CutoutParams; keychain: KeychainParams; rackPanel: RackPanelParams; rackCase: RackCaseParams }
+export interface ModeParams { baseplate: BaseplateGeometry; box: BoxParams; cutout: CutoutParams; keychain: KeychainParams; rackPanel: RackPanelParams; rackCase: RackCaseParams; rackShelf: RackShelfParams }
 
 /** Импортированные сетки этого потока (воркера): вырезы ссылаются на них по id. */
 export const meshRegistry: MeshRegistry = new Map()
@@ -80,6 +81,11 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
       const built = await buildRackCase(params as RackCaseParams, wasmUrl)
       const rack = { ...(built.error ? { error: built.error } : {}), ...(built.excess ? { excess: built.excess } : {}), warnings: built.warnings }
       try { return { parts: built.solid ? [{ label: 'case', col: 0, row: 0, oversize: false, mesh: meshOf(built.solid) }] : [], rack } } finally { built.solid?.delete() }
+    }
+    case 'rackShelf': {
+      const built = await buildRackShelf(params as RackShelfParams, wasmUrl)
+      const rack = { ...(built.error ? { error: built.error } : {}), warnings: built.warnings }
+      try { return { parts: built.solid ? [{ label: 'shelf', col: 0, row: 0, oversize: false, mesh: meshOf(built.solid) }] : [], rack } } finally { built.solid?.delete() }
     }
     default:
       throw new Error(`Unknown mode: ${String(mode)}`)

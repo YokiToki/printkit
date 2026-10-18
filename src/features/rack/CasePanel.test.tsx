@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { I18nextProvider } from 'react-i18next'
 import i18n from '../../i18n'
@@ -37,8 +37,8 @@ describe('CasePanel', () => {
     render(<Harness start={C(over)} />)
     expect(sections().filter((s) => s.changed).map((s) => s.title)).toEqual([title])
   })
-  it('у каждого числового поля есть кнопки − и + (все секции раскрыты: keystone, кабель, соты, ручные юниты)', async () => {
-    render(<Harness start={C({ keystones: { count: 2, side: 'left' }, cable: { count: 1, diameter: 8 }, vents: { ...defaultRackCase.vents, enabled: true }, units: { auto: false, value: 3 } })} />)
+  it('у каждого числового поля есть кнопки − и + (все секции раскрыты: группы keystone и отверстий, соты, ручные юниты)', async () => {
+    render(<Harness start={C({ openings: [{ kind: 'keystone', count: 2, perRow: 1, zone: 'left', diameter: 8 }, { kind: 'hole', count: 1, perRow: 1, zone: 'right', diameter: 8 }], vents: { ...defaultRackCase.vents, enabled: true }, units: { auto: false, value: 3 } })} />)
     await expectAllNumericSteppers()
   })
   it('автоматические юниты показывают число и высоту; ручное меньше нужного поднимается с пометкой', async () => {
@@ -59,27 +59,62 @@ describe('CasePanel', () => {
     expect(screen.getByText(/The device is 12.55 mm too wide for the 222.25 mm window/)).toBeInTheDocument()
     expect(screen.getByText(/out of range/)).toBeInTheDocument()
   })
-  it('поля зависят от выбора: окно, keystone, кабель, соты', async () => {
+  it('поля зависят от выбора: окно, соты', async () => {
     render(<Harness />)
     await openSection('Front plate')
-    expect(screen.getByLabelText('Front lip')).toBeInTheDocument(); expect(screen.queryByLabelText('Cable hole diameter')).toBeNull()
+    expect(screen.getByLabelText('Front lip')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('switch', { name: 'Window on the device front' }))
-    expect(screen.queryByLabelText('Front lip')).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: 'Increase: Keystone jacks' }))
-    expect(latest.keystones.count).toBe(1); expect(screen.getByRole('button', { name: 'Below' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Below' }))
-    expect(latest.keystones.side).toBe('below')
-    await userEvent.click(screen.getByRole('button', { name: 'Two' }))
-    expect(latest.cable.count).toBe(2); expect(screen.getByLabelText('Cable hole diameter')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Front lip')).toBeNull(); expect(latest.window.enabled).toBe(false)
     await openSection('Vents')
     expect(screen.queryByLabelText('Vent width')).toBeNull()
     await userEvent.click(screen.getByRole('switch', { name: 'Hexagonal vents on the top and sides' }))
     expect(screen.getByLabelText('Vent width')).toBeInTheDocument(); expect(latest.vents.enabled).toBe(true)
   })
-  it('предупреждение о тесноте называет, что не вырезается', async () => {
-    render(<Harness start={C({ keystones: { count: 6, side: 'right' } })} />)
+  it('передняя панель: окно по умолчанию включено, два блока с заголовками, слова «кабель» нет', async () => {
+    render(<Harness />)
     await openSection('Front plate')
-    expect(screen.getByText('Keystone openings do not fit on the front plate and are not cut.')).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Window on the device front' })).toBeChecked()
+    expect(screen.getByRole('heading', { name: 'Window' })).toBeInTheDocument(); expect(screen.getByRole('heading', { name: 'Keystones and holes' })).toBeInTheDocument()
+    expect(screen.getByText('No keystones or holes.')).toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/cable/i)
+  })
+  it('добавление группы показывает её поля; отверстию добавляется диаметр, keystone — нет', async () => {
+    render(<Harness />)
+    await openSection('Front plate')
+    await userEvent.click(screen.getByRole('button', { name: 'Add group' }))
+    expect(latest.openings).toEqual([{ kind: 'keystone', count: 1, perRow: 1, zone: 'right', diameter: 8 }])
+    const g = screen.getByRole('group', { name: 'Group 1' })
+    expect(within(g).getByLabelText('Kind (1)')).toHaveValue('keystone'); expect(within(g).getByLabelText('Count (1)')).toBeInTheDocument()
+    expect(within(g).getByLabelText('Per row (1)')).toBeInTheDocument(); expect(within(g).getByLabelText('Zone (1)')).toHaveValue('right')
+    expect(within(g).queryByLabelText('Hole diameter (1)')).toBeNull()
+    await userEvent.selectOptions(within(g).getByLabelText('Kind (1)'), 'hole')
+    expect(latest.openings[0].kind).toBe('hole'); expect(within(g).getByLabelText('Hole diameter (1)')).toBeInTheDocument()
+    await userEvent.selectOptions(within(g).getByLabelText('Zone (1)'), 'above')
+    expect(latest.openings[0].zone).toBe('above')
+  })
+  it('число, «в ряду» и зона правят группу; удаление убирает только её; больше шести не добавить', async () => {
+    render(<Harness />)
+    await openSection('Front plate')
+    const add = screen.getByRole('button', { name: 'Add group' })
+    await userEvent.click(add); await userEvent.click(add)
+    const g2 = screen.getByRole('group', { name: 'Group 2' })
+    await userEvent.click(within(g2).getByRole('button', { name: 'Increase: Count (2)' })); await userEvent.click(within(g2).getByRole('button', { name: 'Increase: Per row (2)' }))
+    expect(latest.openings[1]).toMatchObject({ count: 2, perRow: 2 }); expect(latest.openings[0]).toMatchObject({ count: 1, perRow: 1 })
+    await userEvent.click(screen.getByRole('button', { name: 'Remove group 1' }))
+    expect(latest.openings).toHaveLength(1); expect(latest.openings[0]).toMatchObject({ count: 2, perRow: 2 })
+    for (let i = 0; i < 5; i++) await userEvent.click(add)
+    expect(latest.openings).toHaveLength(6); expect(add).toBeDisabled()
+  })
+  it('сводка секции называет окно и число групп', async () => {
+    render(<Harness start={C({ openings: [{ kind: 'hole', count: 1, perRow: 1, zone: 'left', diameter: 8 }] })} />)
+    expect(screen.getByText('window, lip 3 mm · 1 groups')).toBeInTheDocument()
+    expect(sections().filter((s) => s.changed).map((s) => s.title)).toEqual(['Front plate'])
+  })
+  it('предупреждение о тесноте называет группу, которая не вырезается', async () => {
+    render(<Harness start={C({ openings: [{ kind: 'hole', count: 1, perRow: 1, zone: 'left', diameter: 8 }, { kind: 'keystone', count: 6, perRow: 1, zone: 'right', diameter: 8 }] })} />)
+    await openSection('Front plate')
+    expect(within(screen.getByRole('group', { name: 'Group 2' })).getByText('Group 2 does not fit on the front plate and is not cut.')).toBeInTheDocument()
+    expect(within(screen.getByRole('group', { name: 'Group 1' })).queryByText(/does not fit/)).toBeNull()
   })
   it('тонкая стенка сот предупреждает', async () => {
     render(<Harness start={C({ vents: { ...defaultRackCase.vents, enabled: true, wall: 0.5 } })} />)

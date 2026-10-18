@@ -15,6 +15,7 @@ import { defaultKeychain } from '../geometry/keychain'
 import { defaultShapeState } from '../features/keychain/shapeState'
 import { defaultRackPanel } from '../geometry/rack/panel'
 import { defaultRackCase } from '../geometry/rack/case'
+import { defaultRackShelf } from '../geometry/rack/shelf'
 
 const generate = vi.fn()
 vi.mock('./useModel', () => ({
@@ -39,8 +40,9 @@ const MODES: Mode[] = [
   { name: 'Keychain shape', path: '/keychain/shape', key: 'keychain.shape', modeName: 'Shape', dirty: () => ({ ...defaultShapeState, shape: { ...defaultShapeState.shape, kind: 'circle', width: 44 }, base: { ...defaultShapeState.base, thickness: 3 } }), defaults: defaultShapeState },
   { name: 'Rack panel', path: '/rack/panel', key: 'rack.panel', modeName: 'Panel', dirty: () => ({ ...defaultRackPanel, units: 4, back: { enabled: true, thickness: 1 } }), defaults: defaultRackPanel },
   { name: 'Rack case', path: '/rack/case', key: 'rack.case', modeName: 'Enclosure', dirty: () => ({ ...defaultRackCase, device: { ...defaultRackCase.device, width: 90 }, vents: { ...defaultRackCase.vents, enabled: true } }), defaults: defaultRackCase },
+  { name: 'Rack shelf', path: '/rack/shelf', key: 'rack.shelf', modeName: 'Shelf', dirty: () => ({ ...defaultRackShelf, lips: { height: 6, wall: 2 }, units: 3 }), defaults: defaultRackShelf },
 ]
-const OTHER_KEYS = ['gridfinity.box', 'gridfinity.baseplate', 'gridfinity.cutout', 'keychain.relief', 'keychain.shape', 'rack.panel', 'rack.case']
+const OTHER_KEYS = ['gridfinity.box', 'gridfinity.baseplate', 'gridfinity.cutout', 'keychain.relief', 'keychain.shape', 'rack.panel', 'rack.case', 'rack.shelf']
 
 describe('Начать заново', () => {
   beforeEach(async () => { globalThis.indexedDB = new IDBFactory(); localStorage.clear(); generate.mockClear(); await i18n.changeLanguage('en') })

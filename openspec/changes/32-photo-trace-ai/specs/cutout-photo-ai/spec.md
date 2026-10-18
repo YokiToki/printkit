@@ -104,7 +104,7 @@ The AI engine SHALL run the straightened sheet through the model, turn its foreg
 - **THEN** the message for no silhouettes is shown and Create is disabled
 
 ### Requirement: Mask tuning
-With the AI engine the user SHALL be able to tune how the network's soft mask becomes a silhouette: a threshold (where inside the soft edge the outline is drawn, moving it outward or inward) and a smoothing radius in mm (how much the soft mask is blurred before the threshold, which evens out a jagged or wavy outline). Changing either SHALL update the silhouettes without running the network again, and the effect on each silhouette's size in mm SHALL be visible. The defaults SHALL be a threshold of 0.5 and a small smoothing radius, and a reset SHALL restore them. The soft mask SHALL be viewable as a greyscale image next to the silhouettes.
+With the AI engine the user SHALL be able to tune how the network's soft mask becomes a silhouette: a threshold (where inside the soft edge the outline is drawn, moving it outward or inward) and a smoothing radius in mm (how much the soft mask is blurred before the threshold, which evens out a jagged or wavy outline). Changing either SHALL update the silhouettes without running the network again, and the effect on each silhouette's size in mm SHALL be visible. Both controls SHALL be shown to the user on the silhouette step whenever the AI engine is active, with plain-language labels and a short hint each (the threshold as how far the outline reaches into the blurry edge of the object, the smoothing as how evenly the outline runs), not as technical names. Each model SHALL have its own default threshold and smoothing, since models differ in how sharp their mask is, and a reset SHALL restore the defaults of the model in use. Changing the model SHALL load that model's defaults unless the user has changed the controls for this photo. The soft mask SHALL be viewable as a greyscale image next to the silhouettes.
 
 #### Scenario: Live update
 - **WHEN** the user moves the threshold or the smoothing slider
@@ -124,7 +124,15 @@ With the AI engine the user SHALL be able to tune how the network's soft mask be
 
 #### Scenario: Reset
 - **WHEN** the user resets the mask settings
-- **THEN** threshold and smoothing return to their defaults
+- **THEN** threshold and smoothing return to the defaults of the model in use
+
+#### Scenario: Per-model defaults
+- **WHEN** the user switches from one model to another without touching the controls
+- **THEN** the controls show the new model's defaults
+
+#### Scenario: Visible to the user
+- **WHEN** the AI engine is active on the silhouette step
+- **THEN** both controls are visible with their labels and hints, in the interface language
 
 ### Requirement: Accurate edge
 The AI engine SHALL place the silhouette edge by the paper-colour test within a narrow band around the network's mask and SHALL use the network's own edge only where that test does not separate the object from the paper. The sizes it reports SHALL stay within 0.5 mm of the classic result wherever the classic result is accurate.

@@ -18,7 +18,7 @@
 
 ## 4. ML runtime
 
-- [ ] 4.1 `src/ml/models.ts` registry (id, URL with commit hash, bytes, SHA-256, input size, normalisation, SPDX, `licenseClass` permissive | noncommercial | copyleft, purpose, source) and a test that refuses entries without an allowed SPDX id (MIT / Apache-2.0 / BSD / CC0) or without a pinned revision. Verify: test green.
+- [ ] 4.1 `src/ml/models.ts` registry (id, URL with commit hash, bytes, SHA-256, input size, normalisation, SPDX, supported and preferred backends, purpose, source) and a test that refuses entries without an allowed SPDX id (MIT / Apache-2.0 / BSD / CC0) or without a pinned revision. Verify: test green.
 - [ ] 4.2 `src/ml/runtime.ts` and `ml.worker.ts`: lazy session creation by dynamic import, WebGPU then WASM single-thread, `matte(rgb, w, h) → Float32Array`, resize to the model input and back. `mlClient.ts`: latest request wins, stale replies dropped, progress and cancel. Tests with a fake worker for ordering and cancel; pre/post-processing tested on a tiny fixed array. Verify in the browser that a classic-only session loads no ML chunk (network panel and build output).
 - [ ] 4.2a Capability detection (`src/ml/capabilities.ts`): WebGPU adapter and `shader-f16`, used by the manager to mark models as unavailable with a reason. Tests with a mocked `navigator.gpu`: no WebGPU hides WebGPU-only models, no `shader-f16` hides fp16 ones.
 - [ ] 4.3 `src/ml/modelStore.ts`: download with progress and cancel, SHA-256 check, Cache API storage under the revision key, list, delete, `persistent` flag with memory fallback. Tests with a mocked `fetch` and cache, several models side by side: checksum mismatch rejects, delete removes, interrupted download leaves nothing, no storage falls back to memory.

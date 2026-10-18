@@ -14,6 +14,10 @@ export interface Candidate {
   input?: string
   /** Только для сравнения качества: лицензия не позволяет включить в проект. */
   referenceOnly?: boolean
+  /** matte — маска объекта (по умолчанию), depth — относительная глубина (рельеф лица, а не силуэт). */
+  kind?: 'matte' | 'depth'
+  /** Внешние веса (.onnx_data) рядом с моделью. */
+  data?: { path: string; url: string; bytes: number }
 }
 const hf = (repo: string, rev: string, file: string) => `https://huggingface.co/${repo}/resolve/${rev}/${file}`
 const IMNET = { mean: [0.485, 0.456, 0.406] as [number, number, number], std: [0.229, 0.224, 0.225] as [number, number, number] }
@@ -36,4 +40,7 @@ export const CANDIDATES: Candidate[] = [
   { id: 'isnet-bw-fp32', label: 'IS-Net BritishWerewolf fp32 (Apache-2.0, 179 МБ)', url: hf('BritishWerewolf/IS-Net', '9783722d9f964c0286a411e7e8e6fede947d5a53', 'onnx/model.onnx'), bytes: 178648008, license: 'Apache-2.0', size: 1024, mean: [0.485, 0.456, 0.406], std: [1, 1, 1], sigmoid: false },
   { id: 'u2net-bw-fp32', label: 'U²-Net полная (Apache-2.0, 176 МБ)', url: hf('BritishWerewolf/U-2-Net', 'c08042b462485d8597c89d3ce831d00be8582c5c', 'onnx/model.onnx'), bytes: 175997641, license: 'Apache-2.0', size: 320, ...IMNET, sigmoid: false },
   { id: 'inspyrenet-fp16', label: 'InSPyReNet SwinB Plus Ultra fp16 (MIT, 199 МБ)', url: hf('OS-Software/InSPyReNet-SwinB-Plus-Ultra-ONNX', 'fe628d2d1465f775c707368a80248a2d5b5ad71f', 'onnx/model_fp16.onnx'), bytes: 199133027, license: 'MIT', size: 1024, ...IMNET, sigmoid: false },
+  // карта глубины для рельефа (change 34): выход — относительная глубина, а не маска
+  { id: 'depth-v2-small-q4f16', kind: 'depth', label: 'Depth Anything V2 Small q4f16 (Apache-2.0, 20 МБ) — глубина', url: hf('onnx-community/depth-anything-v2-small-ONNX', 'c3b67641fd837b2368757101311e5d21e511441e', 'onnx/model_q4f16.onnx'), bytes: 212397, data: { path: 'model_q4f16.onnx_data', url: hf('onnx-community/depth-anything-v2-small-ONNX', 'c3b67641fd837b2368757101311e5d21e511441e', 'onnx/model_q4f16.onnx_data'), bytes: 20200448 }, license: 'Apache-2.0', size: 518, ...IMNET, sigmoid: false },
+  { id: 'depth-v2-small-fp16', kind: 'depth', label: 'Depth Anything V2 Small fp16 (Apache-2.0, 50 МБ) — глубина', url: hf('onnx-community/depth-anything-v2-small-ONNX', 'c3b67641fd837b2368757101311e5d21e511441e', 'onnx/model_fp16.onnx'), bytes: 180471, data: { path: 'model_fp16.onnx_data', url: hf('onnx-community/depth-anything-v2-small-ONNX', 'c3b67641fd837b2368757101311e5d21e511441e', 'onnx/model_fp16.onnx_data'), bytes: 50392064 }, license: 'Apache-2.0', size: 518, ...IMNET, sigmoid: false },
 ]

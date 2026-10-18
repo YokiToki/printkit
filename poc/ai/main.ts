@@ -20,21 +20,22 @@ const sessions = new Map<string, ort.InferenceSession>()
 ort.env.wasm.proxy = true // вывод в воркере ORT: страница не замирает на время инференса
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@' + (ort.env.versions?.web ?? 'latest') + '/dist/'
 
-async function fetchModel(c: Candidate): Promise<ArrayBuffer> {
+async function fetchUrl(url: string, bytes: number): Promise<ArrayBuffer> {
   const cache = await caches.open('poc-ai-models')
-  let r = await cache.match(c.url)
+  let r = await cache.match(url)
   const t0 = performance.now()
   if (!r) {
-    const net = await fetch(c.url)
-    if (!net.ok) throw new Error(`HTTP ${net.status} for ${c.url}`)
-    await cache.put(c.url, net.clone())
+    const net = await fetch(url)
+    if (!net.ok) throw new Error(`HTTP ${net.status} for ${url}`)
+    await cache.put(url, net.clone())
     r = net
-    log(`скачано ${(c.bytes / 1e6).toFixed(0)} МБ за ${((performance.now() - t0) / 1000).toFixed(1)} с`)
+    log(`скачано ${(bytes / 1e6).toFixed(0)} МБ за ${((performance.now() - t0) / 1000).toFixed(1)} с`)
   } else log('модель из Cache API')
   const buf = await r.arrayBuffer()
-  if (buf.byteLength !== c.bytes) log(`ВНИМАНИЕ: размер ${buf.byteLength} ≠ ${c.bytes}`)
+  if (buf.byteLength !== bytes) log(`ВНИМАНИЕ: размер ${buf.byteLength} ≠ ${bytes}`)
   return buf
 }
+const fetchModel = (c: Candidate) => fetchUrl(c.url, c.bytes)
 
 async function loadImage(maxSide = 0): Promise<ImageData> {
   const f = $<HTMLInputElement>('file').files?.[0]
@@ -150,7 +151,8 @@ async function run() {
     const buf = await fetchModel(c)
     ort.env.wasm.numThreads = threads
     t = performance.now()
-    session = await ort.InferenceSession.create(buf, { executionProviders: [ep], graphOptimizationLevel: 'all' })
+    const externalData = c.data ? [{ path: c.data.path, data: new Uint8Array(await fetchUrl(c.data.url, c.data.bytes)) }] : undefined
+    session = await ort.InferenceSession.create(buf, { executionProviders: [ep], graphOptimizationLevel: 'all', ...(externalData ? { externalData } : {}) })
     log(`сессия создана за ${(performance.now() - t).toFixed(0)} мс; входы ${session.inputNames}, выходы ${session.outputNames}`)
     sessions.set(key, session)
   }
@@ -160,14 +162,19 @@ async function run() {
   for (let i = 0; i < 2; i++) { t = performance.now(); out = await session.run({ [inName]: new ort.Tensor('float32', data.slice(), [1, 3, s, s]) }); runs.push(performance.now() - t) }
   log(`инференс: 1-й ${runs[0].toFixed(0)} мс (прогрев), 2-й ${runs[1].toFixed(0)} мс`)
   const o = out[session.outputNames[0]]
-  const alpha = toAlpha(o.data as Float32Array, s, W, H, c.sigmoid, whole)
+  let raw = o.data as Float32Array
+  if (c.kind === 'depth') { // относительная глубина → 0…1 по 2–98 перцентилям (дальше — ближе = выше, как в рельефе)
+    const sorted = Float32Array.from(raw).sort(); const lo = sorted[Math.floor(sorted.length * 0.02)], hi = sorted[Math.floor(sorted.length * 0.98)]
+    raw = raw.map((x) => Math.min(1, Math.max(0, (x - lo) / (hi - lo || 1))))
+  }
+  const alpha = toAlpha(raw, s, W, H, c.sigmoid, whole)
 
-  state = { rect, seg, alpha, runs, c, ep, threads, s, whole }
+  state = { rect, seg, alpha, runs, c, ep, threads, s, whole, depth: c.kind === 'depth' }
   evaluate()
   $('status').textContent = 'готово'
 }
 
-interface State { rect: Rectified; seg: ReturnType<typeof segment>; alpha: Float32Array; runs: number[]; c: Candidate; ep: string; threads: number; s: number; whole: boolean }
+interface State { rect: Rectified; seg: ReturnType<typeof segment>; alpha: Float32Array; runs: number[]; c: Candidate; ep: string; threads: number; s: number; whole: boolean; depth: boolean }
 let state: State | null = null
 
 /** Всё после инференса: сглаживание альфы, порог, компоненты, сравнение. Модель не запускается, поэтому ползунки работают мгновенно. */
@@ -179,6 +186,7 @@ function evaluate() {
   let alpha = state.alpha
   if (smoothMm > 0) alpha = gaussianBlur(alpha, W, H, Math.max(MIN_SIGMA, smoothMm * rect.scale), new Uint8Array(W * H).fill(1))
   drawAlpha(alpha, W, H)
+  if (state.depth) { $('edge').textContent = 'карта глубины (светлее = ближе): справа — глубина, силуэт не считается'; $('tbl').innerHTML = ''; $('status').textContent = 'готово'; return }
   const mask = new Uint8Array(W * H); for (let i = 0; i < mask.length; i++) mask[i] = alpha[i] >= thr ? 1 : 0
   const ai = components(mask, W, H, rect.scale, margin)
   draw(rect, seg.labels, ai.labels)

@@ -1,39 +1,89 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>PoC: AI silhouettes</title>
+<html lang="ru"><head><meta charset="utf-8"><title>PoC: Keychain — пайплайн фото → рельеф</title>
 <style>
-body{font:13px system-ui;margin:12px;background:#fafafa;color:#222}
-fieldset{display:inline-block;vertical-align:top;margin:0 8px 8px 0}
-button{padding:4px 10px}
-table{border-collapse:collapse;margin:8px 0}td,th{border:1px solid #bbb;padding:2px 8px;text-align:right}th{background:#eee}
-canvas{max-width:32%;border:1px solid #888;margin:4px}
-#log{white-space:pre-wrap;font:12px ui-monospace,monospace;background:#fff;border:1px solid #ccc;padding:6px;max-height:220px;overflow:auto}
+:root{color-scheme:light}
+body{font:13px system-ui;margin:0;background:#f4f4f2;color:#222}
+header{padding:8px 14px;background:#fff;border-bottom:1px solid #ccc}
+main{display:grid;grid-template-columns:minmax(420px,520px) minmax(0,1fr);gap:12px;padding:12px;align-items:start}
+.col{display:flex;flex-direction:column;gap:10px}
+section{background:#fff;border:1px solid #d0d0cc;border-radius:6px;padding:8px 10px}
+section h4{margin:0 0 6px;font-size:13px}
+section h4 .n{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:10px;background:#333;color:#fff;margin-right:6px;font-size:12px}
+label{display:inline-block;margin:2px 8px 2px 0;white-space:nowrap}
+input[type=range]{width:110px;vertical-align:middle}
+input[type=number]{width:4.2em}
+canvas.pv{max-width:100%;max-height:180px;border:1px solid #999;margin-top:4px;background:#ddd}
+#view{width:100%;height:560px;background:#e8e8e4;border:1px solid #999;border-radius:6px;position:sticky;top:8px}
+#right{position:sticky;top:8px;min-width:0}
+#view canvas{display:block;width:100%;height:100%}
+#log{white-space:pre-wrap;font:11px ui-monospace,monospace;background:#fff;border:1px solid #ccc;padding:5px;max-height:150px;overflow:auto}
+.note{color:#666;font-size:12px}.ok{color:#080}.bad{color:#b00}
+button{padding:3px 10px}
 </style></head><body>
-<h3>PoC: нейросетевые силуэты на выпрямленном листе</h3>
-<fieldset><legend>Снимок</legend>
- <select id="sample"><option value="flash">flash (960×1280)</option><option value="noflash">noflash (960×1280)</option><option value="cat">cat (960×1280, Keychain)</option><option value="cat_face">cat_face (кроп морды 400×300, Keychain)</option></select>
- <input id="file" type="file" accept="image/*"> <label><input id="whole" type="checkbox"> весь снимок (режим Keychain, без листа)</label>
-</fieldset>
-<fieldset><legend>Модель</legend><select id="model"></select></fieldset>
-<fieldset><legend>Бэкенд</legend>
- <select id="ep"><option>webgpu</option><option>wasm</option></select>
- потоки <input id="threads" type="number" value="1" min="1" max="16" style="width:3em">
- вход <input id="size" type="number" placeholder="по умолч." style="width:5em">
-</fieldset>
-<fieldset><legend>Край (пересчёт без модели)</legend>порог <input id="thr" type="range" min="0.05" max="0.95" value="0.5" step="0.01" oninput="this.nextElementSibling.textContent=this.value"><b>0.5</b> сглаживание мм <input id="smooth" type="range" min="0" max="3" value="0" step="0.1" oninput="this.nextElementSibling.textContent=this.value"><b>0</b> поле мм <input id="margin" type="number" value="3" style="width:3em"></fieldset>
-<button id="run">Запустить</button> <span id="status"></span>
-<div>cross-origin isolated: <b id="coi"></b>, WebGPU: <b id="gpu"></b>, cores: <b id="cores"></b></div>
-<table id="tbl"></table>
-<fieldset id="combo"><legend>Комбинатор формы (нужны запуски: маска-модель и/или глубина в режиме «весь снимок»)</legend>
- контур <input id="wc" type="range" min="0" max="100" value="30" oninput="this.nextElementSibling.textContent=this.value"><b>30</b>
- глубина <input id="wd" type="range" min="0" max="100" value="40" oninput="this.nextElementSibling.textContent=this.value"><b>40</b>
- детали <input id="wt" type="range" min="0" max="100" value="30" oninput="this.nextElementSibling.textContent=this.value"><b>30</b><br>
- ширина детали мм <input id="partw" type="number" value="40" style="width:4em"> радиус деталей мм <input id="lcr" type="number" value="1.4" step="0.1" style="width:4em">
- усиление <input id="lca" type="number" value="1" step="0.1" style="width:4em"> уровни тонов (0=нет) <input id="lvl" type="number" value="0" min="0" max="8" style="width:3em">
- скос контура мм <input id="bevel" type="number" value="3" step="0.5" style="width:4em"> свет <input id="light" type="range" min="1" max="12" value="5">
- <span id="planes"></span>
- <div><canvas id="c4"></canvas><canvas id="c5"></canvas></div>
-</fieldset>
-<div id="edge"></div><div><canvas id="c1"></canvas><canvas id="c2"></canvas><canvas id="c3"></canvas></div>
-<div id="log"></div>
-<script type="module" src="./main.ts"></script>
+<header><b>PoC Keychain: фото → рельеф, пайплайн по этапам</b> · <a href="./cutout.html">← PoC фото-вырезов (change 32)</a>
+ · isolated: <b id="coi"></b>, cores: <b id="cores"></b></header>
+<main>
+<div class="col">
+ <section><h4><span class="n">1</span>Изображение и кроп</h4>
+  <select id="sample"><option value="cat">cat (кот целиком)</option><option value="cat_face">cat_face (кроп морды)</option></select>
+  <input id="file" type="file" accept="image/*">
+  <div>
+   <label>x <input id="cx" type="range" min="0" max="95" value="0"><b>0</b>%</label>
+   <label>y <input id="cy" type="range" min="0" max="95" value="0"><b>0</b>%</label>
+   <label>ширина <input id="cw" type="range" min="5" max="100" value="100"><b>100</b>%</label>
+   <label>высота <input id="ch" type="range" min="5" max="100" value="100"><b>100</b>%</label>
+   <button id="face">кроп морды (пример)</button> <button id="resetcrop">весь кадр</button>
+  </div>
+  <label>ширина детали, мм <input id="partw" type="number" value="40"></label>
+  <canvas id="pv-img" class="pv"></canvas>
+ </section>
+ <section><h4><span class="n">2</span>Силуэт <span class="note" id="st-sil"></span></h4>
+  <label>источник <select id="silsrc"><option value="model">модель (маска)</option><option value="brightness">яркость (Оцу)</option><option value="frame">весь кадр</option></select></label>
+  <div id="silmodel">
+   <select id="silmodelsel"></select> <select id="silep"><option>wasm</option><option>webgpu</option></select>
+   <button id="runsil">Запустить модель</button>
+   <div><label>порог <input id="thr" type="range" min="0.05" max="0.95" step="0.01" value="0.5"><b>0.5</b></label>
+   <label>сглаживание, мм <input id="smooth" type="range" min="0" max="3" step="0.1" value="0.3"><b>0.3</b></label></div>
+   <label><input id="largest" type="checkbox" checked> только самый большой объект</label>
+  </div>
+  <div id="silbright" hidden><label><input id="inv" type="checkbox"> инвертировать</label></div>
+  <label><input id="fill" type="checkbox" checked> заливать пустоты</label>
+  <canvas id="pv-mask" class="pv"></canvas>
+ </section>
+ <section><h4><span class="n">3</span>Глубина <span class="note" id="st-depth"></span></h4>
+  <select id="depthsel"></select> <select id="depthep"><option>wasm</option><option>webgpu</option></select>
+  <button id="rundepth">Посчитать глубину (для текущего кропа)</button>
+  <label><input id="dinv" type="checkbox"> инвертировать</label>
+  <canvas id="pv-depth" class="pv"></canvas>
+ </section>
+ <section><h4><span class="n">4</span>Детали (локальный контраст)</h4>
+  <label>радиус, мм <input id="lcr" type="number" value="1.4" step="0.1"></label>
+  <label>усиление <input id="lca" type="number" value="1" step="0.1"></label>
+  <label>уровни (0 = нет) <input id="lvl" type="number" value="0" min="0" max="8"></label>
+  <canvas id="pv-detail" class="pv"></canvas>
+ </section>
+ <section><h4><span class="n">5</span>Смесь формы → высота</h4>
+  <div><label>контур <input id="wc" type="range" min="0" max="100" value="30"><b>30</b></label>
+  <label>глубина <input id="wd" type="range" min="0" max="100" value="40"><b>40</b></label>
+  <label>детали <input id="wt" type="range" min="0" max="100" value="30"><b>30</b></label></div>
+  <label>скос контура, мм <input id="bevel" type="number" value="3" step="0.5"></label>
+  <label>скругление края <input id="roll" type="range" min="0" max="100" value="70"><b>70</b>%</label><br>
+  <label>основание, мм <input id="floor" type="number" value="1.2" step="0.1"></label>
+  <label>диапазон высоты, мм <input id="range" type="number" value="2" step="0.1"></label>
+  <canvas id="pv-mix" class="pv"></canvas>
+ </section>
+ <div id="log"></div>
+</div>
+<div id="right">
+ <div id="view"></div>
+ <div style="margin-top:6px">
+  <label>узлов по длинной стороне <input id="nodes" type="number" value="240" step="20" min="60" max="600"></label>
+  <label><input id="wire" type="checkbox"> сетка</label>
+  <label>подсветка <input id="lightang" type="range" min="0" max="360" value="315"></label>
+  <button id="vtop">сверху</button> <button id="viso">под углом</button>
+  <span class="note" id="stat3d"></span>
+ </div>
+</div>
+</main>
+<script type="module" src="./keychain.ts"></script>
 </body></html>

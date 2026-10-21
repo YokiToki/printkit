@@ -10,7 +10,7 @@ canvas{max-width:32%;border:1px solid #888;margin:4px}
 </style></head><body>
 <h3>PoC: нейросетевые силуэты на выпрямленном листе</h3>
 <fieldset><legend>Снимок</legend>
- <select id="sample"><option value="flash">flash (960×1280)</option><option value="noflash">noflash (960×1280)</option><option value="cat">cat (960×1280, для режима Keychain)</option></select>
+ <select id="sample"><option value="flash">flash (960×1280)</option><option value="noflash">noflash (960×1280)</option><option value="cat">cat (960×1280, Keychain)</option><option value="cat_face">cat_face (кроп морды 400×300, Keychain)</option></select>
  <input id="file" type="file" accept="image/*"> <label><input id="whole" type="checkbox"> весь снимок (режим Keychain, без листа)</label>
 </fieldset>
 <fieldset><legend>Модель</legend><select id="model"></select></fieldset>
@@ -23,6 +23,16 @@ canvas{max-width:32%;border:1px solid #888;margin:4px}
 <button id="run">Запустить</button> <span id="status"></span>
 <div>cross-origin isolated: <b id="coi"></b>, WebGPU: <b id="gpu"></b>, cores: <b id="cores"></b></div>
 <table id="tbl"></table>
+<fieldset id="combo"><legend>Комбинатор формы (нужны запуски: маска-модель и/или глубина в режиме «весь снимок»)</legend>
+ контур <input id="wc" type="range" min="0" max="100" value="30" oninput="this.nextElementSibling.textContent=this.value"><b>30</b>
+ глубина <input id="wd" type="range" min="0" max="100" value="40" oninput="this.nextElementSibling.textContent=this.value"><b>40</b>
+ детали <input id="wt" type="range" min="0" max="100" value="30" oninput="this.nextElementSibling.textContent=this.value"><b>30</b><br>
+ ширина детали мм <input id="partw" type="number" value="40" style="width:4em"> радиус деталей мм <input id="lcr" type="number" value="1.4" step="0.1" style="width:4em">
+ усиление <input id="lca" type="number" value="1" step="0.1" style="width:4em"> уровни тонов (0=нет) <input id="lvl" type="number" value="0" min="0" max="8" style="width:3em">
+ скос контура мм <input id="bevel" type="number" value="3" step="0.5" style="width:4em"> свет <input id="light" type="range" min="1" max="12" value="5">
+ <span id="planes"></span>
+ <div><canvas id="c4"></canvas><canvas id="c5"></canvas></div>
+</fieldset>
 <div id="edge"></div><div><canvas id="c1"></canvas><canvas id="c2"></canvas><canvas id="c3"></canvas></div>
 <div id="log"></div>
 <script type="module" src="./main.ts"></script>

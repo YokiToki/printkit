@@ -2,30 +2,36 @@
 
 ## Why
 
-With `33-keychain-ai-silhouette` a photo gives a clean outline, but inside the outline the keychain is still a plain bevelled plate. A portrait of a cat (or a person, or a pet's face) is only recognisable by what is inside the outline: the eyes, the nose, the ears, the fur pattern. The owner tried exactly this: the outline of the cat is good, but the face cannot be seen on the keychain, so there is little point in working from photos.
+With `33-keychain-ai-silhouette` a photo gives a clean outline, but inside the outline the keychain is still a plain bevelled plate. A portrait of a cat (or a person, or a pet's face) is only recognisable by what is inside the outline: the eyes, the nose, the ears, the fur pattern. The owner tried this on a cat photo: the outline is good, the face cannot be seen on the keychain.
 
-The relief already has a "brightness" height source, but it does not solve this: the brightness of a photo is lighting, not shape (a dark stripe on fur becomes a groove, a bright cheek a bump, a shadow a hole), and a flat-lit photo has too little tonal range inside the subject. What a face needs is shape: the nose proud of the cheeks, the eyes sunk, the ears leaning away. A monocular depth network gives a relative depth map from a single photo and runs in the browser; Depth Anything V2 Small (Apache-2.0) is 20–50 MB. The research and application notes (`tmp/ai/BROWSER_AI_APPLICATION.md`, idea A3) planned it for this purpose. Together with the soft matte of `33` this gives a bas-relief portrait.
+No single source of height does it. On the owner's cat photo (`poc/ai/FINDINGS.md`, images in `poc/ai/findings/`):
+
+- **Contour** (the existing bevel from the silhouette edge) gives the body of the keychain and a clean edge, but is the same for every photo.
+- **Depth** (Depth Anything V2 Small) gives the overall form: the head raised over the body, the muzzle over the cheeks. It is smooth and soft on fine features.
+- **Detail** (local contrast of the brightness, on a crop of the face) gives exactly the features depth smooths out: the eyes, the nose, the whiskers, the forehead stripes, the ear; on the whole frame the face is too small for it, on a face crop it reads well and four tone levels still keep the face recognisable.
+
+The three complement each other, so the relief is built as a **mix of the three**, with a share for each that the user controls, plus a crop so that the face has enough pixels.
 
 ## What Changes
 
-- **Depth as a height source.** In Image mode the Relief source gets a third option, "Photo depth" next to Distance and Brightness. The depth map is computed once by a model from the model manager of `32`, stored with the image, and used inside the AI silhouette as the height field, with the existing contrast, gamma, invert and smoothing controls.
-- **Mix with brightness.** A slider mixes depth with local-contrast brightness (0 % = depth only, 100 % = brightness only), because depth gives the form and brightness the fine detail (whiskers, fur, eye outline). The default favours depth.
-- **Local contrast.** The brightness source gets an optional "Detail boost" (local contrast normalisation) so that a flat-lit photo reaches the tonal range the height needs; also useful for the plain Brightness source.
-- **Range and base.** The height range of the photo relief, its floor and the rim stay the existing relief controls; a "Relief depth" preset (Subtle, Portrait, Deep) sets sensible range values. Printing notes: very fine detail below the grid cell is limited by the quality setting, as the existing resolution warning says.
-- **Persistence.** The depth plane is stored with the image like the matte of `33`, keyed by image, model and revision, so a reload restores the relief without running the network.
-- **PoC.** `poc/ai/` can run the depth model (kind `depth`, with external weights) on the owner's cat photo and shows the depth map next to the image, so the quality is judged before the work starts.
+- **Form mix.** The Relief source gets "Photo" next to Distance and Brightness. Under it three shares (Contour, Depth, Detail, in percent, normalised) are mixed into one height field; presets Subtle, Portrait and Deep set the shares, the height range and the detail settings, and edit to Custom. A share at zero switches that source off, and Contour alone is today's Distance source.
+- **Depth.** Computed once by a model of kind `depth` from the model manager of `32` (Depth Anything V2 Small, Apache-2.0, 20–50 MB), stored with the image, normalised inside the silhouette so the background does not use up the height range.
+- **Detail.** "Detail boost" (local contrast, radius in mm of the part so it means the same at any resolution) and optional "Tone levels" (2–8, soft or hard steps). Detail is zero-centred, so it adds structure around the form and does not lift the part by the photo's mean brightness.
+- **Crop.** A non-destructive crop rectangle over the image (aspect lock, "fit to subject" from the AI mask box, reset). Everything after it works on the crop; the AI matte is cropped without re-running the network. Depth can be recomputed for the crop (more pixels on the face); a depth computed for another crop stays usable and is marked as such.
+- **Whole frame silhouette.** A third silhouette source, "Whole frame", makes the crop a plaque (shape from the Base section) for a face portrait; the AI matte of `33` stays for cut-out heads and whole animals.
+- **PoC.** `poc/ai/` has a "shape combiner": it takes the contour from a matte run, the depth from a depth run and the brightness of the same image, and shows the mixed height and a shaded relief with sliders for the three shares, the detail radius and levels, so the combination can be chosen before the work starts.
 
 ## Capabilities
 
 ### New Capabilities
-- `keychain-photo-relief`: depth-based relief from a photo, its mix with brightness, local contrast and persistence.
+- `keychain-photo-relief`: a relief built from contour, depth and detail, with crop and a whole-frame plaque.
 
 ### Modified Capabilities
 
 ## Impact
 
-- `geometry/keychain.ts` (`SourceParams.kind` gets `'depth'`, plus `depthMix`, `boost`; `buildGrid` takes the depth plane through the same path as brightness: resample to the grid, contrast/gamma/invert/smoothing, clamp to the silhouette; `registerDepth` and `depthRegistry` in the worker), `geometry/raster/` (`localContrast`, depth normalisation), `features/keychain/` (`ProfileSection` source choice, `PhotoReliefBlock`, `useDepth`, depth records in the store, migration), reuse of `src/ml/` and the model manager of `32` (a second model kind in the registry, `kind: 'depth'`, with external data support), strings in en and ru, tests.
-- With `kind: 'distance'` or `'brightness'` and `boost: 0` the output equals the current one.
-- Out of scope: real metric depth, 3D reconstruction, per-region editing of the relief or a sculpt brush, normal maps, colour output or multi-colour printing, face-specific models, Shape mode.
-- Version 1.5.0 (minor: a new relief source).
+- `geometry/keychain.ts` (`KeychainParams.crop {x, y, w, h}` fractions applied to the image planes before the silhouette; `silhouette.source` gets `'frame'` (extends `33`); `SourceParams.kind` gets `'photo'` with `mix {contour, depth, detail}`, `depthId`, `boost`, `boostRadius` (mm), `levels`, `levelSoftness`; `registerDepth` and `depthRegistry` in the worker; `buildGrid` samples the planes through the brightness path), `geometry/raster/` (`localContrast`, `quantise`, `normaliseDepth`), `src/ml/` registry gets `kind: 'depth'` with external-data support, `features/keychain/` (`CropEditor`, `PhotoReliefBlock`, `useDepth`, depth records in `imageStore`, migration), strings in en and ru, tests.
+- With the Distance or Brightness source, no crop, a traced silhouette, boost 0 and levels 0, the output equals the current one.
+- Out of scope: real metric depth or 3D reconstruction, face detection for an automatic crop, line or edge extraction, sculpt or brush editing of the relief, multi-colour output, larger non-permissive depth models, Shape mode.
+- Version 1.5.0 (minor: new options).
 - Depends on: `33-keychain-ai-silhouette`, `32-photo-trace-ai`, `12-keychain-patterns`, `17-keychain-smoothing`, `29-beta-label`.

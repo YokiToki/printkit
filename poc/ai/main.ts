@@ -5,6 +5,7 @@ import { guessPaper } from '../../src/geometry/photo/aspect'
 import { paperSize } from '../../src/geometry/photo/paper'
 import { rectify, type Rectified } from '../../src/geometry/photo/homography'
 import { segment } from '../../src/geometry/photo/segment'
+import { edt } from '../../src/geometry/raster/edt'
 import { gaussianBlur, MIN_SIGMA } from '../../src/geometry/raster/blur'
 import { fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
 import { CANDIDATES, type Candidate } from './models'
@@ -186,7 +187,8 @@ function evaluate() {
   let alpha = state.alpha
   if (smoothMm > 0) alpha = gaussianBlur(alpha, W, H, Math.max(MIN_SIGMA, smoothMm * rect.scale), new Uint8Array(W * H).fill(1))
   drawAlpha(alpha, W, H)
-  if (state.depth) { $('edge').textContent = 'карта глубины (светлее = ближе): справа — глубина, силуэт не считается'; $('tbl').innerHTML = ''; $('status').textContent = 'готово'; return }
+  capture(state.depth, alpha, rect, W, H, thr)
+  if (state.depth) { combine(); $('edge').textContent = 'карта глубины (светлее = ближе): справа — глубина, силуэт не считается'; $('tbl').innerHTML = ''; $('status').textContent = 'готово'; return }
   const mask = new Uint8Array(W * H); for (let i = 0; i < mask.length; i++) mask[i] = alpha[i] >= thr ? 1 : 0
   const ai = components(mask, W, H, rect.scale, margin)
   draw(rect, seg.labels, ai.labels)
@@ -223,6 +225,67 @@ function drawAlpha(alpha: Float32Array, w: number, h: number) {
   g.putImageData(im, 0, 0)
 }
 for (const id of ['thr', 'smooth', 'margin']) $(id).addEventListener('input', () => evaluate())
+/** Плоскости последнего запуска для комбинатора: маска (контур), глубина, яркость. Размеры совпадают, пока снимок один. */
+const planes: { w: number; h: number; mask?: Uint8Array; depth?: Float32Array; gray?: Float32Array; name?: string } = { w: 0, h: 0 }
+function capture(isDepth: boolean, alpha: Float32Array, rect: Rectified, W: number, H: number, thr: number) {
+  if (planes.w !== W || planes.h !== H) { planes.mask = undefined; planes.depth = undefined }
+  planes.w = W; planes.h = H
+  planes.gray = Float32Array.from(rect.image.gray, (v) => v / 255)
+  if (isDepth) planes.depth = alpha
+  else planes.mask = alpha.map((v) => (v >= thr ? 1 : 0)) as unknown as Uint8Array
+  $('planes').textContent = ` плоскости: маска ${planes.mask ? 'есть' : 'нет'}, глубина ${planes.depth ? 'есть' : 'нет'}`
+  combine()
+}
+const ones = (n: number) => new Uint8Array(n).fill(1)
+function localContrast(g: Float32Array, w: number, h: number, sigma: number, amount: number): Float32Array {
+  if (amount <= 0) return g.map(() => 0.5)
+  const mean = gaussianBlur(g, w, h, Math.max(MIN_SIGMA, sigma), ones(w * h))
+  const dev = g.map((v, i) => v - mean[i])
+  const sd = gaussianBlur(dev.map((v) => v * v), w, h, Math.max(MIN_SIGMA, sigma), ones(w * h)).map((v) => Math.sqrt(v) + 0.02)
+  return dev.map((v, i) => 0.5 + 0.5 * Math.tanh(amount * v / sd[i]))
+}
+const smooth01 = (t: number) => { const x = Math.min(1, Math.max(0, t)); return x * x * (3 - 2 * x) }
+/** Форма = нормированная смесь трёх источников: контур (скос от края маски), глубина (внутри маски), детали (локальный контраст яркости). */
+function combine() {
+  const { w, h, mask, depth, gray } = planes
+  if (!gray || !w) return
+  const num = (id: string) => +$<HTMLInputElement>(id).value
+  const wc = num('wc'), wd = num('wd'), wt = num('wt')
+  const pxMm = w / Math.max(1, num('partw')) // пикселей на мм детали (кадр = вся деталь)
+  const inside = mask ?? ones(w * h)
+  // контур: скос шириной bevel мм от края маски
+  const dist = mask ? edt(mask, w, h) : null
+  const bevelPx = Math.max(1, num('bevel') * pxMm)
+  const contour = Float32Array.from({ length: w * h }, (_, i) => (dist ? smooth01(dist[i] / bevelPx) : 1))
+  // глубина: нормировка по перцентилям внутри маски
+  let dnorm = new Float32Array(w * h).fill(0.5)
+  if (depth) {
+    const vals: number[] = []; for (let i = 0; i < w * h; i++) if (inside[i]) vals.push(depth[i])
+    vals.sort((a, b) => a - b); const lo = vals[Math.floor(vals.length * 0.02)] ?? 0, hi = vals[Math.floor(vals.length * 0.98)] ?? 1
+    dnorm = depth.map((v) => Math.min(1, Math.max(0, (v - lo) / (hi - lo || 1))))
+  }
+  let tone = localContrast(gray, w, h, num('lcr') * pxMm, num('lca'))
+  const L = num('lvl'); if (L >= 2) tone = tone.map((v) => Math.round(v * (L - 1)) / (L - 1))
+  const wsum = (mask || !depth ? wc : wc) + wd * (depth ? 1 : 0) + wt || 1
+  const wcE = wc, wdE = depth ? wd : 0
+  const sum = wcE + wdE + wt || 1
+  const height = new Float32Array(w * h)
+  for (let i = 0; i < w * h; i++) height[i] = inside[i] ? (wcE * contour[i] + wdE * dnorm[i] + wt * tone[i]) / sum : 0
+  void wsum
+  // рисуем высоту и «затенённый» рельеф (свет сверху слева), чтобы оценить, читается ли форма
+  const cv4 = $<HTMLCanvasElement>('c4'), cv5 = $<HTMLCanvasElement>('c5'); cv4.width = cv5.width = w; cv4.height = cv5.height = h
+  const g4 = cv4.getContext('2d')!.createImageData(w, h), g5 = cv5.getContext('2d')!.createImageData(w, h), k = num('light')
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const p = j * w + i, v = Math.round(height[p] * 255)
+    g4.data[p * 4] = g4.data[p * 4 + 1] = g4.data[p * 4 + 2] = v; g4.data[p * 4 + 3] = 255
+    const a = height[Math.max(0, j - 1) * w + Math.max(0, i - 1)], b = height[Math.min(h - 1, j + 1) * w + Math.min(w - 1, i + 1)]
+    const sh = Math.round(Math.min(1, Math.max(0, 0.5 + k * (a - b))) * 255)
+    const sv = inside[p] ? sh : 40
+    g5.data[p * 4] = g5.data[p * 4 + 1] = g5.data[p * 4 + 2] = sv; g5.data[p * 4 + 3] = 255
+  }
+  cv4.getContext('2d')!.putImageData(g4, 0, 0); cv5.getContext('2d')!.putImageData(g5, 0, 0)
+}
+for (const id of ['wc', 'wd', 'wt', 'partw', 'lcr', 'lca', 'lvl', 'bevel', 'light']) $(id).addEventListener('input', () => combine())
 const scaleMm = (scale: number) => 1 / (scale * scale)
 
 $('run').addEventListener('click', () => { run().catch((e) => { log('ОШИБКА: ' + (e?.stack ?? e)); $('status').textContent = 'ошибка' }) })

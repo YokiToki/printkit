@@ -11,6 +11,7 @@ import { close } from '../../src/geometry/raster/morphology'
 import { findHoles, fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
 import { backendsOf, CANDIDATES, type Candidate } from './models'
 import { infer } from './engine'
+import { signedDistance, vectorOutline } from './outline'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 const num = (id: string) => +$<HTMLInputElement>(id).value
@@ -230,7 +231,13 @@ function update() {
   const same = depthRec && JSON.stringify(depthRec.crop) === JSON.stringify(c)
   $('st-depth').textContent = depthRec ? (same ? 'посчитана для этого кропа' : 'посчитана для другого кропа (можно пересчитать)') : 'не посчитана'
   show('pv-depth', w.ww, w.wh, (i) => (mask[i] ? (dn ? gr(dn[i]) : [90, 90, 90]) : checker(i, w.ww)))
-  const dt = blurIn(detail(w, pxMm), w.ww, w.wh, num('tsm') * pxMm, mask)
+  const tone = blurIn(detail(w, pxMm), w.ww, w.wh, num('tsm') * pxMm, mask)
+  // режим деталей: бугры (тон → высота), гравировка (только тёмные черты продавливаются канавками) или оба
+  const dmode = $<HTMLSelectElement>('dmode').value, dth = Math.min(0.95, num('dth'))
+  const dt = tone.map((t) => {
+    const groove = smooth01((Math.max(0, 0.5 - t) * 2 - dth) / (1 - dth)) // 0 везде, кроме самых тёмных мест
+    return dmode === 'bumps' ? t : dmode === 'engrave' ? 1 - groove : 0.5 * t + 0.5 * (1 - groove)
+  })
   show('pv-detail', w.ww, w.wh, (i) => (mask[i] ? gr(dt[i]) : checker(i, w.ww)))
   // смесь
   const dist = edt(mask, w.ww, w.wh), bevelPx = Math.max(1, num('bevel') * pxMm), roll = num('roll') / 100
@@ -275,6 +282,7 @@ function frame(partW: number, partH: number, preset: 'top' | 'iso' | null) {
 $('vtop').addEventListener('click', () => frame(num('partw'), num('partw'), 'top'))
 $('viso').addEventListener('click', () => frame(num('partw'), num('partw'), 'iso'))
 
+const log2 = document.createElement('span'); log2.className = 'note'; $('stat3d').after(log2)
 function build3D(w: Work, mask: Uint8Array, value: Float32Array, partW: number, partH: number) {
   const nodes = Math.max(60, num('nodes')), s = Math.max(1, Math.ceil(Math.max(w.ww, w.wh) / nodes))
   const nx = Math.floor((w.ww - 1) / s) + 1, ny = Math.floor((w.wh - 1) / s) + 1
@@ -283,8 +291,17 @@ function build3D(w: Work, mask: Uint8Array, value: Float32Array, partW: number, 
   const soft = gaussianBlur(Float32Array.from(mask), w.ww, w.wh, Math.max(1, num('osm') * (w.ww / partW)), ones(w.ww * w.wh)) // как в вырезах: σ ≈ 0.25 мм
   const px = (i: number) => Math.min(w.ww - 0.5, i * s + 0.5), py = (j: number) => Math.min(w.wh - 0.5, j * s + 0.5)
   const F = new Float32Array(nx * ny), isIn = new Uint8Array(nx * ny), Z = new Float32Array(nx * ny)
+  // векторный контур: изолиния, сглаживание вдоль кривой, острые углы сохраняются; поле F у края заменяется знаковым расстоянием до кривой
+  let loops: ReturnType<typeof vectorOutline> | null = null
+  if (chk('vec')) {
+    const f1 = gaussianBlur(Float32Array.from(mask), w.ww, w.wh, 0.8, ones(w.ww * w.wh)), pxMmL = w.ww / partW
+    loops = vectorOutline(Uint8Array.from(f1, (v) => Math.round(v * 255)), w.ww, w.wh, Math.max(0.5, num('osm') * pxMmL), num('cang'))
+    log2.textContent = `контур: ${loops.length} петель, ${loops.reduce((a, l) => a + l.length, 0)} вершин`
+  } else log2.textContent = ''
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-    const k = j * nx + i; F[k] = bil(soft, w.ww, w.wh, px(i), py(j)); isIn[k] = F[k] >= 0.5 ? 1 : 0
+    const k = j * nx + i; F[k] = bil(soft, w.ww, w.wh, px(i), py(j))
+    if (loops && F[k] > 0.003 && F[k] < 0.997) F[k] = Math.min(1, Math.max(0, 0.5 + signedDistance(loops, px(i), py(j)) / (2 * s))) // у края: расстояние до кривой в долях ячейки
+    isIn[k] = F[k] >= 0.5 ? 1 : 0
     Z[k] = floor + range * bil(value, w.ww, w.wh, px(i), py(j))
   }
   const NX = new Float32Array(nx * ny), NY = new Float32Array(nx * ny)
@@ -352,15 +369,18 @@ async function runModel(kind: 'sil' | 'depth') {
 }
 
 // ---------- события ----------
-const PRESETS: Record<string, Record<string, number>> = {
+const PRESETS: Record<string, Record<string, number | string>> = {
   // значения в мм детали; лицо — кроп морды ~40 мм, целиком — всё животное, мелочь теряется, поэтому деталь шире и сглаживание меньше
-  face: { wc: 30, wd: 40, wt: 30, partw: 40, dsm: 0.6, tsm: 0.3, fsm: 0.3, lcr: 1.4, lca: 0.7, slope: 1.5, bevel: 3, range: 2 },
-  whole: { wc: 30, wd: 55, wt: 15, partw: 70, dsm: 0.35, tsm: 0.25, fsm: 0.2, lcr: 1.2, lca: 0.45, slope: 2.5, bevel: 3, range: 2.5 },
+  face: { silsrc: 'frame', dmode: 'engrave', dth: 0.15, wc: 30, wd: 40, wt: 30, partw: 40, dsm: 0.6, tsm: 0.3, fsm: 0.3, lcr: 1.4, lca: 1.1, slope: 1.5, bevel: 3, range: 2.4 },
+  whole: { silsrc: 'model', dmode: 'engrave', dth: 0.45, wc: 30, wd: 55, wt: 15, partw: 70, dsm: 0.35, tsm: 0.25, fsm: 0.2, lcr: 1.2, lca: 0.45, slope: 2.5, bevel: 3, range: 2.5 },
+  // рисунок/логотип: только силуэт по яркости, контурный скос, без глубины и деталей; кончики шипов сохраняются малым сглаживанием
+  drawing: { silsrc: 'brightness', wc: 100, wd: 0, wt: 0, partw: 60, bevel: 1.2, roll: 40, range: 1.5, fsm: 0.1, slope: 3, osm: 0.15, openmm2: 150 },
 }
-for (const k of Object.keys(PRESETS)) $('pre-' + k).addEventListener('click', () => { for (const [id, v] of Object.entries(PRESETS[k])) $<HTMLInputElement>(id).value = String(v); schedule() })
+const applyPreset = (k: string) => { for (const [id, v] of Object.entries(PRESETS[k])) $<HTMLInputElement>(id).value = String(v); schedule() }
+for (const k of Object.keys(PRESETS)) $('pre-' + k).addEventListener('click', () => applyPreset(k))
 $('runsil').addEventListener('click', () => runModel('sil'))
 $('rundepth').addEventListener('click', () => runModel('depth'))
-$('sample').addEventListener('change', () => { $<HTMLInputElement>('file').value = ''; loadImage() })
+$('sample').addEventListener('change', () => { $<HTMLInputElement>('file').value = ''; const v = $<HTMLSelectElement>('sample').value; applyPreset(v === 'ring' || v === 'check' ? 'drawing' : v === 'cat_face' ? 'face' : 'whole'); loadImage() })
 $('file').addEventListener('change', () => loadImage())
 $('face').addEventListener('click', () => { for (const [id, v] of [['cx', 42], ['cy', 34], ['cw', 42], ['ch', 24]] as const) $<HTMLInputElement>(id).value = String(v); schedule() })
 $('resetcrop').addEventListener('click', () => { for (const [id, v] of [['cx', 0], ['cy', 0], ['cw', 100], ['ch', 100]] as const) $<HTMLInputElement>(id).value = String(v); schedule() })

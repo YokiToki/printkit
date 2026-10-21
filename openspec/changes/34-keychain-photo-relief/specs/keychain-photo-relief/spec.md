@@ -108,6 +108,21 @@ The user SHALL be able to choose Whole frame as the silhouette source, which mak
 - **WHEN** the relief reaches the plaque's edge
 - **THEN** it rolls off to the rim height and does not end as a vertical wall
 
+### Requirement: Detail as engraving
+The Detail source SHALL offer three modes: Engrave (the darkest features of the photo are pressed in as grooves and the mid-tones stay smooth), Relief (the tone drives the height) and Both. Engrave SHALL be the default. The user SHALL be able to set how dark a feature must be to be engraved.
+
+#### Scenario: Engrave
+- **WHEN** the mode is Engrave on a face crop
+- **THEN** the eyes, the nose and the dark stripes are grooves and the rest of the surface is not bumpy
+
+#### Scenario: Threshold
+- **WHEN** the dark threshold is lowered
+- **THEN** more of the photo's darker features are engraved
+
+#### Scenario: Relief
+- **WHEN** the mode is Relief
+- **THEN** the height follows the tone as before
+
 ### Requirement: Photo presets
 The app SHALL offer presets for the Photo source (Subtle, Portrait, Deep) that set the three shares, the height range, and the detail radius, amount and levels. Each value SHALL stay editable and the panel SHALL then show Custom.
 
@@ -146,7 +161,7 @@ The Photo source SHALL be offered only in Image mode and SHALL NOT be offered fo
 - **THEN** a hint suggests cropping closer or using Whole frame
 
 ### Requirement: Smooth outline
-The outline of a keychain made from an image SHALL be smooth: it SHALL NOT show steps from the pixels of the image, from the cells of the relief grid or from the resolution of the mask, and its position SHALL follow the edge of the subject to a fraction of a grid cell. Sharp corners that exist in the subject, such as the tip of a thin spike, SHALL stay sharp.
+The outline of a keychain made from an image SHALL be smooth: it SHALL NOT show steps from the pixels of the image, from the cells of the relief grid or from the resolution of the mask, and its position SHALL follow the edge of the subject to a fraction of a grid cell. Sharp corners that exist in the subject, such as the tip of a thin spike, SHALL stay sharp while the curves between them are smoothed. The user SHALL be able to set the smoothness and the angle from which a vertex counts as a corner.
 
 #### Scenario: No steps
 - **WHEN** the silhouette of a photo or a drawing is made into a keychain at any quality setting

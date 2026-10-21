@@ -49,6 +49,8 @@ button{padding:3px 10px}
   </div>
   <div id="silbright" hidden><label><input id="inv" type="checkbox"> инвертировать</label></div>
   <label><input id="fill" type="checkbox" checked> заливать пустоты</label>
+  <label><input id="vec" type="checkbox" checked> векторный контур (острые углы сохраняются)</label>
+  <label>угол, °, с которого вершина считается острой <input id="cang" type="number" value="50" step="5" min="20" max="150"></label>
   <label>сглаживание контура, мм (как в вырезах 0.25) <input id="osm" type="number" value="0.25" step="0.05" min="0"></label>
   <label>открытыми оставить области больше, мм² <input id="openmm2" type="number" value="150" step="10" min="0"></label>
   <canvas id="pv-mask" class="pv"></canvas>
@@ -66,6 +68,8 @@ button{padding:3px 10px}
  <section><h4><span class="n">4</span>Детали (локальный контраст)</h4>
   <label>радиус, мм <input id="lcr" type="number" value="1.4" step="0.1"></label>
   <label>усиление <input id="lca" type="number" value="0.7" step="0.1"></label>
+  <label>детали как <select id="dmode"><option value="engrave">гравировка (канавки в тёмном)</option><option value="bumps">рельеф (бугры)</option><option value="both">оба</option></select></label>
+  <label>порог тёмного <input id="dth" type="number" value="0.35" step="0.05" min="0" max="0.95"></label>
   <label>подавление шума до контраста, мм <input id="tpre" type="number" value="0.25" step="0.05" min="0"></label>
   <label>уровни (0 = нет) <input id="lvl" type="number" value="0" min="0" max="8"></label>
   <label>сглаживание, мм <input id="tsm" type="number" value="0.3" step="0.1" min="0"></label>
@@ -75,7 +79,7 @@ button{padding:3px 10px}
   <div><label>контур <input id="wc" type="range" min="0" max="100" value="30"><b>30</b></label>
   <label>глубина <input id="wd" type="range" min="0" max="100" value="40"><b>40</b></label>
   <label>детали <input id="wt" type="range" min="0" max="100" value="30"><b>30</b></label></div>
-  <div>пресет: <button id="pre-face">лицо (кроп, 40 мм)</button> <button id="pre-whole">животное целиком (70 мм)</button></div>
+  <div>пресет: <button id="pre-face">лицо (кроп, 40 мм)</button> <button id="pre-whole">животное целиком (70 мм)</button> <button id="pre-drawing">рисунок / логотип (60 мм)</button></div>
   <label>скос контура, мм <input id="bevel" type="number" value="3" step="0.5"></label>
   <label>скругление края <input id="roll" type="range" min="0" max="100" value="70"><b>70</b>%</label><br>
   <label>основание, мм <input id="floor" type="number" value="1.2" step="0.1"></label>

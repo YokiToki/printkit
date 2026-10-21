@@ -54,12 +54,15 @@ button{padding:3px 10px}
   <select id="depthsel"></select> <select id="depthep"><option>wasm</option><option>webgpu</option></select>
   <button id="rundepth">Посчитать глубину (для текущего кропа)</button>
   <label><input id="dinv" type="checkbox"> инвертировать</label>
+  <label>сглаживание, мм <input id="dsm" type="number" value="0.6" step="0.1" min="0"></label>
+  <label>гамма <input id="dgam" type="number" value="1" step="0.1" min="0.2" max="3"></label>
   <canvas id="pv-depth" class="pv"></canvas>
  </section>
  <section><h4><span class="n">4</span>Детали (локальный контраст)</h4>
   <label>радиус, мм <input id="lcr" type="number" value="1.4" step="0.1"></label>
-  <label>усиление <input id="lca" type="number" value="1" step="0.1"></label>
+  <label>усиление <input id="lca" type="number" value="0.7" step="0.1"></label>
   <label>уровни (0 = нет) <input id="lvl" type="number" value="0" min="0" max="8"></label>
+  <label>сглаживание, мм <input id="tsm" type="number" value="0.3" step="0.1" min="0"></label>
   <canvas id="pv-detail" class="pv"></canvas>
  </section>
  <section><h4><span class="n">5</span>Смесь формы → высота</h4>
@@ -69,7 +72,10 @@ button{padding:3px 10px}
   <label>скос контура, мм <input id="bevel" type="number" value="3" step="0.5"></label>
   <label>скругление края <input id="roll" type="range" min="0" max="100" value="70"><b>70</b>%</label><br>
   <label>основание, мм <input id="floor" type="number" value="1.2" step="0.1"></label>
-  <label>диапазон высоты, мм <input id="range" type="number" value="2" step="0.1"></label>
+  <label>диапазон высоты, мм <input id="range" type="number" value="2" step="0.1"></label><br>
+  <label>итоговое сглаживание, мм <input id="fsm" type="number" value="0.3" step="0.1" min="0"></label>
+  <label>макс. наклон (0 = выкл) <input id="slope" type="number" value="1.5" step="0.1" min="0"></label>
+  <span class="note">1.5 ≈ 56° от горизонтали: отвесные ступени становятся склонами</span>
   <canvas id="pv-mix" class="pv"></canvas>
  </section>
 </div>

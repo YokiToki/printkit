@@ -85,6 +85,30 @@ function getWork(): Work | null {
 const ones = (n: number) => new Uint8Array(n).fill(1)
 const smooth01 = (t: number) => { const x = Math.min(1, Math.max(0, t)); return x * x * (3 - 2 * x) }
 
+/** Гауссово сглаживание только внутри маски (нормированная свёртка): значения снаружи не просачиваются внутрь. */
+function blurIn(a: Float32Array, w: number, h: number, sigmaPx: number, mask: Uint8Array): Float32Array {
+  return sigmaPx < 0.4 ? a : gaussianBlur(a, w, h, Math.max(MIN_SIGMA, sigmaPx), mask)
+}
+/** Предел наклона: нижняя и верхняя огибающие конусом (две хамфер-проходки), результат — среднее. Отвесные ступени становятся склонами. */
+function limitSlope(v: Float32Array, w: number, h: number, L: number, mask: Uint8Array): Float32Array {
+  if (L <= 0) return v
+  const lo = Float32Array.from(v), hi = Float32Array.from(v), D = L * Math.SQRT2
+  const pass = (fwd: boolean) => {
+    const y0 = fwd ? 0 : h - 1, y1 = fwd ? h : -1, dy = fwd ? 1 : -1, x0 = fwd ? 0 : w - 1, x1 = fwd ? w : -1, dx = fwd ? 1 : -1
+    for (let y = y0; y !== y1; y += dy) for (let x = x0; x !== x1; x += dx) {
+      const i = y * w + x; if (!mask[i]) continue
+      for (const [ox, oy, d] of [[-dx, 0, L], [0, -dy, L], [-dx, -dy, D], [dx, -dy, D]] as const) {
+        const xx = x + ox, yy = y + oy; if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue
+        const j = yy * w + xx; if (!mask[j]) continue
+        if (lo[j] + d < lo[i]) lo[i] = lo[j] + d
+        if (hi[j] - d > hi[i]) hi[i] = hi[j] - d
+      }
+    }
+  }
+  pass(true); pass(false)
+  return v.map((_, i) => 0.5 * (lo[i] + hi[i]))
+}
+
 function silhouette(w: Work, pxMm: number): { mask: Uint8Array; note: string } {
   const n = w.ww * w.wh, src = $<HTMLSelectElement>('silsrc').value
   let mask: Uint8Array, note = ''
@@ -104,6 +128,7 @@ function silhouette(w: Work, pxMm: number): { mask: Uint8Array; note: string } {
       mask = mask.map((_, i) => (cc.labels[i] === best && best ? 1 : 0)) as Uint8Array
     }
   }
+  if (src === 'brightness') { const b = blurIn(Float32Array.from(mask), w.ww, w.wh, 0.3 * pxMm, ones(n)); mask = b.map((v) => (v >= 0.5 ? 1 : 0)) as unknown as Uint8Array } // ровный край без пиксельной лесенки
   if (src !== 'frame') {
     if (chk('fill')) mask = fillHoles(mask, w.ww, w.wh).mask
     mask = removeSpecks(mask, w.ww, w.wh, Math.round(2 * pxMm * pxMm))
@@ -164,11 +189,12 @@ function update() {
   const mask = chk('lm') ? sil.mask : ones(n) // слой «маска»: выключен — рельеф без вырезания по силуэту
   $('st-sil').textContent = note
   show('pv-mask', w.ww, w.wh, (i) => (mask[i] ? [w.rgb[i * 3], w.rgb[i * 3 + 1], w.rgb[i * 3 + 2]] : [30, 30, 40]))
-  const dn = normDepth(w, mask)
+  let dn = normDepth(w, mask)
+  if (dn) { const g = num('dgam'); if (g !== 1) dn = dn.map((v) => Math.pow(v, g)); dn = blurIn(dn, w.ww, w.wh, num('dsm') * pxMm, mask) }
   const same = depthRec && JSON.stringify(depthRec.crop) === JSON.stringify(c)
   $('st-depth').textContent = depthRec ? (same ? 'посчитана для этого кропа' : 'посчитана для другого кропа (можно пересчитать)') : 'не посчитана'
   show('pv-depth', w.ww, w.wh, (i) => (mask[i] ? (dn ? gr(dn[i]) : [90, 90, 90]) : [30, 30, 40]))
-  const dt = detail(w, pxMm)
+  const dt = blurIn(detail(w, pxMm), w.ww, w.wh, num('tsm') * pxMm, mask)
   show('pv-detail', w.ww, w.wh, (i) => (mask[i] ? gr(dt[i]) : [30, 30, 40]))
   // смесь
   const dist = edt(mask, w.ww, w.wh), bevelPx = Math.max(1, num('bevel') * pxMm), roll = num('roll') / 100
@@ -179,6 +205,9 @@ function update() {
     const contour = smooth01(dist[i] / bevelPx), tot = wc + wd + wt, mixed = tot === 0 ? contour : (wc * contour + wd * (dn ? dn[i] : 0) + wt * dt[i]) / tot
     value[i] = mixed * ((1 - roll) + roll * contour)
   }
+  let final = blurIn(value, w.ww, w.wh, num('fsm') * pxMm, mask)
+  { const rng = Math.max(0.01, num('range')); final = limitSlope(final, w.ww, w.wh, num('slope') / pxMm / rng, mask) } // наклон: мм высоты на мм детали → доли диапазона на пиксель
+  value.set(final)
   show('pv-mix', w.ww, w.wh, (i) => (mask[i] ? gr(value[i]) : [30, 30, 40]))
   build3D(w, mask, value, partW, partH)
 }
@@ -215,7 +244,7 @@ function build3D(w: Work, mask: Uint8Array, value: Float32Array, partW: number, 
   const floor = num('floor'), range = num('range'), mmx = partW / w.ww, mmy = partH / w.wh
   const X = (i: number) => (i * s + 0.5) * mmx - partW / 2, Y = (j: number) => partH / 2 - (j * s + 0.5) * mmy
   const inside = (i: number, j: number) => mask[Math.min(w.wh - 1, j * s) * w.ww + Math.min(w.ww - 1, i * s)] === 1
-  const top = (i: number, j: number) => floor + range * value[Math.min(w.wh - 1, j * s) * w.ww + Math.min(w.ww - 1, i * s)]
+  const top = (i: number, j: number) => floor + range * bil(value, w.ww, w.wh, Math.min(w.ww - 0.5, i * s + 0.5), Math.min(w.wh - 0.5, j * s + 0.5))
   // верх: индексированная сетка, только ячейки, у которых все 4 узла внутри маски
   const pos = new Float32Array(nx * ny * 3)
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const p = (j * nx + i) * 3; pos[p] = X(i); pos[p + 1] = Y(j); pos[p + 2] = inside(i, j) ? top(i, j) : 0 }

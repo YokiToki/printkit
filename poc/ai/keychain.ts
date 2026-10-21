@@ -279,8 +279,8 @@ function build3D(w: Work, mask: Uint8Array, value: Float32Array, partW: number, 
   const nodes = Math.max(60, num('nodes')), s = Math.max(1, Math.ceil(Math.max(w.ww, w.wh) / nodes))
   const nx = Math.floor((w.ww - 1) / s) + 1, ny = Math.floor((w.wh - 1) / s) + 1
   const floor = num('floor'), range = num('range'), mmx = partW / w.ww, mmy = partH / w.wh
-  // мягкая маска (σ = 1 px): по ней край кладётся с субпиксельной точностью, а не по ступеням сетки
-  const soft = gaussianBlur(Float32Array.from(mask), w.ww, w.wh, 1, ones(w.ww * w.wh))
+  // мягкая маска: размытие в мм (в вырезах σ = 1 px при 4 px/мм ≈ 0.25 мм); по изолинии 0.5 край кладётся с субпиксельной точностью
+  const soft = gaussianBlur(Float32Array.from(mask), w.ww, w.wh, Math.max(1, num('osm') * (w.ww / partW)), ones(w.ww * w.wh)) // как в вырезах: σ ≈ 0.25 мм
   const px = (i: number) => Math.min(w.ww - 0.5, i * s + 0.5), py = (j: number) => Math.min(w.wh - 0.5, j * s + 0.5)
   const F = new Float32Array(nx * ny), isIn = new Uint8Array(nx * ny), Z = new Float32Array(nx * ny)
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {

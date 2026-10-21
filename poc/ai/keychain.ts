@@ -63,9 +63,9 @@ function bil(p: Float32Array, w: number, h: number, x: number, y: number): numbe
 function getWork(): Work | null {
   if (!img) return null
   const c = cropNow(), { x0, y0, pw, ph } = cropPx(c, img)
-  const key = [x0, y0, pw, ph, matte ? 1 : 0, depthRec ? depthRec.crop.x + ',' + depthRec.crop.y + ',' + depthRec.crop.w + ',' + depthRec.crop.h : 0].join('|')
+  const key = [num('res'), x0, y0, pw, ph, matte ? 1 : 0, depthRec ? depthRec.crop.x + ',' + depthRec.crop.y + ',' + depthRec.crop.w + ',' + depthRec.crop.h : 0].join('|')
   if (work && work.key === key) return work
-  const k = Math.min(1, 640 / Math.max(pw, ph)), ww = Math.max(8, Math.round(pw * k)), wh = Math.max(8, Math.round(ph * k))
+  const k = Math.min(1, num('res') / Math.max(pw, ph)), ww = Math.max(8, Math.round(pw * k)), wh = Math.max(8, Math.round(ph * k))
   const gray = new Float32Array(ww * wh), rgb = new Uint8Array(ww * wh * 3)
   const mw = matte ? new Float32Array(ww * wh) : null, dw = depthRec ? new Float32Array(ww * wh) : null
   const dpx = depthRec ? cropPx(depthRec.crop, img) : null
@@ -162,6 +162,8 @@ function show(id: string, w: number, h: number, px: (i: number) => [number, numb
   for (let i = 0; i < w * h; i++) { const [r, gg, b] = px(i); im.data[i * 4] = r; im.data[i * 4 + 1] = gg; im.data[i * 4 + 2] = b; im.data[i * 4 + 3] = 255 }
   g.putImageData(im, 0, 0)
 }
+/** Подложка-шашка (как «прозрачность» в графических редакторах) для всего, что вне силуэта: клетка 8 px. */
+const checker = (i: number, w: number): [number, number, number] => { const x = (i % w) >> 3, y = Math.floor(i / w) >> 3; return (x + y) & 1 ? [214, 214, 214] : [170, 170, 170] }
 const gr = (v: number): [number, number, number] => { const t = Math.round(Math.min(1, Math.max(0, v)) * 255); return [t, t, t] }
 
 function previewImage(c: Crop) {
@@ -186,16 +188,17 @@ function update() {
   const w = getWork(); if (!w || !img) return
   const partW = num('partw'), pxMm = w.ww / partW, partH = partW * w.wh / w.ww, n = w.ww * w.wh
   const sil = silhouette(w, pxMm), note = sil.note
-  const mask = chk('lm') ? sil.mask : ones(n) // слой «маска»: выключен — рельеф без вырезания по силуэту
+  const silMask = sil.mask // силуэт всегда показывается в превью этапа 2, даже когда слой «маска» выключен для 3D
+  const mask = chk('lm') ? silMask : ones(n) // слой «маска»: выключен — рельеф без вырезания по силуэту
   $('st-sil').textContent = note
-  show('pv-mask', w.ww, w.wh, (i) => (mask[i] ? [w.rgb[i * 3], w.rgb[i * 3 + 1], w.rgb[i * 3 + 2]] : [30, 30, 40]))
+  show('pv-mask', w.ww, w.wh, (i) => (silMask[i] ? [w.rgb[i * 3], w.rgb[i * 3 + 1], w.rgb[i * 3 + 2]] : checker(i, w.ww)))
   let dn = normDepth(w, mask)
   if (dn) { const g = num('dgam'); if (g !== 1) dn = dn.map((v) => Math.pow(v, g)); dn = blurIn(dn, w.ww, w.wh, num('dsm') * pxMm, mask) }
   const same = depthRec && JSON.stringify(depthRec.crop) === JSON.stringify(c)
   $('st-depth').textContent = depthRec ? (same ? 'посчитана для этого кропа' : 'посчитана для другого кропа (можно пересчитать)') : 'не посчитана'
-  show('pv-depth', w.ww, w.wh, (i) => (mask[i] ? (dn ? gr(dn[i]) : [90, 90, 90]) : [30, 30, 40]))
+  show('pv-depth', w.ww, w.wh, (i) => (mask[i] ? (dn ? gr(dn[i]) : [90, 90, 90]) : checker(i, w.ww)))
   const dt = blurIn(detail(w, pxMm), w.ww, w.wh, num('tsm') * pxMm, mask)
-  show('pv-detail', w.ww, w.wh, (i) => (mask[i] ? gr(dt[i]) : [30, 30, 40]))
+  show('pv-detail', w.ww, w.wh, (i) => (mask[i] ? gr(dt[i]) : checker(i, w.ww)))
   // смесь
   const dist = edt(mask, w.ww, w.wh), bevelPx = Math.max(1, num('bevel') * pxMm), roll = num('roll') / 100
   const wc = chk('lc') ? num('wc') : 0, wd = dn && chk('ld') ? num('wd') : 0, wt = chk('lt') ? num('wt') : 0
@@ -208,7 +211,7 @@ function update() {
   let final = blurIn(value, w.ww, w.wh, num('fsm') * pxMm, mask)
   { const rng = Math.max(0.01, num('range')); final = limitSlope(final, w.ww, w.wh, num('slope') / pxMm / rng, mask) } // наклон: мм высоты на мм детали → доли диапазона на пиксель
   value.set(final)
-  show('pv-mix', w.ww, w.wh, (i) => (mask[i] ? gr(value[i]) : [30, 30, 40]))
+  show('pv-mix', w.ww, w.wh, (i) => (mask[i] ? gr(value[i]) : checker(i, w.ww)))
   build3D(w, mask, value, partW, partH)
 }
 
@@ -298,6 +301,12 @@ async function runModel(kind: 'sil' | 'depth') {
 }
 
 // ---------- события ----------
+const PRESETS: Record<string, Record<string, number>> = {
+  // значения в мм детали; лицо — кроп морды ~40 мм, целиком — всё животное, мелочь теряется, поэтому деталь шире и сглаживание меньше
+  face: { partw: 40, dsm: 0.6, tsm: 0.3, fsm: 0.3, lcr: 1.4, lca: 0.7, slope: 1.5, bevel: 3, range: 2 },
+  whole: { partw: 70, dsm: 0.35, tsm: 0.15, fsm: 0.15, lcr: 0.9, lca: 0.6, slope: 2.5, bevel: 3, range: 2.5 },
+}
+for (const k of Object.keys(PRESETS)) $('pre-' + k).addEventListener('click', () => { for (const [id, v] of Object.entries(PRESETS[k])) $<HTMLInputElement>(id).value = String(v); schedule() })
 $('runsil').addEventListener('click', () => runModel('sil'))
 $('rundepth').addEventListener('click', () => runModel('depth'))
 $('sample').addEventListener('change', () => { $<HTMLInputElement>('file').value = ''; loadImage() })

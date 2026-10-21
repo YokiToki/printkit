@@ -1,39 +1,78 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>PoC: AI silhouettes</title>
+<html lang="ru"><head><meta charset="utf-8"><title>PoC: Вырезы — пайплайн фото → карманы</title>
 <style>
-body{font:13px system-ui;margin:12px;background:#fafafa;color:#222}
-fieldset{display:inline-block;vertical-align:top;margin:0 8px 8px 0}
-button{padding:4px 10px}
-table{border-collapse:collapse;margin:8px 0}td,th{border:1px solid #bbb;padding:2px 8px;text-align:right}th{background:#eee}
-canvas{max-width:32%;border:1px solid #888;margin:4px}
-#log{white-space:pre-wrap;font:12px ui-monospace,monospace;background:#fff;border:1px solid #ccc;padding:6px;max-height:220px;overflow:auto}
+:root{color-scheme:light}
+body{font:13px system-ui;margin:0;background:#f4f4f2;color:#222}
+header{padding:8px 14px;background:#fff;border-bottom:1px solid #ccc}
+main{display:grid;grid-template-columns:minmax(420px,520px) minmax(0,1fr);gap:12px;padding:12px;align-items:start}
+.col{display:flex;flex-direction:column;gap:10px}
+section{background:#fff;border:1px solid #d0d0cc;border-radius:6px;padding:8px 10px}
+section h4{margin:0 0 6px;font-size:13px}
+section h4 .n{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:10px;background:#333;color:#fff;margin-right:6px;font-size:12px}
+label{display:inline-block;margin:2px 8px 2px 0;white-space:nowrap}
+input[type=range]{width:110px;vertical-align:middle}
+input[type=number]{width:4.2em}
+canvas.pv{max-width:100%;max-height:260px;border:1px solid #999;margin-top:4px;background:#ddd}
+#view{width:100%;height:560px;background:#e8e8e4;border:1px solid #999;border-radius:6px}
+#right{position:sticky;top:8px;min-width:0}
+#view canvas{display:block;width:100%;height:100%}
+#log{white-space:pre-wrap;font:11px ui-monospace,monospace;background:#fff;border:1px solid #ccc;padding:5px;height:150px;overflow:auto}
+table{border-collapse:collapse;margin:4px 0;font-size:12px}td,th{border:1px solid #bbb;padding:2px 6px;text-align:right}th{background:#eee}
+.note{color:#666;font-size:12px}
+button{padding:3px 10px}
 </style></head><body>
-<h3>PoC (change 32): нейросетевые силуэты на выпрямленном листе · <a href="./index.html">Keychain: пайплайн →</a></h3>
-<fieldset><legend>Снимок</legend>
- <select id="sample"><option value="flash">flash (960×1280)</option><option value="noflash">noflash (960×1280)</option><option value="cat">cat (960×1280, Keychain)</option><option value="cat_face">cat_face (кроп морды 400×300, Keychain)</option></select>
- <input id="file" type="file" accept="image/*"> <label><input id="whole" type="checkbox"> весь снимок (режим Keychain, без листа)</label>
-</fieldset>
-<fieldset><legend>Модель</legend><select id="model"></select></fieldset>
-<fieldset><legend>Бэкенд</legend>
- <select id="ep"><option>webgpu</option><option>wasm</option></select>
- потоки <input id="threads" type="number" value="1" min="1" max="16" style="width:3em">
- вход <input id="size" type="number" placeholder="по умолч." style="width:5em">
-</fieldset>
-<fieldset><legend>Край (пересчёт без модели)</legend>порог <input id="thr" type="range" min="0.05" max="0.95" value="0.5" step="0.01" oninput="this.nextElementSibling.textContent=this.value"><b>0.5</b> сглаживание мм <input id="smooth" type="range" min="0" max="3" value="0" step="0.1" oninput="this.nextElementSibling.textContent=this.value"><b>0</b> поле мм <input id="margin" type="number" value="3" style="width:3em"></fieldset>
-<button id="run">Запустить</button> <span id="status"></span>
-<div>cross-origin isolated: <b id="coi"></b>, WebGPU: <b id="gpu"></b>, cores: <b id="cores"></b></div>
-<table id="tbl"></table>
-<fieldset id="combo"><legend>Комбинатор формы (нужны запуски: маска-модель и/или глубина в режиме «весь снимок»)</legend>
- контур <input id="wc" type="range" min="0" max="100" value="30" oninput="this.nextElementSibling.textContent=this.value"><b>30</b>
- глубина <input id="wd" type="range" min="0" max="100" value="40" oninput="this.nextElementSibling.textContent=this.value"><b>40</b>
- детали <input id="wt" type="range" min="0" max="100" value="30" oninput="this.nextElementSibling.textContent=this.value"><b>30</b><br>
- ширина детали мм <input id="partw" type="number" value="40" style="width:4em"> радиус деталей мм <input id="lcr" type="number" value="1.4" step="0.1" style="width:4em">
- усиление <input id="lca" type="number" value="1" step="0.1" style="width:4em"> уровни тонов (0=нет) <input id="lvl" type="number" value="0" min="0" max="8" style="width:3em">
- скос контура мм <input id="bevel" type="number" value="3" step="0.5" style="width:4em"> свет <input id="light" type="range" min="1" max="12" value="5">
- <span id="planes"></span>
- <div><canvas id="c4"></canvas><canvas id="c5"></canvas></div>
-</fieldset>
-<div id="edge"></div><div><canvas id="c1"></canvas><canvas id="c2"></canvas><canvas id="c3"></canvas></div>
-<div id="log"></div>
+<header><b>PoC Вырезы: фото инструментов на листе → карманы в корпусе</b> · <a href="./index.html">Keychain: пайплайн →</a>
+ · isolated: <b id="coi"></b>, cores: <b id="cores"></b></header>
+<main>
+<div class="col">
+ <section><h4><span class="n">1</span>Фото и лист <span class="note" id="st-paper"></span></h4>
+  <select id="sample"><option value="flash">flash</option><option value="noflash">noflash</option></select>
+  <input id="file" type="file" accept="image/*">
+  <label>бумага <select id="ppaper"><option value="auto">авто</option><option value="a4">A4</option><option value="letter">Letter</option></select></label>
+  <label>ориентация <select id="porient"><option value="auto">авто</option><option value="portrait">книжная</option><option value="landscape">альбомная</option></select></label>
+  <canvas id="pv-photo" class="pv"></canvas>
+ </section>
+ <section><h4><span class="n">2</span>Силуэты <span class="note" id="st-sil"></span></h4>
+  <label>движок <select id="eng"><option value="classic">классика (baseline)</option><option value="ai">ИИ (модель маски)</option></select></label>
+  <label>поле у края листа, мм <input id="margin" type="number" value="3" step="0.5" min="0"></label>
+  <label>мин. площадь, мм² <input id="minarea" type="number" value="60" step="10" min="0"></label>
+  <div id="classicbox"><label>чувствительность (пусто = авто) <input id="sens" type="number" step="0.05" min="0" max="1" placeholder="авто"></label></div>
+  <div id="aibox" hidden>
+   <select id="modelsel"></select> <select id="ep"><option>wasm</option><option>webgpu</option></select> <button id="runai">Запустить модель</button>
+   <div><label>порог <input id="thr" type="range" min="0.05" max="0.95" step="0.01" value="0.5"><b>0.5</b></label>
+   <label>сглаживание, мм <input id="smooth" type="range" min="0" max="3" step="0.1" value="0.3"><b>0.3</b></label></div>
+  </div>
+  <label><input id="cmp" type="checkbox"> показать контуры другого движка (сравнение)</label>
+  <canvas id="pv-sil" class="pv"></canvas>
+  <div id="sils"></div>
+  <div id="cmptab"></div>
+ </section>
+ <section><h4><span class="n">3</span>Контур (как в keychain) <span class="note" id="st-out"></span></h4>
+  <label><input id="vec" type="checkbox" checked> векторный контур (острые углы сохраняются)</label>
+  <label>сглаживание, мм <input id="osm" type="number" value="0.25" step="0.05" min="0"></label>
+  <label>угол острой вершины, ° <input id="cang" type="number" value="50" step="5" min="20" max="150"></label>
+ </section>
+ <section><h4><span class="n">4</span>Вырез и корпус</h4>
+  <label>глубина кармана, мм <input id="depth" type="number" value="10" step="1"></label>
+  <label>зазор, мм <input id="clear" type="number" value="0.8" step="0.1" min="0"></label>
+  <label>поле до стенки, мм <input id="bmargin" type="number" value="5" step="0.5" min="0"></label>
+  <label>шаг юнита, мм <input id="pitch" type="number" value="42"></label>
+  <label>высота корпуса, мм <input id="blockh" type="number" value="25" step="1"></label>
+  <label>шаг сетки 3D, мм <input id="cell" type="number" value="0.7" step="0.1" min="0.15"></label>
+  <div class="note" id="st-bin"></div>
+ </section>
+</div>
+<div id="right">
+ <div id="view"></div>
+ <div style="margin-top:6px">
+  <label><input id="wire" type="checkbox"> сетка</label>
+  <label><input id="tools" type="checkbox" checked> показать инструменты</label>
+  <label>подсветка <input id="lightang" type="range" min="0" max="360" value="315"></label>
+  <button id="vtop">сверху</button> <button id="viso">под углом</button>
+  <span class="note" id="stat3d"></span>
+ </div>
+ <div id="log" style="margin-top:8px"></div>
+</div>
+</main>
 <script type="module" src="./cutout.ts"></script>
 </body></html>

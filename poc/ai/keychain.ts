@@ -372,15 +372,15 @@ async function runModel(kind: 'sil' | 'depth') {
 const PRESETS: Record<string, Record<string, number | string>> = {
   // значения в мм детали; лицо — кроп морды ~40 мм, целиком — всё животное, мелочь теряется, поэтому деталь шире и сглаживание меньше
   face: { silsrc: 'frame', dmode: 'engrave', dth: 0.15, wc: 30, wd: 40, wt: 30, partw: 40, dsm: 0.6, tsm: 0.3, fsm: 0.3, lcr: 1.4, lca: 1.1, slope: 1.5, bevel: 3, range: 2.4 },
-  whole: { silsrc: 'model', dmode: 'engrave', dth: 0.45, wc: 30, wd: 55, wt: 15, partw: 70, dsm: 0.35, tsm: 0.25, fsm: 0.2, lcr: 1.2, lca: 0.45, slope: 2.5, bevel: 3, range: 2.5 },
+  whole: { silsrc: 'model', dmode: 'engrave', dth: 0.18, wc: 25, wd: 45, wt: 30, partw: 70, dsm: 0.35, tsm: 0.15, fsm: 0.2, lcr: 0.9, lca: 0.9, slope: 2.5, bevel: 3, range: 2.8 },
   // рисунок/логотип: только силуэт по яркости, контурный скос, без глубины и деталей; кончики шипов сохраняются малым сглаживанием
-  drawing: { silsrc: 'brightness', wc: 100, wd: 0, wt: 0, partw: 60, bevel: 1.2, roll: 40, range: 1.5, fsm: 0.1, slope: 3, osm: 0.15, openmm2: 150 },
+  drawing: { silsrc: 'brightness', dmode: 'engrave', dth: 0.2, wc: 55, wd: 0, wt: 45, partw: 60, bevel: 1.2, roll: 40, range: 1.8, fsm: 0.1, slope: 3, osm: 0.15, openmm2: 150, lca: 1.6, lcr: 0.7, tpre: 0.05, tsm: 0.05 },
 }
 const applyPreset = (k: string) => { for (const [id, v] of Object.entries(PRESETS[k])) $<HTMLInputElement>(id).value = String(v); schedule() }
 for (const k of Object.keys(PRESETS)) $('pre-' + k).addEventListener('click', () => applyPreset(k))
 $('runsil').addEventListener('click', () => runModel('sil'))
 $('rundepth').addEventListener('click', () => runModel('depth'))
-$('sample').addEventListener('change', () => { $<HTMLInputElement>('file').value = ''; const v = $<HTMLSelectElement>('sample').value; applyPreset(v === 'ring' || v === 'check' ? 'drawing' : v === 'cat_face' ? 'face' : 'whole'); loadImage() })
+$('sample').addEventListener('change', () => { $<HTMLInputElement>('file').value = ''; const v = $<HTMLSelectElement>('sample').value; if (chk('autopre')) applyPreset(v === 'ring' || v === 'check' ? 'drawing' : v === 'cat_face' ? 'face' : 'whole'); loadImage() })
 $('file').addEventListener('change', () => loadImage())
 $('face').addEventListener('click', () => { for (const [id, v] of [['cx', 42], ['cy', 34], ['cw', 42], ['ch', 24]] as const) $<HTMLInputElement>(id).value = String(v); schedule() })
 $('resetcrop').addEventListener('click', () => { for (const [id, v] of [['cx', 0], ['cy', 0], ['cw', 100], ['ch', 100]] as const) $<HTMLInputElement>(id).value = String(v); schedule() })

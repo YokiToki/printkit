@@ -288,47 +288,41 @@ function build3D(w: Work, mask: Uint8Array, value: Float32Array, partW: number, 
     Z[k] = floor + range * bil(value, w.ww, w.wh, px(i), py(j))
   }
   const NX = new Float32Array(nx * ny), NY = new Float32Array(nx * ny)
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i; NX[k] = (px(i)) * mmx - partW / 2; NY[k] = partH / 2 - (py(j)) * mmy }
-  // ячейка входит, если хоть один её узел внутри; внешние узлы таких ячеек сдвигаются к линии края (F = 0.5) вдоль ребра к внутреннему соседу
-  const cellIn = new Uint8Array((nx - 1) * (ny - 1)), used = new Uint8Array(nx * ny)
-  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
-    const a0 = j * nx + i, c4 = [a0, a0 + 1, a0 + nx, a0 + nx + 1]
-    if (c4.some((k) => isIn[k])) { cellIn[j * (nx - 1) + i] = 1; for (const k of c4) used[k] = 1 }
-  }
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-    const k = j * nx + i; if (isIn[k] || !used[k]) continue
-    let best = -1, bt = 2
-    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
-      const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue
-      const q = jj * nx + ii; if (!isIn[q]) continue
-      const t = (F[q] - 0.5) / Math.max(1e-6, F[q] - F[k]) // доля пути от внутреннего узла до внешнего, где F = 0.5
-      if (t < bt) { bt = t; best = q }
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i; NX[k] = px(i) * mmx - partW / 2; NY[k] = partH / 2 - py(j) * mmy }
+  // Край: marching squares. Ячейка режется по линии F = 0.5: вершины контура лежат на изолинии мягкой маски, а не на узлах сетки.
+  const vx: number[] = [], vy: number[] = [], vz: number[] = [], vmap = new Map<number, number>()
+  const corner = (k: number) => { let id = vmap.get(k); if (id === undefined) { id = vx.length; vmap.set(k, id); vx.push(NX[k]); vy.push(NY[k]); vz.push(Z[k]) } return id }
+  const cross = (a: number, b: number) => { // a внутри, b снаружи (или наоборот): точка F = 0.5 на ребре, высота — как у внутреннего узла
+    const key = -1 - (Math.min(a, b) * nx * ny + Math.max(a, b)); let id = vmap.get(key)
+    if (id === undefined) {
+      const ia = isIn[a] === 1, inn = ia ? a : b, out = ia ? b : a, t = (F[inn] - 0.5) / Math.max(1e-6, F[inn] - F[out])
+      id = vx.length; vmap.set(key, id); vx.push(NX[inn] + (NX[out] - NX[inn]) * t); vy.push(NY[inn] + (NY[out] - NY[inn]) * t); vz.push(Z[inn])
     }
-    if (best < 0) { Z[k] = floor; continue }
-    NX[k] = NX[best] + (NX[k] - NX[best]) * bt; NY[k] = NY[best] + (NY[k] - NY[best]) * bt; Z[k] = Z[best]
+    return id
   }
-  const pos = new Float32Array(nx * ny * 3)
-  for (let k = 0; k < nx * ny; k++) { pos[k * 3] = NX[k]; pos[k * 3 + 1] = NY[k]; pos[k * 3 + 2] = used[k] ? Z[k] : 0 }
-  const idx: number[] = []
+  const idx: number[] = [], segs: [number, number][] = [], flat: [number, number, number][] = [] // flat — ячейки для дна
   for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
-    if (!cellIn[j * (nx - 1) + i]) continue
-    const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1
-    idx.push(a, b, c, b, d, c)
+    const k0 = j * nx + i, ks = [k0, k0 + 1, k0 + nx + 1, k0 + nx] // по кругу
+    const n = ks.filter((k) => isIn[k]).length; if (!n) continue
+    const poly: number[] = [], crossIdx: boolean[] = []
+    for (let e = 0; e < 4; e++) {
+      const a = ks[e], b = ks[(e + 1) % 4]
+      if (isIn[a]) { poly.push(corner(a)); crossIdx.push(false) }
+      if (isIn[a] !== isIn[b]) { poly.push(cross(a, b)); crossIdx.push(true) }
+    }
+    for (let t = 1; t + 1 < poly.length; t++) idx.push(poly[0], poly[t], poly[t + 1])
+    for (let t = 0; t < poly.length; t++) { const u = (t + 1) % poly.length; if (crossIdx[t] && crossIdx[u]) segs.push([poly[t], poly[u]]) }
+    void flat
   }
+  const pos = new Float32Array(vx.length * 3)
+  for (let v = 0; v < vx.length; v++) { pos[v * 3] = vx[v]; pos[v * 3 + 1] = vy[v]; pos[v * 3 + 2] = vz[v] }
   const topGeo = new THREE.BufferGeometry(); topGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); topGeo.setIndex(idx); topGeo.computeVertexNormals()
-  // стенки по границе ячеек и дно (вершины краевых узлов уже лежат на линии края)
+  // Стенки по сегментам контура и дно: те же полигоны на z = 0 (зеркально)
   const wp: number[] = []
   const quad = (a: number[], b: number[], c: number[], d: number[]) => wp.push(...a, ...b, ...c, ...b, ...d, ...c)
-  const isCell = (i: number, j: number) => i >= 0 && j >= 0 && i < nx - 1 && j < ny - 1 && cellIn[j * (nx - 1) + i] === 1
-  const P = (i: number, j: number, z?: number): number[] => { const k = j * nx + i; return [NX[k], NY[k], z ?? Z[k]] }
-  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
-    if (!isCell(i, j)) continue
-    quad(P(i, j, 0), P(i + 1, j, 0), P(i, j + 1, 0), P(i + 1, j + 1, 0)) // дно
-    if (!isCell(i, j - 1)) quad(P(i + 1, j, 0), P(i, j, 0), P(i + 1, j), P(i, j))
-    if (!isCell(i, j + 1)) quad(P(i, j + 1, 0), P(i + 1, j + 1, 0), P(i, j + 1), P(i + 1, j + 1))
-    if (!isCell(i - 1, j)) quad(P(i, j, 0), P(i, j + 1, 0), P(i, j), P(i, j + 1))
-    if (!isCell(i + 1, j)) quad(P(i + 1, j + 1, 0), P(i + 1, j, 0), P(i + 1, j + 1), P(i + 1, j))
-  }
+  const V = (v: number, z?: number): number[] => [vx[v], vy[v], z ?? vz[v]]
+  for (const [p0, p1] of segs) quad(V(p0, 0), V(p1, 0), V(p0), V(p1))
+  for (let t = 0; t < idx.length; t += 3) wp.push(...V(idx[t], 0), ...V(idx[t + 2], 0), ...V(idx[t + 1], 0)) // дно
   const skirt = new THREE.BufferGeometry(); skirt.setAttribute('position', new THREE.BufferAttribute(new Float32Array(wp), 3)); skirt.computeVertexNormals()
   group.clear()
   mat.wireframe = chk('wire'); mat.side = THREE.DoubleSide

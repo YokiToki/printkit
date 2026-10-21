@@ -145,6 +145,21 @@ The Photo source SHALL be offered only in Image mode and SHALL NOT be offered fo
 - **WHEN** the detail radius is only a few grid cells at the current crop
 - **THEN** a hint suggests cropping closer or using Whole frame
 
+### Requirement: Smooth outline
+The outline of a keychain made from an image SHALL be smooth: it SHALL NOT show steps from the pixels of the image, from the cells of the relief grid or from the resolution of the mask, and its position SHALL follow the edge of the subject to a fraction of a grid cell. Sharp corners that exist in the subject, such as the tip of a thin spike, SHALL stay sharp.
+
+#### Scenario: No steps
+- **WHEN** the silhouette of a photo or a drawing is made into a keychain at any quality setting
+- **THEN** the side wall follows a smooth line and shows no staircase
+
+#### Scenario: Spike tips
+- **WHEN** the drawing has a thin pointed spike
+- **THEN** the spike keeps its tip and its length within the grid cell
+
+#### Scenario: Independent of the grid
+- **WHEN** the quality setting is made coarser
+- **THEN** the outline stays smooth and only the relief detail becomes coarser
+
 ### Requirement: Compatibility
 Keychains saved before this feature SHALL load unchanged. With the Distance or Brightness source, no crop and a traced silhouette, the relief SHALL be identical to what it was before this feature.
 

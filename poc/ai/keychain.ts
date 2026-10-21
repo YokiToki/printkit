@@ -245,32 +245,55 @@ function build3D(w: Work, mask: Uint8Array, value: Float32Array, partW: number, 
   const nodes = Math.max(60, num('nodes')), s = Math.max(1, Math.ceil(Math.max(w.ww, w.wh) / nodes))
   const nx = Math.floor((w.ww - 1) / s) + 1, ny = Math.floor((w.wh - 1) / s) + 1
   const floor = num('floor'), range = num('range'), mmx = partW / w.ww, mmy = partH / w.wh
-  const X = (i: number) => (i * s + 0.5) * mmx - partW / 2, Y = (j: number) => partH / 2 - (j * s + 0.5) * mmy
-  const inside = (i: number, j: number) => mask[Math.min(w.wh - 1, j * s) * w.ww + Math.min(w.ww - 1, i * s)] === 1
-  const top = (i: number, j: number) => floor + range * bil(value, w.ww, w.wh, Math.min(w.ww - 0.5, i * s + 0.5), Math.min(w.wh - 0.5, j * s + 0.5))
-  // верх: индексированная сетка, только ячейки, у которых все 4 узла внутри маски
-  const pos = new Float32Array(nx * ny * 3)
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const p = (j * nx + i) * 3; pos[p] = X(i); pos[p + 1] = Y(j); pos[p + 2] = inside(i, j) ? top(i, j) : 0 }
-  const idx: number[] = [], cell: boolean[] = new Array((nx - 1) * (ny - 1)).fill(false)
+  // мягкая маска (σ = 1 px): по ней край кладётся с субпиксельной точностью, а не по ступеням сетки
+  const soft = gaussianBlur(Float32Array.from(mask), w.ww, w.wh, 1, ones(w.ww * w.wh))
+  const px = (i: number) => Math.min(w.ww - 0.5, i * s + 0.5), py = (j: number) => Math.min(w.wh - 0.5, j * s + 0.5)
+  const F = new Float32Array(nx * ny), isIn = new Uint8Array(nx * ny), Z = new Float32Array(nx * ny)
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const k = j * nx + i; F[k] = bil(soft, w.ww, w.wh, px(i), py(j)); isIn[k] = F[k] >= 0.5 ? 1 : 0
+    Z[k] = floor + range * bil(value, w.ww, w.wh, px(i), py(j))
+  }
+  const NX = new Float32Array(nx * ny), NY = new Float32Array(nx * ny)
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i; NX[k] = (px(i)) * mmx - partW / 2; NY[k] = partH / 2 - (py(j)) * mmy }
+  // ячейка входит, если хоть один её узел внутри; внешние узлы таких ячеек сдвигаются к линии края (F = 0.5) вдоль ребра к внутреннему соседу
+  const cellIn = new Uint8Array((nx - 1) * (ny - 1)), used = new Uint8Array(nx * ny)
   for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
-    if (!(inside(i, j) && inside(i + 1, j) && inside(i, j + 1) && inside(i + 1, j + 1))) continue
-    cell[j * (nx - 1) + i] = true
+    const a0 = j * nx + i, c4 = [a0, a0 + 1, a0 + nx, a0 + nx + 1]
+    if (c4.some((k) => isIn[k])) { cellIn[j * (nx - 1) + i] = 1; for (const k of c4) used[k] = 1 }
+  }
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const k = j * nx + i; if (isIn[k] || !used[k]) continue
+    let best = -1, bt = 2
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
+      const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue
+      const q = jj * nx + ii; if (!isIn[q]) continue
+      const t = (F[q] - 0.5) / Math.max(1e-6, F[q] - F[k]) // доля пути от внутреннего узла до внешнего, где F = 0.5
+      if (t < bt) { bt = t; best = q }
+    }
+    if (best < 0) { Z[k] = floor; continue }
+    NX[k] = NX[best] + (NX[k] - NX[best]) * bt; NY[k] = NY[best] + (NY[k] - NY[best]) * bt; Z[k] = Z[best]
+  }
+  const pos = new Float32Array(nx * ny * 3)
+  for (let k = 0; k < nx * ny; k++) { pos[k * 3] = NX[k]; pos[k * 3 + 1] = NY[k]; pos[k * 3 + 2] = used[k] ? Z[k] : 0 }
+  const idx: number[] = []
+  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    if (!cellIn[j * (nx - 1) + i]) continue
     const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1
     idx.push(a, b, c, b, d, c)
   }
   const topGeo = new THREE.BufferGeometry(); topGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); topGeo.setIndex(idx); topGeo.computeVertexNormals()
-  // стенки по границе ячеек и дно
+  // стенки по границе ячеек и дно (вершины краевых узлов уже лежат на линии края)
   const wp: number[] = []
   const quad = (a: number[], b: number[], c: number[], d: number[]) => wp.push(...a, ...b, ...c, ...b, ...d, ...c)
-  const isCell = (i: number, j: number) => i >= 0 && j >= 0 && i < nx - 1 && j < ny - 1 && cell[j * (nx - 1) + i]
+  const isCell = (i: number, j: number) => i >= 0 && j >= 0 && i < nx - 1 && j < ny - 1 && cellIn[j * (nx - 1) + i] === 1
+  const P = (i: number, j: number, z?: number): number[] => { const k = j * nx + i; return [NX[k], NY[k], z ?? Z[k]] }
   for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
     if (!isCell(i, j)) continue
-    const x0 = X(i), x1 = X(i + 1), y0 = Y(j), y1 = Y(j + 1)
-    quad([x0, y0, 0], [x1, y0, 0], [x0, y1, 0], [x1, y1, 0]) // дно (нормаль вниз задаётся порядком ниже)
-    if (!isCell(i, j - 1)) quad([x1, y0, 0], [x0, y0, 0], [x1, y0, top(i + 1, j)], [x0, y0, top(i, j)])
-    if (!isCell(i, j + 1)) quad([x0, y1, 0], [x1, y1, 0], [x0, y1, top(i, j + 1)], [x1, y1, top(i + 1, j + 1)])
-    if (!isCell(i - 1, j)) quad([x0, y0, 0], [x0, y1, 0], [x0, y0, top(i, j)], [x0, y1, top(i, j + 1)])
-    if (!isCell(i + 1, j)) quad([x1, y1, 0], [x1, y0, 0], [x1, y1, top(i + 1, j + 1)], [x1, y0, top(i + 1, j)])
+    quad(P(i, j, 0), P(i + 1, j, 0), P(i, j + 1, 0), P(i + 1, j + 1, 0)) // дно
+    if (!isCell(i, j - 1)) quad(P(i + 1, j, 0), P(i, j, 0), P(i + 1, j), P(i, j))
+    if (!isCell(i, j + 1)) quad(P(i, j + 1, 0), P(i + 1, j + 1, 0), P(i, j + 1), P(i + 1, j + 1))
+    if (!isCell(i - 1, j)) quad(P(i, j, 0), P(i, j + 1, 0), P(i, j), P(i, j + 1))
+    if (!isCell(i + 1, j)) quad(P(i + 1, j + 1, 0), P(i + 1, j, 0), P(i + 1, j + 1), P(i + 1, j))
   }
   const skirt = new THREE.BufferGeometry(); skirt.setAttribute('position', new THREE.BufferAttribute(new Float32Array(wp), 3)); skirt.computeVertexNormals()
   group.clear()

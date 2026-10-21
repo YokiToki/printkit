@@ -8,7 +8,7 @@ import { edt } from '../../src/geometry/raster/edt'
 import { gaussianBlur, MIN_SIGMA } from '../../src/geometry/raster/blur'
 import { otsu } from '../../src/geometry/raster/threshold'
 import { close } from '../../src/geometry/raster/morphology'
-import { fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
+import { findHoles, fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
 import { backendsOf, CANDIDATES, type Candidate } from './models'
 import { infer } from './engine'
 
@@ -109,6 +109,33 @@ function limitSlope(v: Float32Array, w: number, h: number, L: number, mask: Uint
   return v.map((_, i) => 0.5 * (lo[i] + hi[i]))
 }
 
+/** Среднее по окну (2r+1)² с зажимом у краёв, бегущими суммами. */
+function box(a: Float32Array, w: number, h: number, r: number): Float32Array {
+  const tmp = new Float64Array(w * h), out = new Float32Array(w * h)
+  for (let y = 0; y < h; y++) {
+    let acc = 0; const row = y * w
+    for (let x = -r; x <= r; x++) acc += a[row + Math.min(w - 1, Math.max(0, x))]
+    for (let x = 0; x < w; x++) { tmp[row + x] = acc; acc += a[row + Math.min(w - 1, x + r + 1)] - a[row + Math.max(0, x - r)] }
+  }
+  const n = (2 * r + 1) * (2 * r + 1)
+  for (let x = 0; x < w; x++) {
+    let acc = 0
+    for (let y = -r; y <= r; y++) acc += tmp[Math.min(h - 1, Math.max(0, y)) * w + x]
+    for (let y = 0; y < h; y++) { out[y * w + x] = acc / n; acc += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x] }
+  }
+  return out
+}
+/** Направляющий фильтр (He): сглаживает p, но края берёт из guide (яркость фото). Убирает зернистость глубины, не размывая контуры черт. */
+function guided(guide: Float32Array, p: Float32Array, w: number, h: number, r: number, eps: number): Float32Array {
+  if (r < 1) return p
+  const mI = box(guide, w, h, r), mp = box(p, w, h, r)
+  const II = box(guide.map((v) => v * v), w, h, r), Ip = box(guide.map((v, i) => v * p[i]), w, h, r)
+  const a = new Float32Array(w * h), b = new Float32Array(w * h)
+  for (let i = 0; i < w * h; i++) { const v = II[i] - mI[i] * mI[i], c = Ip[i] - mI[i] * mp[i]; a[i] = c / (v + eps); b[i] = mp[i] - a[i] * mI[i] }
+  const ma = box(a, w, h, r), mb = box(b, w, h, r)
+  return guide.map((v, i) => ma[i] * v + mb[i])
+}
+
 function silhouette(w: Work, pxMm: number): { mask: Uint8Array; note: string } {
   const n = w.ww * w.wh, src = $<HTMLSelectElement>('silsrc').value
   let mask: Uint8Array, note = ''
@@ -128,27 +155,33 @@ function silhouette(w: Work, pxMm: number): { mask: Uint8Array; note: string } {
       mask = mask.map((_, i) => (cc.labels[i] === best && best ? 1 : 0)) as Uint8Array
     }
   }
-  if (src === 'brightness') { const b = blurIn(Float32Array.from(mask), w.ww, w.wh, 0.3 * pxMm, ones(n)); mask = b.map((v) => (v >= 0.5 ? 1 : 0)) as unknown as Uint8Array } // ровный край без пиксельной лесенки
+  if (src === 'brightness') { const b = blurIn(Float32Array.from(mask), w.ww, w.wh, 0.6, ones(n)); mask = b.map((v) => (v >= 0.5 ? 1 : 0)) as unknown as Uint8Array } // ровный край без пиксельной лесенки
   if (src !== 'frame') {
-    if (chk('fill')) mask = fillHoles(mask, w.ww, w.wh).mask
+    if (chk('fill')) { // мелкие области (между штрихами) заливаются, крупные (отверстие кольца) остаются открытыми
+      const open = findHoles(mask, w.ww, w.wh).holes.filter((x) => x.size / (pxMm * pxMm) >= num('openmm2')).map((x) => x.id)
+      mask = fillHoles(mask, w.ww, w.wh, open).mask
+      note += (note ? ', ' : '') + `открытых областей: ${open.length}`
+    }
     mask = removeSpecks(mask, w.ww, w.wh, Math.round(2 * pxMm * pxMm))
   }
   return { mask, note }
 }
 
-function normDepth(w: Work, mask: Uint8Array): Float32Array | null {
+function normDepth(w: Work, mask: Uint8Array, pxMm: number): Float32Array | null {
   if (!w.depth) return null
-  const v: number[] = []; for (let i = 0; i < mask.length; i++) if (mask[i]) v.push(w.depth[i])
+  const src = guided(w.gray, w.depth, w.ww, w.wh, Math.round(num('dgr') * pxMm), 1e-3) // привязка к краям фото до нормировки
+  const v: number[] = []; for (let i = 0; i < mask.length; i++) if (mask[i]) v.push(src[i])
   if (!v.length) return null
   v.sort((a, b) => a - b); const lo = v[Math.floor(v.length * 0.02)], hi = v[Math.floor(v.length * 0.98)], inv = chk('dinv')
-  return w.depth.map((d) => { const t = Math.min(1, Math.max(0, (d - lo) / (hi - lo || 1))); return inv ? 1 - t : t })
+  return src.map((d) => { const t = Math.min(1, Math.max(0, (d - lo) / (hi - lo || 1))); return inv ? 1 - t : t })
 }
 
 function detail(w: Work, pxMm: number): Float32Array {
   const amount = num('lca'), n = w.ww * w.wh
   if (amount <= 0) return new Float32Array(n).fill(0.5)
   const sg = Math.max(MIN_SIGMA, num('lcr') * pxMm), m = ones(n)
-  const mean = gaussianBlur(w.gray, w.ww, w.wh, sg, m), dev = w.gray.map((v, i) => v - mean[i])
+  const src = num('tpre') > 0 ? gaussianBlur(w.gray, w.ww, w.wh, Math.max(MIN_SIGMA, num('tpre') * pxMm), m) : w.gray // шум и зерно JPEG убираются до усиления
+  const mean = gaussianBlur(src, w.ww, w.wh, sg, m), dev = src.map((v, i) => v - mean[i])
   const sd = gaussianBlur(dev.map((v) => v * v), w.ww, w.wh, sg, m).map((v) => Math.sqrt(v) + 0.02)
   let t = dev.map((v, i) => 0.5 + 0.5 * Math.tanh(amount * v / sd[i]))
   const L = num('lvl'); if (L >= 2) t = t.map((v) => Math.round(v * (L - 1)) / (L - 1))
@@ -192,7 +225,7 @@ function update() {
   const mask = chk('lm') ? silMask : ones(n) // слой «маска»: выключен — рельеф без вырезания по силуэту
   $('st-sil').textContent = note
   show('pv-mask', w.ww, w.wh, (i) => (silMask[i] ? [w.rgb[i * 3], w.rgb[i * 3 + 1], w.rgb[i * 3 + 2]] : checker(i, w.ww)))
-  let dn = normDepth(w, mask)
+  let dn = normDepth(w, mask, pxMm)
   if (dn) { const g = num('dgam'); if (g !== 1) dn = dn.map((v) => Math.pow(v, g)); dn = blurIn(dn, w.ww, w.wh, num('dsm') * pxMm, mask) }
   const same = depthRec && JSON.stringify(depthRec.crop) === JSON.stringify(c)
   $('st-depth').textContent = depthRec ? (same ? 'посчитана для этого кропа' : 'посчитана для другого кропа (можно пересчитать)') : 'не посчитана'
@@ -202,10 +235,11 @@ function update() {
   // смесь
   const dist = edt(mask, w.ww, w.wh), bevelPx = Math.max(1, num('bevel') * pxMm), roll = num('roll') / 100
   const wc = chk('lc') ? num('wc') : 0, wd = dn && chk('ld') ? num('wd') : 0, wt = chk('lt') ? num('wt') : 0
+  const solo = (document.querySelector('input[name=solo]:checked') as HTMLInputElement).value
   const value = new Float32Array(n)
   for (let i = 0; i < n; i++) {
     if (!mask[i]) continue
-    const contour = smooth01(dist[i] / bevelPx), tot = wc + wd + wt, mixed = tot === 0 ? contour : (wc * contour + wd * (dn ? dn[i] : 0) + wt * dt[i]) / tot
+    const contour = smooth01(dist[i] / bevelPx), tot = wc + wd + wt, mixed = solo === 'contour' ? contour : solo === 'depth' ? (dn ? dn[i] : 0) : solo === 'detail' ? dt[i] : tot === 0 ? contour : (wc * contour + wd * (dn ? dn[i] : 0) + wt * dt[i]) / tot
     value[i] = mixed * ((1 - roll) + roll * contour)
   }
   let final = blurIn(value, w.ww, w.wh, num('fsm') * pxMm, mask)
@@ -326,8 +360,8 @@ async function runModel(kind: 'sil' | 'depth') {
 // ---------- события ----------
 const PRESETS: Record<string, Record<string, number>> = {
   // значения в мм детали; лицо — кроп морды ~40 мм, целиком — всё животное, мелочь теряется, поэтому деталь шире и сглаживание меньше
-  face: { partw: 40, dsm: 0.6, tsm: 0.3, fsm: 0.3, lcr: 1.4, lca: 0.7, slope: 1.5, bevel: 3, range: 2 },
-  whole: { partw: 70, dsm: 0.35, tsm: 0.15, fsm: 0.15, lcr: 0.9, lca: 0.6, slope: 2.5, bevel: 3, range: 2.5 },
+  face: { wc: 30, wd: 40, wt: 30, partw: 40, dsm: 0.6, tsm: 0.3, fsm: 0.3, lcr: 1.4, lca: 0.7, slope: 1.5, bevel: 3, range: 2 },
+  whole: { wc: 30, wd: 55, wt: 15, partw: 70, dsm: 0.35, tsm: 0.25, fsm: 0.2, lcr: 1.2, lca: 0.45, slope: 2.5, bevel: 3, range: 2.5 },
 }
 for (const k of Object.keys(PRESETS)) $('pre-' + k).addEventListener('click', () => { for (const [id, v] of Object.entries(PRESETS[k])) $<HTMLInputElement>(id).value = String(v); schedule() })
 $('runsil').addEventListener('click', () => runModel('sil'))
@@ -336,7 +370,7 @@ $('sample').addEventListener('change', () => { $<HTMLInputElement>('file').value
 $('file').addEventListener('change', () => loadImage())
 $('face').addEventListener('click', () => { for (const [id, v] of [['cx', 42], ['cy', 34], ['cw', 42], ['ch', 24]] as const) $<HTMLInputElement>(id).value = String(v); schedule() })
 $('resetcrop').addEventListener('click', () => { for (const [id, v] of [['cx', 0], ['cy', 0], ['cw', 100], ['ch', 100]] as const) $<HTMLInputElement>(id).value = String(v); schedule() })
-for (const el of document.querySelectorAll('input[type=range], input[type=number], input[type=checkbox], select')) {
+for (const el of document.querySelectorAll('input[type=range], input[type=number], input[type=checkbox], input[type=radio], select')) {
   if (['file', 'sample'].includes(el.id)) continue
   el.addEventListener('input', () => { if (el.id === 'lightang') setLight(); schedule() })
 }

@@ -25,7 +25,7 @@ button{padding:3px 10px}
 <main>
 <div class="col">
  <section><h4><span class="n">1</span>Изображение и кроп</h4>
-  <select id="sample"><option value="cat">cat (кот целиком)</option><option value="cat_face">cat_face (кроп морды)</option></select>
+  <select id="sample"><option value="cat">cat (кот целиком)</option><option value="cat_face">cat_face (кроп морды)</option><option value="ring">ring (рисунок, кольцо)</option><option value="check">check (рисунок, галочка)</option></select>
   <input id="file" type="file" accept="image/*">
   <div>
    <label>x <input id="cx" type="range" min="0" max="95" value="0"><b>0</b>%</label>
@@ -49,6 +49,7 @@ button{padding:3px 10px}
   </div>
   <div id="silbright" hidden><label><input id="inv" type="checkbox"> инвертировать</label></div>
   <label><input id="fill" type="checkbox" checked> заливать пустоты</label>
+  <label>открытыми оставить области больше, мм² <input id="openmm2" type="number" value="150" step="10" min="0"></label>
   <canvas id="pv-mask" class="pv"></canvas>
  </section>
  <section><h4><span class="n">3</span>Глубина <span class="note" id="st-depth"></span></h4>
@@ -57,11 +58,14 @@ button{padding:3px 10px}
   <label><input id="dinv" type="checkbox"> инвертировать</label>
   <label>сглаживание, мм <input id="dsm" type="number" value="0.6" step="0.1" min="0"></label>
   <label>гамма <input id="dgam" type="number" value="1" step="0.1" min="0.2" max="3"></label>
+  <label>привязка к краям фото, мм (0 = выкл) <input id="dgr" type="number" value="1" step="0.5" min="0"></label>
+  <div class="note">Как применяется: сырая глубина → (привязка к краям фото, чтобы не было зернистости) → нормировка по 2–98 % внутри силуэта (ближе = выше) → гамма → сглаживание → доля «глубина» в смеси. Чтобы увидеть только её, выберите «только глубина» под 3D.</div>
   <canvas id="pv-depth" class="pv"></canvas>
  </section>
  <section><h4><span class="n">4</span>Детали (локальный контраст)</h4>
   <label>радиус, мм <input id="lcr" type="number" value="1.4" step="0.1"></label>
   <label>усиление <input id="lca" type="number" value="0.7" step="0.1"></label>
+  <label>подавление шума до контраста, мм <input id="tpre" type="number" value="0.25" step="0.05" min="0"></label>
   <label>уровни (0 = нет) <input id="lvl" type="number" value="0" min="0" max="8"></label>
   <label>сглаживание, мм <input id="tsm" type="number" value="0.3" step="0.1" min="0"></label>
   <canvas id="pv-detail" class="pv"></canvas>
@@ -91,6 +95,7 @@ button{padding:3px 10px}
   <span class="note" id="stat3d"></span>
  </div>
  <section style="margin-top:8px"><h4>Слои рельефа (галочки пересчитывают 3D)</h4>
+  <div><b>показывать в 3D:</b> <label><input type="radio" name="solo" value="mix" checked> смесь</label> <label><input type="radio" name="solo" value="contour"> только контур</label> <label><input type="radio" name="solo" value="depth"> только глубина</label> <label><input type="radio" name="solo" value="detail"> только детали</label></div>
   <label><input id="lm" type="checkbox" checked> маска силуэта (вырез по контуру)</label>
   <label><input id="lc" type="checkbox" checked> контур (скос)</label>
   <label><input id="ld" type="checkbox" checked> глубина</label>

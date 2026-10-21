@@ -9,7 +9,7 @@ import { gaussianBlur, MIN_SIGMA } from '../../src/geometry/raster/blur'
 import { otsu } from '../../src/geometry/raster/threshold'
 import { close } from '../../src/geometry/raster/morphology'
 import { fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
-import { CANDIDATES, type Candidate } from './models'
+import { backendsOf, CANDIDATES, type Candidate } from './models'
 import { infer } from './engine'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -22,6 +22,13 @@ $('coi').textContent = String(self.crossOriginIsolated); $('cores').textContent 
 for (const c of CANDIDATES.filter((x) => (x.kind ?? 'matte') === 'matte')) $('silmodelsel').append(new Option(c.label, c.id))
 for (const c of CANDIDATES.filter((x) => x.kind === 'depth')) $('depthsel').append(new Option(c.label, c.id))
 $<HTMLSelectElement>('silmodelsel').value = 'birefnet-lite-512-fp16'
+/** Бэкенд подбирается под модель: показываются только те, на которых она работает. */
+function syncBackends(modelSel: string, epSel: string) {
+  const ep = $<HTMLSelectElement>(epSel), list = backendsOf($<HTMLSelectElement>(modelSel).value), keep = ep.value
+  ep.innerHTML = ''; for (const b of list) ep.append(new Option(b, b))
+  ep.value = list.includes(keep as 'wasm' | 'webgpu') ? keep : list[0]; ep.disabled = list.length === 1
+}
+for (const [m, e] of [['silmodelsel', 'silep'], ['depthsel', 'depthep']] as const) { syncBackends(m, e); $(m).addEventListener('change', () => syncBackends(m, e)) }
 
 // ---------- состояние ----------
 interface Img { w: number; h: number; rgb: Uint8Array }
@@ -153,7 +160,8 @@ function update() {
   const c = cropNow(); previewImage(c)
   const w = getWork(); if (!w || !img) return
   const partW = num('partw'), pxMm = w.ww / partW, partH = partW * w.wh / w.ww, n = w.ww * w.wh
-  const { mask, note } = silhouette(w, pxMm)
+  const sil = silhouette(w, pxMm), note = sil.note
+  const mask = chk('lm') ? sil.mask : ones(n) // слой «маска»: выключен — рельеф без вырезания по силуэту
   $('st-sil').textContent = note
   show('pv-mask', w.ww, w.wh, (i) => (mask[i] ? [w.rgb[i * 3], w.rgb[i * 3 + 1], w.rgb[i * 3 + 2]] : [30, 30, 40]))
   const dn = normDepth(w, mask)
@@ -164,7 +172,7 @@ function update() {
   show('pv-detail', w.ww, w.wh, (i) => (mask[i] ? gr(dt[i]) : [30, 30, 40]))
   // смесь
   const dist = edt(mask, w.ww, w.wh), bevelPx = Math.max(1, num('bevel') * pxMm), roll = num('roll') / 100
-  const wc = num('wc'), wd = dn ? num('wd') : 0, wt = num('wt')
+  const wc = chk('lc') ? num('wc') : 0, wd = dn && chk('ld') ? num('wd') : 0, wt = chk('lt') ? num('wt') : 0
   const value = new Float32Array(n)
   for (let i = 0; i < n; i++) {
     if (!mask[i]) continue

@@ -8,14 +8,20 @@ import { segment } from '../../src/geometry/photo/segment'
 import { edt } from '../../src/geometry/raster/edt'
 import { gaussianBlur, MIN_SIGMA } from '../../src/geometry/raster/blur'
 import { fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
-import { CANDIDATES, type Candidate } from './models'
+import { backendsOf, CANDIDATES, type Candidate } from './models'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 const log = (s: string) => { $('log').textContent += s + '\n'; console.log(s) }
 $('coi').textContent = String(self.crossOriginIsolated)
 $('cores').textContent = String(navigator.hardwareConcurrency)
 $('gpu').textContent = 'gpu' in navigator ? 'yes' : 'no'
-for (const c of CANDIDATES) $('model').append(new Option(c.label, c.id))
+for (const c of CANDIDATES.filter((x) => (x.kind ?? 'matte') === 'matte')) $('model').append(new Option(c.label, c.id))
+function syncEp() {
+  const ep = $<HTMLSelectElement>('ep'), list = backendsOf($<HTMLSelectElement>('model').value), keep = ep.value
+  ep.innerHTML = ''; for (const b of list) ep.append(new Option(b, b))
+  ep.value = list.includes(keep as 'wasm' | 'webgpu') ? keep : list[0]; ep.disabled = list.length === 1
+}
+syncEp(); $('model').addEventListener('change', syncEp)
 
 const sessions = new Map<string, ort.InferenceSession>()
 ort.env.wasm.proxy = true // вывод в воркере ORT: страница не замирает на время инференса

@@ -16,6 +16,8 @@ export interface Candidate {
   referenceOnly?: boolean
   /** matte — маска объекта (по умолчанию), depth — относительная глубина (рельеф лица, а не силуэт). */
   kind?: 'matte' | 'depth'
+  /** Бэкенды, на которых модель реально работает (по замерам PoC); первый — предпочтительный. */
+  backends?: ('wasm' | 'webgpu')[]
   /** Внешние веса (.onnx_data) рядом с моделью. */
   data?: { path: string; url: string; bytes: number }
 }
@@ -23,6 +25,19 @@ const hf = (repo: string, rev: string, file: string) => `https://huggingface.co/
 const IMNET = { mean: [0.485, 0.456, 0.406] as [number, number, number], std: [0.229, 0.224, 0.225] as [number, number, number] }
 const ZERO = { mean: [0, 0, 0] as [number, number, number], std: [1, 1, 1] as [number, number, number] }
 const HALF = { mean: [0.5, 0.5, 0.5] as [number, number, number], std: [1, 1, 1] as [number, number, number] }
+
+/** Где модель работает по замерам владельца: остальные бэкенды дают ошибку, пустую маску или минуты. depth — не проверено, оба. */
+export const BACKENDS: Record<string, ('wasm' | 'webgpu')[]> = {
+  'birefnet-lite-512-fp16': ['wasm'], 'birefnet-lite-512-fp32': ['wasm'],
+  'ormbg-int8': ['wasm'], 'ormbg-fp16': ['wasm'],
+  'inspyrenet-fp16': ['webgpu'],
+  'isnet-imgly-fp16': ['webgpu'], 'isnet-imgly-fp32': ['webgpu'],
+  'isnet-general-q': ['wasm', 'webgpu'], 'isnet-pim-q': ['wasm'], 'isnet-bw-fp32': ['wasm'],
+  'u2netp': ['wasm'], 'u2net-bw-fp32': ['wasm'],
+  'rmbg14-q': ['wasm', 'webgpu'],
+  'depth-v2-small-q4f16': ['wasm', 'webgpu'], 'depth-v2-small-fp16': ['webgpu', 'wasm'],
+}
+export const backendsOf = (id: string): ('wasm' | 'webgpu')[] => BACKENDS[id] ?? ['wasm', 'webgpu']
 
 export const CANDIDATES: Candidate[] = [
   { id: 'isnet-general-q', label: 'ISNet general int8 (Apache-2.0, 46 МБ)', url: hf('Ko033/isnet-general-use-onnx', '5349b617911fd60c619b52f32e2b593517b78df3', 'onnx/model_quantized.onnx'), bytes: 45902969, license: 'Apache-2.0', size: 1024, ...HALF, sigmoid: false },

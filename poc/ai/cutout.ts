@@ -15,7 +15,7 @@ import { gaussianBlur, MIN_SIGMA } from '../../src/geometry/raster/blur'
 import { fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
 import { backendsOf, CANDIDATES } from './models'
 import { infer } from './engine'
-import { signedDistance, vectorOutline, type Pt } from './outline'
+import { bezTan, findCorners, fitLoop, signedDistance, tessellate, vectorOutline, type Bez, type Pt } from './outline'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 const num = (id: string) => +$<HTMLInputElement>(id).value
@@ -248,10 +248,45 @@ function build() {
   const zTop = num('blockh'), zFloor = Math.max(1, zTop - num('depth')), clearMm = num('clear')
   const toMm = (l: Pt[]): [number, number][] => l.map(([x, y]) => [x / sc - cx, -(y / sc - cy)])
   const area = (l: [number, number][]) => l.reduce((a, [x, y], i) => { const [x2, y2] = l[(i + 1) % l.length]; return a + (x * y2 - x2 * y) / 2 }, 0)
-  const pockets = outs.map((o) => {
+  interface Pocket { pts: [number, number][]; nrm: [number, number][] } // вершины (мм) и единичные нормали наружу кармана
+  let fitInfo = { segs: 0, ctrl: 0 }
+  const pockets: Pocket[] = outs.map((o) => {
     const outer = o.loops.reduce((best, l) => (Math.abs(area(toMm(l))) > Math.abs(area(toMm(best))) ? l : best), o.loops[0])
     let poly = toMm(outer); if (area(poly) < 0) poly = poly.reverse() // против часовой стрелки: наружу — вправо от хода
-    return offsetLoop(poly, clearMm)
+    if (!chk('fit')) { // старый путь: полилиния со шумом, нормали усредняются по окну
+      const pts = offsetLoop(poly, clearMm), n = pts.length, perim = pts.reduce((a, q, i) => a + Math.hypot(pts[(i + 1) % n][0] - q[0], pts[(i + 1) % n][1] - q[1]), 0), k = Math.max(1, Math.round((num('nwin') / perim) * n))
+      const en = pts.map((q, i) => { const r = pts[(i + 1) % n], dx = r[0] - q[0], dy = r[1] - q[1], l = Math.hypot(dx, dy) || 1; return [dy / l, -dx / l] as [number, number] })
+      const nrm = pts.map((_, i) => { let x = 0, y = 0; for (let d = -k; d <= k; d++) { const e = en[(((i + d) % n) + n) % n], w = 1 - Math.abs(d) / (k + 1); x += w * e[0]; y += w * e[1] } const l = Math.hypot(x, y) || 1; return [x / l, y / l] as [number, number] })
+      fitInfo.segs += n; fitInfo.ctrl += n
+      return { pts, nrm }
+    }
+    // гладкие кривые Безье: минимум точек, нормали аналитические; углы остаются углами, на выпуклых углах зазор даёт дугу, на вогнутых — митру
+    const { segs } = fitLoop(poly, findCorners(poly, 3, num('cang')), num('ftol'))
+    fitInfo.segs += segs.length; fitInfo.ctrl += 3 * segs.length + 1
+    const samples = tessellate(segs, num('fstep')), pts: [number, number][] = [], nrm: [number, number][] = []
+    const push = (p: [number, number], nv: [number, number]) => { pts.push([p[0] + nv[0] * clearMm, p[1] + nv[1] * clearMm]); nrm.push(nv) }
+    let si = -1
+    for (let i = 0; i < samples.length; i++) {
+      const sm = samples[i]
+      if (sm.seg !== si) { // начало нового сегмента: стык с предыдущим
+        if (si >= 0 && clearMm > 0) {
+          const c = segs[si] as Bez, nEnd = (() => { const t = bezTan(c, 1); return [t[1], -t[0]] as [number, number] })(), nS = sm.n, cr = nEnd[1] * 0 // выпуклость по знаку векторного произведения касательных
+          const tE = bezTan(c, 1), tS: [number, number] = [-sm.n[1], sm.n[0]], cross = tE[0] * tS[1] - tE[1] * tS[0], dot = nEnd[0] * nS[0] + nEnd[1] * nS[1]
+          void cr
+          if (dot < 0.9986) { // угол > ~3°
+            const P = c[3]
+            if (cross > 0) { // выпуклый угол: дуга радиуса зазора от нормали к нормали
+              const a0 = Math.atan2(nEnd[1], nEnd[0]); let da = Math.atan2(nS[1], nS[0]) - a0; while (da < 0) da += 2 * Math.PI
+              const steps = Math.max(1, Math.ceil(da / (Math.PI / 12)))
+              for (let t = 1; t < steps; t++) { const a = a0 + (da * t) / steps, nv: [number, number] = [Math.cos(a), Math.sin(a)]; push(P, nv) }
+            } else { const bx = nEnd[0] + nS[0], by = nEnd[1] + nS[1], bl = Math.hypot(bx, by) || 1, k = clearMm / Math.max(0.4, bl / 2); pts.push([P[0] + (bx / bl) * k, P[1] + (by / bl) * k]); nrm.push([bx / bl, by / bl]) }
+          }
+        }
+        si = sm.seg
+      }
+      push(sm.p, sm.n)
+    }
+    return { pts, nrm }
   })
   const hx = binW / 2, hy = binH / 2, pos: number[] = [], nor: number[] = []
   const tri = (a: number[], b: number[], c: number[], n: number[]) => { pos.push(...a, ...b, ...c); for (let t = 0; t < 3; t++) nor.push(...n) }
@@ -263,18 +298,15 @@ function build() {
       flip ? tri(P(A), P(C), P(B), [0, 0, up ? 1 : -1]) : tri(P(A), P(B), P(C), [0, 0, up ? 1 : -1])
     }
   }
-  flat([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]], pockets, zTop, true) // верх с отверстиями
-  for (const pk of pockets) flat(pk, [], zFloor, true) // дно карманов
+  flat([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]], pockets.map((q) => q.pts), zTop, true) // верх с отверстиями
+  for (const pk of pockets) flat(pk.pts, [], zFloor, true) // дно карманов
   flat([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]], [], 0, false) // дно корпуса
   const quad = (a: number[], b: number[], c: number[], d: number[], na: number[], nb: number[]) => { // a,b снизу; c,d сверху (c над b, d над a)
     pos.push(...a, ...b, ...d, ...b, ...c, ...d); nor.push(...na, ...nb, ...na, ...nb, ...nb, ...na)
   }
-  for (const pk of pockets) { // стенки кармана: нормали в сторону кармана, сглаженные по вершинам
-    // нормаль вершины — среднее нормалей рёбер в окне ±nw мм вдоль контура: шум в десятки мкм не даёт полос на стенке
-    const n = pk.length, perim = pk.reduce((a, q, i) => a + Math.hypot(pk[(i + 1) % n][0] - q[0], pk[(i + 1) % n][1] - q[1]), 0), k = Math.max(1, Math.round((num('nwin') / perim) * n))
-    const en = pk.map((q, i) => { const r = pk[(i + 1) % n], dx = r[0] - q[0], dy = r[1] - q[1], l = Math.hypot(dx, dy) || 1; return [dy / l, -dx / l] }) // наружу кармана (контур против часовой)
-    const vn = pk.map((_, i) => { let x = 0, y = 0; for (let d = -k; d <= k; d++) { const e = en[(((i + d) % n) + n) % n], w = 1 - Math.abs(d) / (k + 1); x += w * e[0]; y += w * e[1] } const l = Math.hypot(x, y) || 1; return [-x / l, -y / l, 0] })
-    for (let i = 0; i < n; i++) { const a = pk[i], b = pk[(i + 1) % n]; quad([a[0], a[1], zFloor], [b[0], b[1], zFloor], [b[0], b[1], zTop], [a[0], a[1], zTop], vn[i], vn[(i + 1) % n]) }
+  for (const pk of pockets) { // стенки кармана: нормали в сторону кармана (аналитические или усреднённые)
+    const n = pk.pts.length, vn = pk.nrm.map((q) => [-q[0], -q[1], 0])
+    for (let i = 0; i < n; i++) { const a = pk.pts[i], b = pk.pts[(i + 1) % n]; quad([a[0], a[1], zFloor], [b[0], b[1], zFloor], [b[0], b[1], zTop], [a[0], a[1], zTop], vn[i], vn[(i + 1) % n]) }
   }
   const sideN = [[0, -1, 0], [1, 0, 0], [0, 1, 0], [-1, 0, 0]], corners: [number, number][] = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]]
   for (let i = 0; i < 4; i++) { const a = corners[i], b = corners[(i + 1) % 4]; quad([b[0], b[1], 0], [a[0], a[1], 0], [a[0], a[1], zTop], [b[0], b[1], zTop], sideN[i], sideN[i]) }
@@ -286,7 +318,7 @@ function build() {
     const g2 = new THREE.ExtrudeGeometry(sh, { depth: Math.max(0.5, num('depth') - 0.6), bevelEnabled: false }); g2.translate(0, 0, zFloor + 0.05)
     group.add(new THREE.Mesh(g2, toolMat))
   }
-  $('stat3d').textContent = `${pockets.length} кармана, ${pockets.reduce((a, p) => a + p.length, 0)} вершин контура, ${(pos.length / 9 / 1000).toFixed(0)} тыс. треуг.; глубина ${(zTop - zFloor).toFixed(0)} мм, зазор ${clearMm} мм`
+  $('stat3d').textContent = `${pockets.length} кармана; ${chk('fit') ? `кривых Безье ${fitInfo.segs} (контрольных точек ${fitInfo.ctrl})` : `полилиния ${fitInfo.segs} вершин`}; вершин в модели ${pockets.reduce((a, p) => a + p.pts.length, 0)}, ${(pos.length / 9 / 1000).toFixed(0)} тыс. треуг.; глубина ${(zTop - zFloor).toFixed(0)} мм, зазор ${clearMm} мм`
   const sig = `${binW}|${binH}`; if (sig !== fitted) { fitted = sig; frame(Math.max(binW, binH), 'iso') }
 }
 

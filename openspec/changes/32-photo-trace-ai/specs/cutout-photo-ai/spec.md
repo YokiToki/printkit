@@ -36,30 +36,53 @@ On the silhouette step the user SHALL be able to choose the detection engine, Cl
 - **THEN** the sensitivity control, which belongs to the classic detector, is not offered for it, and the margin still applies
 
 ### Requirement: Model manager
-The app SHALL have a model manager window, reachable from the engine switch and from the footer, that lists the available models with their name, purpose, size, licence and status, and lets the user download, cancel, delete and choose the model used by the AI engine. Several models SHALL be downloadable and stored side by side. The models SHALL be kept in the browser's storage on the device; the window SHALL show the space they use and offer to delete all of them.
+The app SHALL have a model manager, a modal window opened by a button in the top bar of the app, available on every page and independent of any mode. It SHALL list the available models in sections by their kind (silhouette mask, depth) with their name, purpose, size, licence and status, and SHALL let the user download, cancel, delete and choose the model used for each kind. Several models SHALL be downloadable and stored side by side. The models SHALL be kept in the browser's storage on the device; the window SHALL show the space they use and offer to delete all of them, and SHALL show the full log of the session.
 
-#### Scenario: List
+#### Scenario: Always reachable
+- **WHEN** the user is on any page of the app
+- **THEN** the top bar has a button that opens the model manager, also when no AI feature is in use
+
+#### Scenario: Sections by kind
 - **WHEN** the manager is opened
-- **THEN** every model is listed with its size, licence and status
+- **THEN** the models of each kind are in their own section, each with its size, licence and status
 
 #### Scenario: Download and delete
 - **WHEN** the user downloads a model and later deletes it
 - **THEN** progress is shown while downloading, the model is then ready for use, and after deleting its stored data is removed and it shows as not downloaded
 
 #### Scenario: Choice
-- **WHEN** two models are downloaded
-- **THEN** the user picks which one the AI engine uses
+- **WHEN** two models of one kind are downloaded
+- **THEN** the user picks which one the AI engine uses for that kind
 
-#### Scenario: No model yet
-- **WHEN** the user chooses the AI engine and no model is ready
-- **THEN** the manager opens, and nothing is downloaded until the user starts a download
+#### Scenario: Activity indicator
+- **WHEN** a download or an AI run is in progress and the manager is closed
+- **THEN** the manager's button in the top bar shows that something is going on
+
+### Requirement: No AI run without a model
+The button that starts an AI run SHALL be disabled while no suitable model is ready, and a hint next to it SHALL say that a model has to be downloaded and SHALL open the model manager. When the download finishes and a model is available, the button SHALL become active without any other action. A run SHALL NOT start a download.
+
+#### Scenario: Disabled without a model
+- **WHEN** the AI engine is chosen and no silhouette model is downloaded
+- **THEN** the run button is disabled and a hint offers to download a model, with a link to the manager
+
+#### Scenario: Active after the download
+- **WHEN** the user downloads a model in the manager
+- **THEN** when the download is complete the run button becomes active, with no other action
+
+#### Scenario: Deleting the model
+- **WHEN** the user deletes the only model while the AI engine is chosen
+- **THEN** the run button becomes disabled again, and an already computed result stays in use
 
 ### Requirement: Model download and consent
-A model SHALL be downloaded only after the user confirms. Before the first download of a model the app SHALL show its name, size, source host and licence, and the models offered SHALL be under permissive licences (MIT, Apache-2.0, BSD or CC0). Downloads SHALL show progress and be cancellable. If the download or the model fails, or the file's checksum does not match, the classic engine SHALL stay usable and the failure SHALL be shown.
+A model SHALL be downloaded only after the user explicitly confirms in the model manager, and never as a side effect of another action, in the background or in advance. Before a download the app SHALL show its name, size, source host and licence, and the models offered SHALL be under permissive licences (MIT, Apache-2.0, BSD or CC0). Downloads SHALL show progress and be cancellable. If the download or the model fails, or the file's checksum does not match, the classic engine SHALL stay usable and the failure SHALL be shown.
 
 #### Scenario: Consent first
-- **WHEN** the user starts the first download of a model
+- **WHEN** the user starts the download of a model
 - **THEN** a dialog states the size and that the source host sees the user's address, and nothing is downloaded until the user confirms
+
+#### Scenario: Never silent
+- **WHEN** the user uses any feature of the app without confirming a download
+- **THEN** no model file is requested from the network
 
 #### Scenario: Cached
 - **WHEN** the model was downloaded earlier and the storage is intact
@@ -72,6 +95,29 @@ A model SHALL be downloaded only after the user confirms. Before the first downl
 #### Scenario: Storage unavailable
 - **WHEN** the browser refuses persistent storage
 - **THEN** the model works for the session and a notice says it will be downloaded again next time
+
+### Requirement: AI activity and log
+While a model is downloading or an AI run is in progress, the app SHALL show a loader and the current line of the log, describing what is happening now, next to the control that started it, with a way to cancel. When the job ends the line SHALL show the result or the error. The model manager SHALL show the full log of the session with the time of each line, and let the user copy and clear it. The lines SHALL be in the language of the interface, and the log SHALL stay in the browser.
+
+#### Scenario: Current line
+- **WHEN** an AI run goes through its phases
+- **THEN** next to the run button a spinner and one line show the current phase, replacing the previous line as the phase changes
+
+#### Scenario: Download progress
+- **WHEN** a model is downloading
+- **THEN** the line shows the downloaded and total size, and the manager shows the progress of that model
+
+#### Scenario: Full log
+- **WHEN** the user opens the model manager after a run
+- **THEN** all lines of the session are listed with their time, newest at the end, and Copy and Clear work
+
+#### Scenario: Error
+- **WHEN** a run or a download fails
+- **THEN** the line shows the error and the log keeps its details
+
+#### Scenario: Language
+- **WHEN** the interface language is changed
+- **THEN** the lines of the log are shown in the new language
 
 ### Requirement: Privacy
 The photo, the straightened image and the masks SHALL be processed in the browser only and SHALL NOT be sent anywhere by the AI engine. The only network traffic added by the AI engine SHALL be the download of the model files, from a fixed, versioned location, after consent. The user interface and the References page SHALL say so, and SHALL list every model with its licence and source. Only models under permissive licences (MIT, Apache-2.0, BSD or CC0) SHALL be offered.

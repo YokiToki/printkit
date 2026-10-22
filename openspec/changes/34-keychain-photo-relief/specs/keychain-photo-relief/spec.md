@@ -29,7 +29,7 @@ In Image mode the user SHALL be able to choose Photo as the relief height source
 - **THEN** the preview and the relief update without running any model
 
 ### Requirement: Depth source
-The depth of the photo SHALL be computed once from the image, or from its crop, by a model of the depth kind chosen in the model manager and run in the browser, and kept with the image. Parts of the subject nearer to the camera SHALL be higher than parts farther from it. The depth range used SHALL be taken from the pixels inside the silhouette, so a far background does not use up the height range. The image and the result SHALL stay in the browser. If no depth model is ready, the model manager SHALL open and nothing SHALL be downloaded without the user's confirmation.
+The depth of the photo SHALL be computed once from the image, or from its crop, by a model of the depth kind chosen in the model manager and run in the browser, and kept with the image. Parts of the subject nearer to the camera SHALL be higher than parts farther from it. The depth range used SHALL be taken from the pixels inside the silhouette, so a far background does not use up the height range. The image and the result SHALL stay in the browser. While the depth is computed the app SHALL show a loader and the current line of the log next to the button, with a way to cancel. If no depth model is ready, the Compute depth button SHALL be disabled with a hint to download a model (a link to the model manager, depth section), SHALL become active when a download finishes, and a run SHALL NOT download a model.
 
 #### Scenario: Form
 - **WHEN** the depth of a photo of an animal is computed and the Depth share is raised
@@ -40,8 +40,12 @@ The depth of the photo SHALL be computed once from the image, or from its crop, 
 - **THEN** the subject's relief still spans the configured height range
 
 #### Scenario: No model
-- **WHEN** the user presses Compute depth and no depth model is downloaded
-- **THEN** the model manager opens and the run starts only after a model is downloaded and chosen
+- **WHEN** no depth model is downloaded
+- **THEN** the Compute depth button is disabled with a hint and a link to the model manager, and becomes active when the download finishes
+
+#### Scenario: Current line
+- **WHEN** the depth is being computed
+- **THEN** a loader and the current line of the log are shown next to the button, with the result or the error at the end
 
 #### Scenario: Crop
 - **WHEN** the crop has changed since the depth was computed

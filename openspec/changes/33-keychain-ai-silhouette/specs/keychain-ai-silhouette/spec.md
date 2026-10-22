@@ -21,19 +21,23 @@ In Image mode the user SHALL be able to choose where the silhouette comes from: 
 - **THEN** the brightness threshold and invert are not shown, and close gap, fill areas, remove specks and grow are still available
 
 ### Requirement: Remove background with AI
-With the AI source the user SHALL be able to run background removal on the whole image with a model chosen from the model manager. The run SHALL show progress and be cancellable, SHALL work on any image aspect ratio without distorting it, and SHALL keep the original image. The image and the result SHALL stay in the browser. If no model is ready, the model manager SHALL open and nothing SHALL be downloaded without the user's confirmation.
+With the AI source the user SHALL be able to run background removal on the whole image with a model chosen from the model manager. The run SHALL show a loader with the current line of the log (what is happening now) and be cancellable, SHALL work on any image aspect ratio without distorting it, and SHALL keep the original image. The image and the result SHALL stay in the browser. If no model is ready, the Remove background button SHALL be disabled with a hint to download a model (a link to the model manager), SHALL become active when a download finishes, and a run SHALL NOT download a model.
 
 #### Scenario: Run
 - **WHEN** the user presses Remove background with a model ready
-- **THEN** progress is shown, and on completion the silhouette preview and the relief show the subject without the background
+- **THEN** a loader and the current line of the log are shown next to the button, and on completion the silhouette preview and the relief show the subject without the background
+
+#### Scenario: Current line
+- **WHEN** the run goes through its phases
+- **THEN** the line shows what is happening now and changes as the phase changes, and shows the result or the error at the end
 
 #### Scenario: Any proportions
 - **WHEN** the image is a wide landscape or a tall portrait
 - **THEN** the subject's outline is not stretched compared with the image
 
 #### Scenario: No model
-- **WHEN** the user presses Remove background and no model is downloaded
-- **THEN** the model manager opens, and the run starts only after a model is downloaded and chosen
+- **WHEN** no silhouette model is downloaded
+- **THEN** the Remove background button is disabled and a hint offers to download a model with a link to the model manager, and when the download finishes the button becomes active with no other action
 
 #### Scenario: Cancel
 - **WHEN** the user cancels a run or starts another

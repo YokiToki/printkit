@@ -52,16 +52,24 @@ function toInput(rgb: Uint8Array, w: number, h: number, c: Candidate, s: number)
   return out
 }
 
-/** Выход s × s → плоскость w × h (билинейно, поля вписывания отброшены). */
+/** Бикубическая (Катмулл–Ром) интерполяция плоскости: гладкая изолиния при растяжении, без «ступеней» билинейной сетки. */
+export function cubicSample(v: Float32Array, w: number, h: number, x: number, y: number): number {
+  x -= 0.5; y -= 0.5
+  const x0 = Math.floor(x), y0 = Math.floor(y), tx = x - x0, ty = y - y0
+  const wgt = (t: number) => [(-t * t * t + 2 * t * t - t) / 2, (3 * t * t * t - 5 * t * t + 2) / 2, (-3 * t * t * t + 4 * t * t + t) / 2, (t * t * t - t * t) / 2]
+  const wx = wgt(tx), wy = wgt(ty); let acc = 0
+  for (let j = 0; j < 4; j++) {
+    const yy = Math.min(h - 1, Math.max(0, y0 - 1 + j)); let row = 0
+    for (let i = 0; i < 4; i++) row += wx[i] * v[yy * w + Math.min(w - 1, Math.max(0, x0 - 1 + i))]
+    acc += wy[j] * row
+  }
+  return acc
+}
+
+/** Выход s × s → плоскость w × h (бикубически, поля вписывания отброшены), значения 0…1. */
 function fromOutput(v: Float32Array, s: number, w: number, h: number): Float32Array {
   const out = new Float32Array(w * h), r = Math.min(s / w, s / h), ox = (s - w * r) / 2, oy = (s - h * r) / 2
-  for (let j = 0; j < h; j++) {
-    const fy = Math.min(s - 1.001, Math.max(0, (j + 0.5) * r + oy - 0.5)), y0 = Math.floor(fy), ty = fy - y0
-    for (let i = 0; i < w; i++) {
-      const fx = Math.min(s - 1.001, Math.max(0, (i + 0.5) * r + ox - 0.5)), x0 = Math.floor(fx), tx = fx - x0
-      out[j * w + i] = (v[y0 * s + x0] * (1 - tx) + v[y0 * s + x0 + 1] * tx) * (1 - ty) + (v[(y0 + 1) * s + x0] * (1 - tx) + v[(y0 + 1) * s + x0 + 1] * tx) * ty
-    }
-  }
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) out[j * w + i] = Math.min(1, Math.max(0, cubicSample(v, s, s, (i + 0.5) * r + ox, (j + 0.5) * r + oy)))
   return out
 }
 

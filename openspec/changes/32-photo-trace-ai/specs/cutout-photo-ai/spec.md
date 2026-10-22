@@ -149,6 +149,21 @@ The AI engine SHALL place the silhouette edge by the paper-colour test within a 
 - **WHEN** a 40 × 20 mm rectangle lies on the paper and the corners are placed correctly
 - **THEN** the AI silhouette measures 40 × 20 mm within 0.5 mm
 
+### Requirement: Smooth outline
+The outline of a silhouette found by the AI engine SHALL be as smooth as the outline of the same object found by the classic engine: it SHALL NOT show a ribbed or wavy line that follows the resolution of the model's mask. The app SHALL upsample the model's soft mask smoothly, SHALL offer to refine each found object with a second model pass on its own crop, and SHALL smooth the traced outline along the curve while keeping sharp corners.
+
+#### Scenario: Comparable smoothness
+- **WHEN** the same photo is processed by both engines
+- **THEN** the roughness of the AI outline (mean distance of its vertices from the same outline smoothed by 1.5 mm) is within 25 % of the classic outline's
+
+#### Scenario: Second pass
+- **WHEN** the second pass is on
+- **THEN** each object is run again on its own crop and its outline is no rougher than without the second pass
+
+#### Scenario: Sharp tips
+- **WHEN** a tool has a pointed tip
+- **THEN** the smoothing does not round the tip away
+
 ### Requirement: Compare engines
 The user SHALL be able to compare the two engines on the straightened view: the silhouettes of the inactive engine are drawn as outlines over the view, and a table lists each tool's width and height for both engines and the difference.
 

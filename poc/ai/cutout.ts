@@ -130,6 +130,18 @@ function outlineOf(seg: Seg, sil: Sil, r: Rectified): Outline {
   return { id: sil.id, loops }
 }
 
+/** Шероховатость контура, мм: среднее отклонение вершин от того же контура, сглаженного гауссом σ = 1.5 мм (чем меньше, тем плавнее линия). */
+function roughness(loops: Pt[][], scale: number): number {
+  let sum = 0, cnt = 0
+  for (const l of loops) {
+    if (l.length < 12) continue
+    const step = 0.7, n = l.length, sg = (1.5 * scale) / step, r = Math.ceil(3 * sg), k: number[] = []; let ks = 0
+    for (let i = -r; i <= r; i++) { const v = Math.exp(-(i * i) / (2 * sg * sg)); k.push(v); ks += v }
+    for (let i = 0; i < n; i++) { let x = 0, y = 0; for (let d = -r; d <= r; d++) { const q = l[(((i + d) % n) + n) % n]; x += k[d + r] * q[0]; y += k[d + r] * q[1] } ; sum += Math.hypot(l[i][0] - x / ks, l[i][1] - y / ks); cnt++ }
+  }
+  return cnt ? sum / cnt / scale : 0
+}
+
 interface Field { key: string; nx: number; ny: number; cell: number; sd: Float32Array; cx: number; cy: number; binW: number; binH: number; scale: number }
 let fieldCache: Field | null = null
 
@@ -211,7 +223,7 @@ function build() {
   if (!sels.length) { $('stat3d').textContent = 'нет выбранных силуэтов'; return }
   const sc = rect.scale, cell0 = Math.max(0.15, num('cell'))
   const outs = sels.map((s) => outlineOf(seg, s, rect!))
-  $('st-out').textContent = `${outs.reduce((a, o) => a + o.loops.length, 0)} петель, ${outs.reduce((a, o) => a + o.loops.reduce((b, l) => b + l.length, 0), 0)} вершин`
+  $('st-out').textContent = `${outs.reduce((a, o) => a + o.loops.length, 0)} петель, ${outs.reduce((a, o) => a + o.loops.reduce((b, l) => b + l.length, 0), 0)} вершин; шероховатость ${(roughness(outs.flatMap((o) => o.loops), sc) * 1000).toFixed(0)} мкм`
   // габарит всех инструментов (мм листа) → корпус целыми юнитами
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
   for (const o of outs) for (const l of o.loops) for (const [x, y] of l) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y) }
@@ -288,13 +300,31 @@ function computeField(key: string, seg: Seg, sels: Sil[], outs: Outline[], nx: n
 }
 
 // ---------- запуск модели и события ----------
+/** Второй проход: каждый найденный объект (рамка + поле) прогоняется моделью отдельно, поэтому на объект приходятся все 512 px сети (≈0.3 мм вместо ≈0.6 мм на весь лист). */
+async function refine(c: (typeof CANDIDATES)[number], ep: string, base: Float32Array, r: Rectified): Promise<Float32Array> {
+  const seg0 = aiSegmentation(r, base), W = r.image.width, H = r.image.height, out = Float32Array.from(base), pad = Math.round(12 * r.scale)
+  for (const s of seg0.sils) {
+    const x0 = Math.max(0, s.bbox[0] - pad), y0 = Math.max(0, s.bbox[1] - pad), x1 = Math.min(W - 1, s.bbox[2] + pad), y1 = Math.min(H - 1, s.bbox[3] + pad), cw = x1 - x0 + 1, ch = y1 - y0 + 1
+    const crop = new Uint8Array(cw * ch * 3); for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) { const q = ((y0 + j) * W + x0 + i) * 3; crop.set(r.rgb!.subarray(q, q + 3), (j * cw + i) * 3) }
+    const res = await infer(c, ep, 1, crop, cw, ch, () => {})
+    log(`  уточнение объекта №${s.id}: ${cw}×${ch} px, ${res.ms.toFixed(0)} мс`)
+    for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) { // внутри рамки без самого края (край рамки остаётся от общего прохода)
+      const edge = Math.min(i, j, cw - 1 - i, ch - 1 - j), w2 = Math.min(1, edge / (pad * 0.5)) // плавный переход к общему проходу на краю рамки
+      out[(y0 + j) * W + x0 + i] = base[(y0 + j) * W + x0 + i] * (1 - w2) + res.plane[j * cw + i] * w2
+    }
+  }
+  return out
+}
+
 $('runai').addEventListener('click', async () => {
   if (!rect) return
   const c = CANDIDATES.find((x) => x.id === $<HTMLSelectElement>('modelsel').value)!, ep = $<HTMLSelectElement>('ep').value, btn = $<HTMLButtonElement>('runai'); btn.disabled = true
   try {
     log(`силуэты: ${c.id}, ${ep}, лицензия ${c.license}`)
     const r = await infer(c, ep, 1, rect.rgb!, rect.image.width, rect.image.height, log)
-    log(`готово за ${r.ms.toFixed(0)} мс`); matte = r.plane; $<HTMLSelectElement>('eng').value = 'ai'; fieldCache = null; schedule()
+    log(`общий проход за ${r.ms.toFixed(0)} мс`); matte = r.plane
+    if (chk('refine')) { const t = performance.now(); matte = await refine(c, ep, matte, rect); log(`второй проход по объектам за ${((performance.now() - t) / 1000).toFixed(1)} с`) }
+    $<HTMLSelectElement>('eng').value = 'ai'; fieldCache = null; schedule()
   } catch (e) { log('ОШИБКА: ' + ((e as Error)?.message ?? e)) } finally { btn.disabled = false }
 })
 $('sample').addEventListener('change', () => { $<HTMLInputElement>('file').value = ''; loadPhoto() })

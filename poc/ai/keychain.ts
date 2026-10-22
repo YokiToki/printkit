@@ -11,7 +11,7 @@ import { close } from '../../src/geometry/raster/morphology'
 import { findHoles, fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
 import { backendsOf, CANDIDATES, type Candidate } from './models'
 import { infer } from './engine'
-import { signedDistance, vectorOutline } from './outline'
+import { findCorners, fitLoop, signedDistance, tessellate, vectorOutline, type Pt } from './outline'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 const num = (id: string) => +$<HTMLInputElement>(id).value
@@ -293,10 +293,25 @@ function build3D(w: Work, mask: Uint8Array, value: Float32Array, partW: number, 
   const F = new Float32Array(nx * ny), isIn = new Uint8Array(nx * ny), Z = new Float32Array(nx * ny)
   // векторный контур: изолиния, сглаживание вдоль кривой, острые углы сохраняются; поле F у края заменяется знаковым расстоянием до кривой
   let loops: ReturnType<typeof vectorOutline> | null = null
+  let wallS: { x: number; y: number; nx: number; ny: number }[] = [] // выборка кривых (мм детали) с нормалями наружу: для гладких стенок
   if (chk('vec')) {
     const f1 = gaussianBlur(Float32Array.from(mask), w.ww, w.wh, 0.8, ones(w.ww * w.wh)), pxMmL = w.ww / partW
     loops = vectorOutline(Uint8Array.from(f1, (v) => Math.round(v * 255)), w.ww, w.wh, Math.max(0.5, num('osm') * pxMmL), num('cang'))
     log2.textContent = `контур: ${loops.length} петель, ${loops.reduce((a, l) => a + l.length, 0)} вершин`
+    if (chk('fit')) { // подгонка кубических Безье (как в вырезах): минимум точек, аналитические нормали стенки
+      const tolPx = num('ftol') * pxMmL, stepPx = Math.max(1, num('fstep') * pxMmL); let segs = 0, ctrl = 0, verts = 0
+      const fitted: Pt[][] = []; wallS = []
+      for (const l of loops) {
+        if (l.length < 12) { fitted.push(l); continue }
+        const { segs: sg } = fitLoop(l, findCorners(l, 3, num('cang')), tolPx), sm = tessellate(sg, stepPx)
+        // направление нормали: наружу — туда, где маска пуста
+        let inside = 0; for (const q of sm) { const x = q.p[0] + q.n[0] * 1.5, y = q.p[1] + q.n[1] * 1.5; if (bil(soft, w.ww, w.wh, x, y) > 0.5) inside++ }
+        const flip = inside > sm.length / 2 ? -1 : 1
+        fitted.push(sm.map((q) => q.p as Pt)); for (const q of sm) wallS.push({ x: q.p[0] * mmx - partW / 2, y: partH / 2 - q.p[1] * mmy, nx: q.n[0] * flip, ny: -q.n[1] * flip })
+        segs += sg.length; ctrl += 3 * sg.length + 1; verts += sm.length
+      }
+      loops = fitted; log2.textContent = `контур: кривых Безье ${segs} (контрольных точек ${ctrl}), вершин в модели ${verts}, допуск ${num('ftol')} мм, шаг ${num('fstep')} мм`
+    }
   } else log2.textContent = ''
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     const k = j * nx + i; F[k] = bil(soft, w.ww, w.wh, px(i), py(j))
@@ -335,12 +350,29 @@ function build3D(w: Work, mask: Uint8Array, value: Float32Array, partW: number, 
   for (let v = 0; v < vx.length; v++) { pos[v * 3] = vx[v]; pos[v * 3 + 1] = vy[v]; pos[v * 3 + 2] = vz[v] }
   const topGeo = new THREE.BufferGeometry(); topGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); topGeo.setIndex(idx); topGeo.computeVertexNormals()
   // Стенки по сегментам контура и дно: те же полигоны на z = 0 (зеркально)
-  const wp: number[] = []
-  const quad = (a: number[], b: number[], c: number[], d: number[]) => wp.push(...a, ...b, ...c, ...b, ...d, ...c)
+  const wp: number[] = [], wn: number[] = []
   const V = (v: number, z?: number): number[] => [vx[v], vy[v], z ?? vz[v]]
-  for (const [p0, p1] of segs) quad(V(p0, 0), V(p1, 0), V(p0), V(p1))
-  for (let t = 0; t < idx.length; t += 3) wp.push(...V(idx[t], 0), ...V(idx[t + 2], 0), ...V(idx[t + 1], 0)) // дно
-  const skirt = new THREE.BufferGeometry(); skirt.setAttribute('position', new THREE.BufferAttribute(new Float32Array(wp), 3)); skirt.computeVertexNormals()
+  const nrmAt = new Map<number, [number, number]>()
+  const wallN = (v: number): [number, number] => { // нормаль стенки в вершине контура: у ближайшей точки подогнанной кривой
+    let r = nrmAt.get(v); if (r) return r
+    let best = Infinity; r = [0, 0]
+    for (const q of wallS) { const d = (q.x - vx[v]) ** 2 + (q.y - vy[v]) ** 2; if (d < best) { best = d; r = [q.nx, q.ny] } }
+    nrmAt.set(v, r); return r
+  }
+  const tri3 = (a: number[], b: number[], c: number[], na: number[], nb: number[], nc: number[]) => { // порядок вершин так, чтобы лицевая сторона смотрела по нормали
+    const g = [(b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]), (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]), (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])]
+    const dn = g[0] * (na[0] + nb[0] + nc[0]) + g[1] * (na[1] + nb[1] + nc[1]) + g[2] * (na[2] + nb[2] + nc[2])
+    if (dn >= 0) { wp.push(...a, ...b, ...c); wn.push(...na, ...nb, ...nc) } else { wp.push(...a, ...c, ...b); wn.push(...na, ...nc, ...nb) }
+  }
+  const curved = chk('vec') && chk('fit') && wallS.length > 0
+  for (const [p0, p1] of segs) {
+    const n0 = curved ? [...wallN(p0), 0] : [0, 0, 0], n1 = curved ? [...wallN(p1), 0] : [0, 0, 0]
+    if (curved) { tri3(V(p0, 0), V(p1, 0), V(p0), n0, n1, n0); tri3(V(p1, 0), V(p1), V(p0), n1, n1, n0) }
+    else wp.push(...V(p0, 0), ...V(p1, 0), ...V(p0), ...V(p1, 0), ...V(p1), ...V(p0))
+  }
+  for (let t = 0; t < idx.length; t += 3) { wp.push(...V(idx[t], 0), ...V(idx[t + 2], 0), ...V(idx[t + 1], 0)); if (curved) wn.push(0, 0, -1, 0, 0, -1, 0, 0, -1) } // дно
+  const skirt = new THREE.BufferGeometry(); skirt.setAttribute('position', new THREE.BufferAttribute(new Float32Array(wp), 3))
+  if (curved) skirt.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(wn), 3)); else skirt.computeVertexNormals()
   group.clear()
   mat.wireframe = chk('wire'); mat.side = THREE.DoubleSide
   group.add(new THREE.Mesh(topGeo, mat), new THREE.Mesh(skirt, mat))

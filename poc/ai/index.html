@@ -50,6 +50,9 @@ button{padding:3px 10px}
   <div id="silbright" hidden><label><input id="inv" type="checkbox"> инвертировать</label></div>
   <label><input id="fill" type="checkbox" checked> заливать пустоты</label>
   <label><input id="vec" type="checkbox" checked> векторный контур (острые углы сохраняются)</label>
+  <label><input id="fit" type="checkbox" checked> кривые Безье (минимум точек, гладкая стенка)</label>
+  <label>допуск подгонки, мм <input id="ftol" type="number" value="0.25" step="0.05" min="0.02"></label>
+  <label>шаг выборки кривой, мм <input id="fstep" type="number" value="1" step="0.1" min="0.2"></label>
   <label>угол, °, с которого вершина считается острой <input id="cang" type="number" value="50" step="5" min="20" max="150"></label>
   <label>сглаживание контура, мм (как в вырезах 0.25) <input id="osm" type="number" value="0.25" step="0.05" min="0"></label>
   <label>открытыми оставить области больше, мм² <input id="openmm2" type="number" value="150" step="10" min="0"></label>

@@ -13,7 +13,7 @@
 
 ## 3. Version
 
-- [ ] 3.1 Bump to 1.6.0: `package.json` and a `CHANGELOG.md` entry `1.6.0 — 35-smooth-outline`. Test: the existing version test passes with the new number.
+- [ ] 3.1 Bump to 1.7.0: `package.json` and a `CHANGELOG.md` entry `1.7.0 — 35-smooth-outline`. Test: the existing version test passes with the new number.
 
 ## 4. Verification
 

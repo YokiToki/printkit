@@ -36,7 +36,7 @@ On the silhouette step the user SHALL be able to choose the detection engine, Cl
 - **THEN** the sensitivity control, which belongs to the classic detector, is not offered for it, and the margin still applies
 
 ### Requirement: Model manager
-The app SHALL have a model manager, a modal window opened by a button in the top bar of the app, available on every page and independent of any mode. It SHALL list the available models in sections by their kind (silhouette mask, depth) with their name, purpose, size, licence and status, and SHALL let the user download, cancel, delete and choose the model used for each kind. Several models SHALL be downloadable and stored side by side. The models SHALL be kept in the browser's storage on the device; the window SHALL show the space they use and offer to delete all of them, and SHALL show the full log of the session.
+The app SHALL have a model manager, a modal window opened by a button in the top bar of the app, available on every page and independent of any mode. It SHALL list the available models in sections by their kind (silhouette mask, depth) with their name, purpose, size, licence and status, and SHALL let the user download, cancel, delete and choose the model used for each kind. Several models SHALL be downloadable and stored side by side. The models SHALL be kept in the browser's storage on the device; the window SHALL show the space they use and offer to delete all of them, and SHALL link to the app's activity log for the details of downloads and runs.
 
 #### Scenario: Always reachable
 - **WHEN** the user is on any page of the app
@@ -97,7 +97,7 @@ A model SHALL be downloaded only after the user explicitly confirms in the model
 - **THEN** the model works for the session and a notice says it will be downloaded again next time
 
 ### Requirement: AI activity and log
-While a model is downloading or an AI run is in progress, the app SHALL show a loader and the current line of the log, describing what is happening now, next to the control that started it, with a way to cancel. When the job ends the line SHALL show the result or the error. The model manager SHALL show the full log of the session with the time of each line, and let the user copy and clear it. The lines SHALL be in the language of the interface, and the log SHALL stay in the browser.
+While a model is downloading or an AI run is in progress, the app SHALL show a loader and the current line of the log, describing what is happening now, next to the control that started it, with a way to cancel. When the job ends the line SHALL show the result or the error. These lines SHALL be entries of the app's shared activity log, so the full log of downloads and runs, with the time of each line, is available in the log panel opened from the status bar, and the model manager SHALL link to it. The lines SHALL be in the language of the interface, and the log SHALL stay in the browser.
 
 #### Scenario: Current line
 - **WHEN** an AI run goes through its phases
@@ -108,8 +108,8 @@ While a model is downloading or an AI run is in progress, the app SHALL show a l
 - **THEN** the line shows the downloaded and total size, and the manager shows the progress of that model
 
 #### Scenario: Full log
-- **WHEN** the user opens the model manager after a run
-- **THEN** all lines of the session are listed with their time, newest at the end, and Copy and Clear work
+- **WHEN** the user opens the activity log from the status bar, or from the link in the model manager, after a run
+- **THEN** the lines of the download and of the run are listed with their time, and the log can be filtered to them
 
 #### Scenario: Error
 - **WHEN** a run or a download fails

@@ -25,7 +25,7 @@
 
 ## 5. Version
 
-- [ ] 5.1 Bump to 1.5.0: `package.json` and a `CHANGELOG.md` entry `1.5.0 — 34-keychain-photo-relief`. Test: the existing version test passes with the new number.
+- [ ] 5.1 Bump to 1.6.0: `package.json` and a `CHANGELOG.md` entry `1.6.0 — 34-keychain-photo-relief`. Test: the existing version test passes with the new number.
 
 ## 6. Verification
 

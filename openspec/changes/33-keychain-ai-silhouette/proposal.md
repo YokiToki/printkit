@@ -28,5 +28,5 @@ Keychain Image mode builds its silhouette from a threshold (Otsu or manual) on b
 - `geometry/keychain.ts` (`SilhouetteParams` gets `source: 'brightness' | 'ai'` and `ai {model, threshold, smooth, keepLargest}`; `buildSilhouette` builds the alpha from the registered matte, then the unchanged pipeline), a matte registry in the worker next to `imageRegistry` (`ModelClient.registerMatte`, params carry `ai.matteId`), `features/keychain/` (`SilhouetteSection` source switch, `AiSilhouette` block, `useMatte`, `imageStore` matte records, migration normalising the new fields), reuse of `32`'s `src/ml/`, `ModelManager`, `MaskTuning`; strings in en and ru; tests.
 - With `source: 'brightness'` the output equals the current one (regression volumes kept).
 - Out of scope: Shape mode (no image), depth maps as a relief source, click-to-select or erase/restore brush on the mask, several subjects as separate keychains, background replacement or colour output, upscaling small images, any new model beyond the registry of `32`, Rack and other products.
-- Version 1.4.0 (minor: a new option).
+- Version 1.5.0 (minor: a new option).
 - Depends on: `32-photo-trace-ai` (ML runtime, model manager, mask tuning, registry), `11-keychain-relief`, `29-beta-label`.

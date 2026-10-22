@@ -33,5 +33,5 @@ The three complement each other, so the relief is built as a **mix of the three*
 - `geometry/keychain.ts` (`KeychainParams.crop {x, y, w, h}` fractions applied to the image planes before the silhouette; `silhouette.source` gets `'frame'` (extends `33`); `SourceParams.kind` gets `'photo'` with `mix {contour, depth, detail}`, `depthId`, `boost`, `boostRadius` (mm), `levels`, `levelSoftness`; `registerDepth` and `depthRegistry` in the worker; `buildGrid` samples the planes through the brightness path), `geometry/raster/` (`localContrast`, `quantise`, `normaliseDepth`), `src/ml/` registry gets `kind: 'depth'` with external-data support, `features/keychain/` (`CropEditor`, `PhotoReliefBlock`, `useDepth`, depth records in `imageStore`, migration), strings in en and ru, tests.
 - With the Distance or Brightness source, no crop, a traced silhouette, boost 0 and levels 0, the output equals the current one.
 - Out of scope: real metric depth or 3D reconstruction, face detection for an automatic crop, line or edge extraction, sculpt or brush editing of the relief, multi-colour output, larger non-permissive depth models, Shape mode.
-- Version 1.5.0 (minor: new options).
+- Version 1.6.0 (minor: new options).
 - Depends on: `33-keychain-ai-silhouette`, `32-photo-trace-ai`, `12-keychain-patterns`, `17-keychain-smoothing`, `29-beta-label`.

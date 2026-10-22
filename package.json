@@ -11,7 +11,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "art": "tsx scripts/render-art.ts"
+    "art": "tsx scripts/render-art.ts",
+    "poc:ai": "vite --config poc/ai/vite.config.ts"
   },
   "dependencies": {
     "@fontsource-variable/caveat": "^5.3.0",
@@ -66,6 +67,7 @@
     "fake-indexeddb": "^6.2.5",
     "jpeg-js": "^0.4.4",
     "jsdom": "^29.1.1",
+    "onnxruntime-web": "^1.30.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",

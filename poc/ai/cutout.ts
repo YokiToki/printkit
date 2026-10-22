@@ -143,7 +143,19 @@ function roughness(loops: Pt[][], scale: number): number {
 }
 
 interface Field { key: string; nx: number; ny: number; cell: number; sd: Float32Array; cx: number; cy: number; binW: number; binH: number; scale: number }
-let fieldCache: Field | null = null
+/** Смещение замкнутого контура (против часовой стрелки) наружу на d мм по нормалям вершин с митрой (масштаб ≤ 2). */
+function offsetLoop(p: [number, number][], d: number): [number, number][] {
+  if (d <= 0) return p
+  const n = p.length
+  return p.map((b, i) => {
+    const a = p[(i - 1 + n) % n], c = p[(i + 1) % n]
+    const e1 = [b[0] - a[0], b[1] - a[1]], e2 = [c[0] - b[0], c[1] - b[1]], l1 = Math.hypot(e1[0], e1[1]) || 1, l2 = Math.hypot(e2[0], e2[1]) || 1
+    const n1 = [e1[1] / l1, -e1[0] / l1], n2 = [e2[1] / l2, -e2[0] / l2], mx = n1[0] + n2[0], my = n1[1] + n2[1], ml = Math.hypot(mx, my) || 1
+    const cos = (n1[0] * mx + n1[1] * my) / ml, k = d / Math.max(0.5, cos)
+    return [b[0] + (mx / ml) * k, b[1] + (my / ml) * k] as [number, number]
+  })
+}
+
 
 function activeSeg(): Seg | null {
   if ($<HTMLSelectElement>('eng').value === 'ai' && rect && matte) return aiSegmentation(rect, matte)
@@ -231,45 +243,42 @@ function build() {
   const ux = Math.max(1, Math.ceil((ex + 2 * m) / pitch - 1e-9)), uy = Math.max(1, Math.ceil((ey + 2 * m) / pitch - 1e-9)), binW = ux * pitch, binH = uy * pitch
   binDims.w = binW; binDims.h = binH
   $('st-bin').textContent = `инструменты ${ex.toFixed(0)}×${ey.toFixed(0)} мм → корпус ${ux}×${uy} юнитов (${binW}×${binH} мм)`
-  const nx = Math.round(binW / cell0) + 1, ny = Math.round(binH / cell0) + 1, cx3 = binW / (nx - 1), cy3 = binH / (ny - 1)
-  const key = [sels.map((s) => s.id).join(','), $<HTMLSelectElement>('eng').value, chk('vec'), num('osm'), num('cang'), nx, ny, binW, binH, num('margin'), num('thr'), num('smooth'), num('minarea'), matte ? 1 : 0].join('|')
-  if (!fieldCache || fieldCache.key !== key) fieldCache = computeField(key, seg, sels, outs, nx, ny, cx, cy, binW, binH, sc, rect)
-  const F = fieldCache
-  const zTop = num('blockh'), zFloor = Math.max(1, zTop - num('depth')), clear = num('clear') * sc
-  // F' по знаковому расстоянию (px) со сдвигом на зазор; в ячейке-мосту: линейно по расстоянию → точный контур кармана
-  const Fv = new Float32Array(nx * ny), isIn = new Uint8Array(nx * ny)
-  for (let k = 0; k < nx * ny; k++) { const d = F.sd[k] + clear; Fv[k] = Math.min(1, Math.max(0, 0.5 + d / (2 * cell0 * sc))); isIn[k] = d >= 0 ? 1 : 0 }
-  const NXp = (i: number) => -binW / 2 + i * cx3, NYp = (j: number) => binH / 2 - j * cy3
-  const tri: number[] = [], wall: number[] = []
-  const emit = (poly: [number, number][], z: number) => {
-    let area = 0; for (let t = 0; t < poly.length; t++) { const a = poly[t], b = poly[(t + 1) % poly.length]; area += a[0] * b[1] - b[0] * a[1] }
-    const p = area < 0 ? [...poly].reverse() : poly
-    for (let t = 1; t + 1 < p.length; t++) tri.push(p[0][0], p[0][1], z, p[t][0], p[t][1], z, p[t + 1][0], p[t + 1][1], z)
-  }
-  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
-    const k0 = j * nx + i, ks = [k0, k0 + 1, k0 + nx + 1, k0 + nx], P = ks.map((k) => [NXp(k % nx), NYp(Math.floor(k / nx))] as [number, number])
-    const flags = ks.map((k) => isIn[k] === 1), n = flags.filter(Boolean).length
-    if (n === 0) { emit(P, zTop); continue }
-    if (n === 4) { emit(P, zFloor); continue }
-    const outP: [number, number][] = [], inP: [number, number][] = [], segEnds: [number, number][] = []
-    for (let e = 0; e < 4; e++) {
-      const a = e, b = (e + 1) % 4
-      if (flags[a]) inP.push(P[a]); else outP.push(P[a])
-      if (flags[a] !== flags[b]) {
-        const ia = flags[a] ? a : b, oa = flags[a] ? b : a, t = (Fv[ks[ia]] - 0.5) / Math.max(1e-6, Fv[ks[ia]] - Fv[ks[oa]])
-        const c: [number, number] = [P[ia][0] + (P[oa][0] - P[ia][0]) * t, P[ia][1] + (P[oa][1] - P[ia][1]) * t]
-        inP.push(c); outP.push(c); segEnds.push(c)
-      }
+  // Карманы строятся прямо по контуру (как в приложении: контур → смещение на зазор → выдавливание), а не по узлам сетки:
+  // стенки — вертикальные ленты вдоль полигона с гладкими нормалями, верх — прямоугольник с отверстиями-карманами, дно кармана — сам контур.
+  const zTop = num('blockh'), zFloor = Math.max(1, zTop - num('depth')), clearMm = num('clear')
+  const toMm = (l: Pt[]): [number, number][] => l.map(([x, y]) => [x / sc - cx, -(y / sc - cy)])
+  const area = (l: [number, number][]) => l.reduce((a, [x, y], i) => { const [x2, y2] = l[(i + 1) % l.length]; return a + (x * y2 - x2 * y) / 2 }, 0)
+  const pockets = outs.map((o) => {
+    const outer = o.loops.reduce((best, l) => (Math.abs(area(toMm(l))) > Math.abs(area(toMm(best))) ? l : best), o.loops[0])
+    let poly = toMm(outer); if (area(poly) < 0) poly = poly.reverse() // против часовой стрелки: наружу — вправо от хода
+    return offsetLoop(poly, clearMm)
+  })
+  const hx = binW / 2, hy = binH / 2, pos: number[] = [], nor: number[] = []
+  const tri = (a: number[], b: number[], c: number[], n: number[]) => { pos.push(...a, ...b, ...c); for (let t = 0; t < 3; t++) nor.push(...n) }
+  const flat = (poly: [number, number][], holes: [number, number][][], z: number, up: boolean) => {
+    const pts = [...poly, ...holes.flat()], faces = THREE.ShapeUtils.triangulateShape(poly.map((p) => new THREE.Vector2(p[0], p[1])), holes.map((h) => h.map((p) => new THREE.Vector2(p[0], p[1]))))
+    for (const [i, j, k] of faces) {
+      const A = pts[i], B = pts[j], C = pts[k], sa = (B[0] - A[0]) * (C[1] - A[1]) - (C[0] - A[0]) * (B[1] - A[1]), flip = (sa < 0) === up
+      const P = (q: [number, number]) => [q[0], q[1], z]
+      flip ? tri(P(A), P(C), P(B), [0, 0, up ? 1 : -1]) : tri(P(A), P(B), P(C), [0, 0, up ? 1 : -1])
     }
-    emit(outP, zTop); emit(inP, zFloor)
-    if (segEnds.length >= 2) { const [a, b] = segEnds; wall.push(a[0], a[1], zFloor, b[0], b[1], zFloor, a[0], a[1], zTop, b[0], b[1], zFloor, b[0], b[1], zTop, a[0], a[1], zTop) }
   }
-  // боковые стенки корпуса и дно
-  const hx = binW / 2, hy = binH / 2
-  const sideQuad = (a: [number, number], b: [number, number]) => wall.push(a[0], a[1], 0, b[0], b[1], 0, a[0], a[1], zTop, b[0], b[1], 0, b[0], b[1], zTop, a[0], a[1], zTop)
-  sideQuad([-hx, -hy], [hx, -hy]); sideQuad([hx, -hy], [hx, hy]); sideQuad([hx, hy], [-hx, hy]); sideQuad([-hx, hy], [-hx, -hy])
-  tri.push(-hx, -hy, 0, -hx, hy, 0, hx, -hy, 0, hx, -hy, 0, -hx, hy, 0, hx, hy, 0)
-  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([...tri, ...wall]), 3)); geo.computeVertexNormals()
+  flat([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]], pockets, zTop, true) // верх с отверстиями
+  for (const pk of pockets) flat(pk, [], zFloor, true) // дно карманов
+  flat([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]], [], 0, false) // дно корпуса
+  const quad = (a: number[], b: number[], c: number[], d: number[], na: number[], nb: number[]) => { // a,b снизу; c,d сверху (c над b, d над a)
+    pos.push(...a, ...b, ...d, ...b, ...c, ...d); nor.push(...na, ...nb, ...na, ...nb, ...nb, ...na)
+  }
+  for (const pk of pockets) { // стенки кармана: нормали в сторону кармана, сглаженные по вершинам
+    // нормаль вершины — среднее нормалей рёбер в окне ±nw мм вдоль контура: шум в десятки мкм не даёт полос на стенке
+    const n = pk.length, perim = pk.reduce((a, q, i) => a + Math.hypot(pk[(i + 1) % n][0] - q[0], pk[(i + 1) % n][1] - q[1]), 0), k = Math.max(1, Math.round((num('nwin') / perim) * n))
+    const en = pk.map((q, i) => { const r = pk[(i + 1) % n], dx = r[0] - q[0], dy = r[1] - q[1], l = Math.hypot(dx, dy) || 1; return [dy / l, -dx / l] }) // наружу кармана (контур против часовой)
+    const vn = pk.map((_, i) => { let x = 0, y = 0; for (let d = -k; d <= k; d++) { const e = en[(((i + d) % n) + n) % n], w = 1 - Math.abs(d) / (k + 1); x += w * e[0]; y += w * e[1] } const l = Math.hypot(x, y) || 1; return [-x / l, -y / l, 0] })
+    for (let i = 0; i < n; i++) { const a = pk[i], b = pk[(i + 1) % n]; quad([a[0], a[1], zFloor], [b[0], b[1], zFloor], [b[0], b[1], zTop], [a[0], a[1], zTop], vn[i], vn[(i + 1) % n]) }
+  }
+  const sideN = [[0, -1, 0], [1, 0, 0], [0, 1, 0], [-1, 0, 0]], corners: [number, number][] = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]]
+  for (let i = 0; i < 4; i++) { const a = corners[i], b = corners[(i + 1) % 4]; quad([b[0], b[1], 0], [a[0], a[1], 0], [a[0], a[1], zTop], [b[0], b[1], zTop], sideN[i], sideN[i]) }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3)); geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nor), 3))
   mat.wireframe = chk('wire'); group.add(new THREE.Mesh(geo, mat))
   if (chk('tools')) for (const o of outs) { // инструменты: настоящий контур без зазора, стоят на дне кармана
     const sh = new THREE.Shape(); const loop = o.loops.reduce((best, l) => (l.length > best.length ? l : best), o.loops[0])
@@ -277,26 +286,8 @@ function build() {
     const g2 = new THREE.ExtrudeGeometry(sh, { depth: Math.max(0.5, num('depth') - 0.6), bevelEnabled: false }); g2.translate(0, 0, zFloor + 0.05)
     group.add(new THREE.Mesh(g2, toolMat))
   }
-  $('stat3d').textContent = `сетка ${nx}×${ny}, шаг ${cx3.toFixed(2)} мм, ${((tri.length + wall.length) / 9 / 1000).toFixed(0)} тыс. треуг.; карман ${(zTop - zFloor).toFixed(0)} мм, зазор ${num('clear')} мм`
+  $('stat3d').textContent = `${pockets.length} кармана, ${pockets.reduce((a, p) => a + p.length, 0)} вершин контура, ${(pos.length / 9 / 1000).toFixed(0)} тыс. треуг.; глубина ${(zTop - zFloor).toFixed(0)} мм, зазор ${clearMm} мм`
   const sig = `${binW}|${binH}`; if (sig !== fitted) { fitted = sig; frame(Math.max(binW, binH), 'iso') }
-}
-
-/** Знаковое расстояние (px листа, + внутри) в узлах сетки корпуса: точно у края (до контура), приближённо дальше (EDT). */
-function computeField(key: string, seg: Seg, sels: Sil[], outs: Outline[], nx: number, ny: number, cx: number, cy: number, binW: number, binH: number, sc: number, r: Rectified): Field {
-  const W = r.image.width, H = r.image.height, M = new Uint8Array(W * H), ids = new Set(sels.map((s) => s.id))
-  for (let i = 0; i < M.length; i++) if (ids.has(seg.labels[i])) M[i] = 1
-  const inv = M.map((v) => 1 - v) as Uint8Array
-  const dIn = edt(M, W, H), dOut = edt(inv, W, H)
-  const loops = outs.flatMap((o) => o.loops), sd = new Float32Array(nx * ny), cell = binW / (nx - 1), band = (num('clear') + 3 * cell) * sc + 2
-  let exact = 0
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-    const X = (cx - binW / 2 + (i * binW) / (nx - 1)) * sc, Y = (cy - binH / 2 + (j * binH) / (ny - 1)) * sc // координаты листа (px), Y вниз
-    const xi = Math.min(W - 1, Math.max(0, Math.round(X))), yi = Math.min(H - 1, Math.max(0, Math.round(Y))), p = yi * W + xi
-    const inside = M[p] === 1, d = inside ? dIn[p] : dOut[p]
-    if (d <= band) { sd[j * nx + i] = signedDistance(loops, X, Y); exact++ } else sd[j * nx + i] = inside ? d : -d
-  }
-  log(`поле: ${nx}×${ny} узлов, точное расстояние в ${exact} узлах у края`)
-  return { key, nx, ny, cell, sd, cx, cy, binW, binH, scale: sc }
 }
 
 // ---------- запуск модели и события ----------
@@ -324,13 +315,13 @@ $('runai').addEventListener('click', async () => {
     const r = await infer(c, ep, 1, rect.rgb!, rect.image.width, rect.image.height, log)
     log(`общий проход за ${r.ms.toFixed(0)} мс`); matte = r.plane
     if (chk('refine')) { const t = performance.now(); matte = await refine(c, ep, matte, rect); log(`второй проход по объектам за ${((performance.now() - t) / 1000).toFixed(1)} с`) }
-    $<HTMLSelectElement>('eng').value = 'ai'; fieldCache = null; schedule()
+    $<HTMLSelectElement>('eng').value = 'ai'; schedule()
   } catch (e) { log('ОШИБКА: ' + ((e as Error)?.message ?? e)) } finally { btn.disabled = false }
 })
 $('sample').addEventListener('change', () => { $<HTMLInputElement>('file').value = ''; loadPhoto() })
 $('file').addEventListener('change', () => loadPhoto())
-for (const id of ['ppaper', 'porient']) $(id).addEventListener('change', () => { rebuildRect(); fieldCache = null; schedule() })
-for (const id of ['margin', 'sens']) $(id).addEventListener('change', () => { rebuildRect(); fieldCache = null; schedule() })
+for (const id of ['ppaper', 'porient']) $(id).addEventListener('change', () => { rebuildRect(); schedule() })
+for (const id of ['margin', 'sens']) $(id).addEventListener('change', () => { rebuildRect(); schedule() })
 for (const el of document.querySelectorAll('input[type=range], input[type=number], input[type=checkbox], select')) {
   if (['file', 'sample', 'ppaper', 'porient', 'margin', 'sens', 'modelsel', 'ep'].includes(el.id) || el.closest('#sils')) continue
   el.addEventListener('input', () => { if (el.id === 'lightang') setLight(); schedule() })

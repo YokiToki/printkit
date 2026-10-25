@@ -21,4 +21,4 @@
 ## 5. Verification
 
 - [x] 5.1 `npm test` and `npm run build` are green, the dev server starts, no console errors.
-- [ ] 5.2 In the browser, en and ru and at 390 px, in Box, Keychain and Cutout: the status bar shows "Generating…" lines while a model is built and "Ready" after, the log lists the generations with durations, an invalid parameter shows a warning with its message, importing an image and exporting a file are logged, the log opens by click and by keyboard, filters, Copy and Clear work, Esc returns the focus, a reload clears the log, nothing is sent to the network.
+- [x] 5.2 In the browser, en and ru and at 390 px, in Box, Keychain and Cutout: the status bar shows "Generating…" lines while a model is built and "Ready" after, the log lists the generations with durations, an invalid parameter shows a warning with its message, importing an image and exporting a file are logged, the log opens by click and by keyboard, filters, Copy and Clear work, Esc returns the focus, a reload clears the log, nothing is sent to the network.

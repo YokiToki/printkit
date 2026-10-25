@@ -123,7 +123,9 @@ describe('уровни областей в рельефе (1.2)', () => {
     for (const t of inArea(sm, 150, 70)) expect(t).toBeCloseTo(2.6, 5)
   })
   it('без уровней результат равен прежнему (follow и open не меняют рельеф)', async () => {
-    const a = await buildKeychain(P({}), reg), b = await buildKeychain(P({ 1: { mode: 'follow', level: 5 } }), reg)
+    // равенство объёмов не зависит от шага сетки: берём грубый, чтобы тест не упирался в таймаут на медленном CI
+    const coarse = { quality: { cell: 0.6, maxTriangles: 400_000 } }
+    const a = await buildKeychain(P({}, coarse), reg), b = await buildKeychain(P({ 1: { mode: 'follow', level: 5 } }, coarse), reg)
     expect(b.solid!.volume()).toBeCloseTo(a.solid!.volume(), 6)
   })
   it('сборка с уровнями — валидное тело; открытая область даёт отверстие', async () => {

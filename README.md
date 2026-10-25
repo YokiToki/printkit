@@ -117,6 +117,16 @@ Standing on the shoulders of:
 - [Keystone blank](https://makerworld.com/ru/models/1111789-keystone-blank) and [Keystone for other models](https://makerworld.com/ru/models/1135286-keystone-for-other-models) (MakerWorld): reference models for the keystone jack mount of the rack enclosure; only their dimensions were measured, no geometry is copied
 - [openscad-agent](https://github.com/iancanderson/openscad-agent): an agent-driven workflow for printable models, an inspiration for building this with an AI agent
 - [manifold](https://github.com/elalish/manifold): the geometry kernel; [three.js](https://threejs.org): the preview
+- [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) (MIT): runs the optional neural networks in the browser
+
+### AI models (optional)
+
+The photo-to-cutout flow can use a neural network to find the tools on the sheet. The classic detector stays the default and needs no download. A model is downloaded only after you confirm it in the *AI models* window, is checked against a pinned SHA-256 and runs in your browser: photos are never uploaded. Only permissive licences are offered.
+
+- [BiRefNet-lite 512 (fp16)](https://huggingface.co/studioludens/birefnet-lite-512) (MIT): the recommended model
+- [ISNet general (fp16)](https://huggingface.co/imgly/isnet-general-onnx) (MIT): fast, needs WebGPU
+- [ISNet general (int8)](https://huggingface.co/Ko033/isnet-general-use-onnx) (Apache-2.0): light
+- [InSPyReNet SwinB (fp16)](https://huggingface.co/OS-Software/InSPyReNet-SwinB-Plus-Ultra-ONNX) (MIT): accurate, needs WebGPU
 
 ## License
 

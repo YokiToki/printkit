@@ -21,6 +21,7 @@ export function AiControls({ trace }: { trace: PhotoTrace }) {
         <Button primary onClick={() => void ai.run()} disabled={!canRun}>{ai.hasResult ? t('cutout.photo.ai.rerun') : t('cutout.photo.ai.run')}</Button>
         <button type="button" onClick={openModelManager} className="cursor-pointer border-0 bg-transparent p-0 text-xs text-accent-text underline">{t('cutout.photo.ai.models')}</button>
       </div>
+      <p className="m-0 text-xs text-text-subtle">{t('cutout.photo.ai.privacy')}</p>
       {!ai.model && <p className="m-0 text-xs text-text-muted" data-testid="ai-hint">{t('cutout.photo.ai.needModel')}</p>}
       {ai.model && <p className="m-0 text-xs text-text-subtle">{t('cutout.photo.ai.using', { name: ai.model.name })}</p>}
       <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted">

@@ -554,7 +554,8 @@
           "unavailable": "This model cannot run on this device.",
           "noColour": "AI needs a colour photo.",
           "failed": "The AI run failed."
-        }
+        },
+        "privacy": "AI runs in your browser: the photo is not uploaded. A model is downloaded once, only after you confirm."
       }
     }
   },

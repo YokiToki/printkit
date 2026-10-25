@@ -8,7 +8,7 @@
 
 ## 2. Baseline guard
 
-- [ ] 2.1 Frozen-output test for the classic path (`photoBaseline.test.ts`): per fixture the silhouette count, each silhouette's bbox, area and size, recorded from the current code; fails on any change. Verify: passes on the current code before anything else is touched; `git diff` shows `segment.ts`, `colour.ts`, `outline.ts` untouched at the end of the change.
+- [x] 2.1 Frozen-output test for the classic path (`photoBaseline.test.ts`): per fixture the silhouette count, each silhouette's bbox, area and size, recorded from the current code; fails on any change. Verify: passes on the current code before anything else is touched; `git diff` shows `segment.ts`, `colour.ts`, `outline.ts` untouched at the end of the change.
 
 ## 3. Pure AI post-processing
 

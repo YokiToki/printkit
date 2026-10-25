@@ -522,7 +522,40 @@
       "detectedUnknown": "unknown size",
       "notFound": "The sheet could not be found automatically. Drag the corners onto the corners of the paper.",
       "chooseFirst": "Choose a photo to continue.",
-      "finding": "Finding silhouettes…"
+      "finding": "Finding silhouettes…",
+      "ai": {
+        "engine": "Detection",
+        "classic": "Classic",
+        "ai": "AI",
+        "run": "Run AI",
+        "rerun": "Run AI again",
+        "models": "Models…",
+        "needModel": "Download a model to use AI.",
+        "using": "Model: {{name}}",
+        "secondPass": "Second pass over each object (sharper outline, slower)",
+        "reach": "Edge reach",
+        "smoothness": "Outline smoothness",
+        "reachHint": "Edge reach: higher grows the outline into the soft edge of the mask.",
+        "smoothnessHint": "Outline smoothness: evens out wavy edges, too much removes thin parts.",
+        "reset": "Reset to model defaults",
+        "showMask": "Show the soft mask",
+        "maskLabel": "Soft mask of the network",
+        "changes": "Size change against the model defaults",
+        "thinHint": "A part got smaller by more than 1 mm: it may be too thin for this smoothness. Lower the smoothness.",
+        "compare": "Compare engines",
+        "refine": "Refine the edge with the classic colour test",
+        "compareLabel": "Outlines of the other engine, dashed",
+        "compareTable": "Sizes of tools by engine",
+        "tool": "Tool",
+        "compareNeedsAi": "Run AI to compare it with the classic result.",
+        "fallback": "The classic result is shown.",
+        "error": {
+          "noModel": "The selected model is not downloaded.",
+          "unavailable": "This model cannot run on this device.",
+          "noColour": "AI needs a colour photo.",
+          "failed": "The AI run failed."
+        }
+      }
     }
   },
   "export": {

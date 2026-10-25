@@ -293,12 +293,12 @@ describe('окно «Из фото»: силуэты (3.3) и создание (
     expect(items[0]).toHaveTextContent('Silhouette 1')
     expect(items[0]).toHaveTextContent(/40(\.\d+)? mm × 20(\.\d+)? mm/) // прямоугольник выше на листе, поэтому первый
     expect(items[1]).toHaveTextContent(/30(\.\d+)? mm × 30(\.\d+)? mm/)
-    expect(screen.getAllByRole('checkbox').every((c) => (c as HTMLInputElement).checked)).toBe(true)
+    expect(within(screen.getByRole('list', { name: 'Silhouettes' })).getAllByRole('checkbox').every((c) => (c as HTMLInputElement).checked)).toBe(true)
   }, 20000)
 
   it('флажок снимает силуэт с выбора, число на кнопке меняется; щелчок по силуэту на листе делает то же', async () => {
     await toStep3()
-    const boxes = screen.getAllByRole('checkbox')
+    const boxes = within(screen.getByRole('list', { name: 'Silhouettes' })).getAllByRole('checkbox')
     await userEvent.click(boxes[0])
     expect(await screen.findByRole('button', { name: 'Create 1 cutouts' })).toBeInTheDocument()
     // щелчок по силуэту 1 (прямоугольник) на холсте возвращает его
@@ -306,7 +306,7 @@ describe('окно «Из фото»: силуэты (3.3) и создание (
     canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1188, height: 840, right: 1188, bottom: 840, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect
     fireEvent.click(canvas, { clientX: 60 * 4, clientY: 70 * 4 }) // центр прямоугольника (60, 70) мм
     expect(await screen.findByRole('button', { name: 'Create 2 cutouts' })).toBeInTheDocument()
-    expect((screen.getAllByRole('checkbox')[0] as HTMLInputElement).checked).toBe(true)
+    expect((within(screen.getByRole('list', { name: 'Silhouettes' })).getAllByRole('checkbox')[0] as HTMLInputElement).checked).toBe(true)
     fireEvent.click(canvas, { clientX: 5, clientY: 5 }) // щелчок по фону ничего не меняет
     expect(screen.getByRole('button', { name: 'Create 2 cutouts' })).toBeInTheDocument()
   }, 20000)

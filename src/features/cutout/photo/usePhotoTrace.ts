@@ -83,7 +83,13 @@ export interface PhotoTrace {
   /** Силуэты выбранного движка: при ошибке ИИ или без результата — классические. Всё дальше (список, выбор, вырезы) читает их. */
   active: Segmentation | null
   /** Модель маски, готовая к работе (выбранная или первая готовая), и запуск нейросети. */
-  ai: { model: ModelSpec | null; running: boolean; error: string | null; hasResult: boolean; run: () => Promise<void> }
+  ai: {
+    model: ModelSpec | null; running: boolean; error: string | null; hasResult: boolean; run: () => Promise<void>
+    /** Мягкая альфа сети (кэш запуска) для просмотра в серых тонах; null до запуска. */
+    alpha: Float32Array | null
+    /** Силуэты при значениях модели по умолчанию — чтобы показать, насколько настройка изменила размеры; null, если настройка не тронута. */
+    baseline: Segmentation | null
+  }
   /** Нужны ли силуэты (шаг 3 окна): на шаге углов тяжёлый пересчёт не запускается. */
   needSilhouettes: (on: boolean) => void
   /** Идёт ли пересчёт полного растра и силуэтов. */
@@ -189,10 +195,13 @@ export function usePhotoTrace(debounceMs = 120): PhotoTrace {
   const aiParams = useDebounced({ threshold: settings.ai.threshold ?? model?.maskDefaults.threshold ?? 0.5, smooth: settings.ai.smooth ?? model?.maskDefaults.smooth ?? 0.3, refine: settings.aiRefine, margin: stable.margin }, debounceMs)
   const wantAi = settings.engine === 'ai' || settings.compare
   const aiSeg = useMemo(() => (wantAi && rectified && alphaOf ? aiSegmentation(rectified, alphaOf.alpha, aiParams) : null), [wantAi, rectified, alphaOf, aiParams])
+  const tuned = settings.ai.threshold !== null || settings.ai.smooth !== null
+  const aiBase = useMemo(() => (wantAi && tuned && rectified && alphaOf && model
+    ? aiSegmentation(rectified, alphaOf.alpha, { threshold: model.maskDefaults.threshold, smooth: model.maskDefaults.smooth, refine: aiParams.refine, margin: aiParams.margin }) : null), [wantAi, tuned, rectified, alphaOf, model, aiParams.refine, aiParams.margin])
   const active = settings.engine === 'ai' && aiSeg && !aiError ? aiSeg : segmentation
   const computing = (needSeg && !!photo && quad === 'ok' && !segmentation) || aiRunning
   const selected = useMemo(() => (active?.silhouettes ?? []).map((s) => s.id).filter((id) => !settings.excluded.includes(id)), [segmentation, settings.excluded])
   const toggle = useCallback((id: number) => setSettings((s) => ({ ...s, excluded: s.excluded.includes(id) ? s.excluded.filter((x) => x !== id) : [...s.excluded, id] })), [])
 
-  return { photo, settings, set, paper, quad, preview, rectified, segmentation, aiSegmentation: aiSeg, active, ai: { model, running: aiRunning, error: aiError, hasResult: !!alphaOf, run: runAi }, needSilhouettes, computing, error, detection, loading, load, selected, toggle }
+  return { photo, settings, set, paper, quad, preview, rectified, segmentation, aiSegmentation: aiSeg, active, ai: { model, running: aiRunning, error: aiError, hasResult: !!alphaOf, run: runAi, alpha: alphaOf?.alpha ?? null, baseline: aiBase }, needSilhouettes, computing, error, detection, loading, load, selected, toggle }
 }

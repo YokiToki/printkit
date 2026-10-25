@@ -12,6 +12,9 @@ import { SegmentedControl } from '../../../ui/SegmentedControl'
 import { formatLength, useUnit } from '../../../ui/units'
 import { tracedCutouts } from './createCutouts'
 import { CornerEditor } from './CornerEditor'
+import { AiControls } from './AiControls'
+import { CompareOverlay, CompareTable } from './CompareOverlay'
+import { EngineSwitch } from './EngineSwitch'
 import { PhotoTips } from './PhotoTips'
 import { RectifiedView } from './RectifiedView'
 import type { PhotoTrace } from './usePhotoTrace'
@@ -32,7 +35,8 @@ export function PhotoDialog({ trace, maxDepth, onClose, onCreate }: { trace: Pho
   const [tipsOpen, setTipsOpen] = useState(false)
   const tipsBtn = useRef<HTMLButtonElement>(null)
   const closeTips = () => { setTipsOpen(false); setTimeout(() => tipsBtn.current?.focus(), 0) }
-  const { settings: s, set, photo, paper, quad, preview, rectified, segmentation, selected, detection } = trace
+  const { settings: s, set, photo, paper, quad, preview, rectified, selected, detection } = trace
+  const segmentation = trace.active // силуэты выбранного движка (при ошибке ИИ — классические)
   const fmt = (mm: number) => `${formatLength(mm, unit)} ${t(`units.${unit}`)}`
 
   useEffect(() => { root.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus() }, [])
@@ -63,6 +67,8 @@ export function PhotoDialog({ trace, maxDepth, onClose, onCreate }: { trace: Pho
     if (!segmentation) return
     onCreate(tracedCutouts(segmentation, selected, paper, { depth, clearance: s.clearance, name: (n) => t('cutout.photo.itemName', { n }) }))
   }
+  // контуры другого движка для сравнения: ИИ, если активна классика, и наоборот
+  const other = s.compare ? (s.engine === 'ai' && trace.aiSegmentation && !trace.ai.error ? trace.segmentation : trace.aiSegmentation && s.engine === 'classic' ? trace.aiSegmentation : null) : null
   const quadMessage = quad === 'ok' ? null : t(`cutout.photo.quad.${quad}`)
   const autoSens = segmentation ? Math.round(segmentation.defaultSensitivity * 100) : 50
   const sensValue = s.sensitivity === null ? autoSens : Math.round(s.sensitivity * 100)
@@ -142,16 +148,38 @@ export function PhotoDialog({ trace, maxDepth, onClose, onCreate }: { trace: Pho
 
           {step === 3 && (
             <div className="grid gap-3 md:grid-cols-[1fr_300px]">
-              <div>{rectified && segmentation ? <RectifiedView rectified={rectified} segmentation={segmentation} selected={selected} onToggle={trace.toggle} /> : <div role="status" data-testid="finding" className="flex aspect-[4/3] items-center justify-center rounded-card border border-dashed border-border text-xs text-text-muted">{t('cutout.photo.finding')}</div>}</div>
+              <div>{rectified && segmentation ? (
+                <div className="relative">
+                  <RectifiedView rectified={rectified} segmentation={segmentation} selected={selected} onToggle={trace.toggle} />
+                  {other && <CompareOverlay other={other} width={rectified.image.width} height={rectified.image.height} />}
+                </div>
+              ) : <div role="status" data-testid="finding" className="flex aspect-[4/3] items-center justify-center rounded-card border border-dashed border-border text-xs text-text-muted">{t('cutout.photo.finding')}</div>}</div>
               <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <NumberField label={t('cutout.photo.sensitivity')} value={sensValue} min={0} max={100} step={5} unit="%" digits={0} onChange={(v) => set({ sensitivity: v / 100 })} />
-                  <LengthField label={t('cutout.photo.margin')} value={s.margin} min={0} max={30} step={0.5} onChange={(v) => set({ margin: v })} />
-                </div>
-                <div className="flex items-center gap-2 text-xs text-text-muted">
-                  <span data-testid="sens-mode">{s.sensitivity === null ? t('cutout.photo.sensAuto') : t('cutout.photo.sensManual')}</span>
-                  {s.sensitivity !== null && <Button onClick={() => set({ sensitivity: null })}>{t('cutout.photo.auto')}</Button>}
-                </div>
+                <EngineSwitch engine={s.engine} onChange={(engine) => set({ engine })} />
+                {s.engine === 'classic' ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <NumberField label={t('cutout.photo.sensitivity')} value={sensValue} min={0} max={100} step={5} unit="%" digits={0} onChange={(v) => set({ sensitivity: v / 100 })} />
+                      <LengthField label={t('cutout.photo.margin')} value={s.margin} min={0} max={30} step={0.5} onChange={(v) => set({ margin: v })} />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-text-muted">
+                      <span data-testid="sens-mode">{s.sensitivity === null ? t('cutout.photo.sensAuto') : t('cutout.photo.sensManual')}</span>
+                      {s.sensitivity !== null && <Button onClick={() => set({ sensitivity: null })}>{t('cutout.photo.auto')}</Button>}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <LengthField label={t('cutout.photo.margin')} value={s.margin} min={0} max={30} step={0.5} onChange={(v) => set({ margin: v })} />
+                    <AiControls trace={trace} />
+                  </>
+                )}
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted"><input type="checkbox" checked={s.compare} onChange={(e) => set({ compare: e.target.checked })} />{t('cutout.photo.ai.compare')}</label>
+                {s.compare && (trace.aiSegmentation && trace.segmentation
+                  ? <>
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted"><input type="checkbox" checked={s.aiRefine} onChange={(e) => set({ aiRefine: e.target.checked })} />{t('cutout.photo.ai.refine')}</label>
+                      <CompareTable classic={trace.segmentation} ai={trace.aiSegmentation} />
+                    </>
+                  : <p className="m-0 text-xs text-text-subtle" data-testid="compare-hint">{t('cutout.photo.ai.compareNeedsAi')}</p>)}
                 {segmentation && segmentation.silhouettes.length === 0 && <Banner kind="warn">{t('cutout.photo.none')}</Banner>}
                 <ul aria-label={t('cutout.photo.list')} className="m-0 flex max-h-64 list-none flex-col gap-1 overflow-auto p-0">
                   {(segmentation?.silhouettes ?? []).map((sil) => (

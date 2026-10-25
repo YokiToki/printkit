@@ -77,6 +77,29 @@ With the AI source the user SHALL be able to keep only the largest connected obj
 - **WHEN** the kept object has an enclosed gap such as a ring handle
 - **THEN** it appears in the area list with a numeric id and the usual modes
 
+### Requirement: Automatic areas
+Enclosed background regions of a traced silhouette SHALL be opened or filled automatically by size: regions at least as large as a threshold in square millimetres of the part SHALL be open, smaller ones SHALL be filled. The threshold SHALL be set by the user, with 0 meaning no automatic rule. A mode the user has set on a region SHALL always win. The default SHALL be 150 mm² for the AI source and 0 for Brightness, so existing keychains do not change.
+
+#### Scenario: Ring handle
+- **WHEN** the AI silhouette has a large enclosed gap such as a key ring hole
+- **THEN** it is open without the user marking it, and the area list shows it as open
+
+#### Scenario: Small gap
+- **WHEN** the silhouette has a small enclosed gap smaller than the threshold
+- **THEN** it is filled
+
+#### Scenario: User wins
+- **WHEN** the user sets a mode on an area
+- **THEN** that mode is kept whatever the threshold says, also after the threshold changes
+
+#### Scenario: Off
+- **WHEN** the threshold is 0
+- **THEN** the areas follow the existing fill and open rules
+
+#### Scenario: Existing keychain
+- **WHEN** a keychain saved before this feature is loaded
+- **THEN** its areas behave as before
+
 ### Requirement: Persistence of the AI result
 The AI result SHALL be stored with the image in the browser's storage and restored after a reload together with the source, model and controls, without running the model again. Deleting the model from the model manager SHALL NOT remove an existing result. Replacing or removing the image SHALL remove its result. If the stored result is missing, the app SHALL say so, offer to run again and use Brightness meanwhile, never an empty silhouette. If storage is unavailable the AI source SHALL work for the session and the user SHALL be warned that the result will not persist.
 

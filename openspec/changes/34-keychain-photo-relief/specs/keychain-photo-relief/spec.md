@@ -138,6 +138,44 @@ The app SHALL offer presets for the Photo source (Subtle, Portrait, Deep) that s
 - **WHEN** the user edits any of them afterwards
 - **THEN** the preset indicator shows Custom and the value is kept
 
+### Requirement: Clean depth and printable slopes
+The Photo source SHALL snap the depth to the edges of the image so that the subject's depth does not bleed into the background, SHALL limit the steepness of the surface to a maximum slope, and SHALL smooth the result lightly. The user SHALL be able to set the snapping strength, the maximum slope and the final smoothing, and to turn each of them off. With the maximum slope on, no wall of the relief SHALL be steeper than the set angle, except the sides that the silhouette defines.
+
+#### Scenario: Edge snapping
+- **WHEN** the subject has a sharp edge in the image and the depth map is soft there
+- **THEN** with snapping on the depth steps where the image edge is, and with snapping off it does not
+
+#### Scenario: Slope limit
+- **WHEN** the mix would make a wall steeper than the maximum slope
+- **THEN** the surface is lowered so that the slope between neighbouring points does not exceed the angle
+
+#### Scenario: Slope off
+- **WHEN** the maximum slope is 0
+- **THEN** the surface is not limited
+
+#### Scenario: Floor and level areas
+- **WHEN** the slope limit is applied
+- **THEN** no point goes below the minimum height and level areas keep their height
+
+### Requirement: Subject presets
+The app SHALL offer subject presets Face, Whole animal and Drawing / logo, which set the silhouette source, the detail mode and its dark threshold, the part size and the outline for that kind of picture, and SHALL offer to choose one automatically from the picture. The automatic choice SHALL stop as soon as the user edits any of the values, which then show Custom. For Drawing / logo the preset SHALL use the contour only, a 60 mm part, a 1.2 mm bevel, an outline smoothness of 0.15 mm and automatic opening of large areas.
+
+#### Scenario: Automatic
+- **WHEN** an image with a few tones and thin strokes is loaded and automatic choice is on
+- **THEN** Drawing / logo is selected
+
+#### Scenario: Manual
+- **WHEN** the user chooses Whole animal
+- **THEN** its values are set and automatic choice is turned off
+
+#### Scenario: Edited
+- **WHEN** the user changes any value of a preset
+- **THEN** the selector shows Custom and the value is kept
+
+#### Scenario: Drawing
+- **WHEN** Drawing / logo is chosen
+- **THEN** the relief uses the contour only and enclosed regions larger than the area threshold are open
+
 ### Requirement: Persistence of the depth result
 The depth SHALL be stored with the image in the browser's storage and restored after a reload with the source and controls, without running the model again. Deleting the model from the model manager SHALL NOT remove an existing result; replacing or removing the image SHALL. If the stored result is missing, the app SHALL say so, offer to run again and build the relief without the Depth share meanwhile, never an empty relief. If storage is unavailable the result SHALL work for the session and the user SHALL be warned that it will not persist.
 
@@ -174,6 +212,10 @@ The outline of a keychain made from an image SHALL be smooth: it SHALL NOT show 
 #### Scenario: Spike tips
 - **WHEN** the drawing has a thin pointed spike
 - **THEN** the spike keeps its tip and its length within the grid cell
+
+#### Scenario: Advanced controls
+- **WHEN** the user opens the Advanced group of the outline
+- **THEN** the corner angle and the sampling step can be set, and their defaults are restored by reset
 
 #### Scenario: Independent of the grid
 - **WHEN** the quality setting is made coarser

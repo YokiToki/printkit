@@ -28,6 +28,25 @@ The outline made from a silhouette, whether found by the classic detection, by t
 - **WHEN** the user chooses to keep the original polyline
 - **THEN** the outline is the same as before this feature
 
+### Requirement: Advanced outline settings
+Besides the smoothness and the fit tolerance, the user SHALL be able to set the angle from which a vertex counts as a corner and the sampling step of the polygon, in an Advanced group that is collapsed by default and can be reset to the defaults. The same controls SHALL be offered for Cutout and for Keychain.
+
+#### Scenario: Collapsed
+- **WHEN** the outline controls are first shown
+- **THEN** smoothness and tolerance are visible and the corner angle and sampling step are in a collapsed Advanced group
+
+#### Scenario: Finer step
+- **WHEN** the sampling step is made smaller
+- **THEN** the polygon has more vertices and follows the curve more closely
+
+#### Scenario: Corner angle
+- **WHEN** the corner angle is raised above the turning angle of a tip
+- **THEN** that tip is smoothed instead of kept sharp
+
+#### Scenario: Reset
+- **WHEN** the user resets the Advanced group
+- **THEN** the angle returns to 50 degrees and the step to 1 mm
+
 ### Requirement: Clearance on the smooth outline
 The clearance of a cutout SHALL be applied to the smooth outline so that the pocket stays smooth: rounded at convex corners, mitred at concave ones, and never smaller than the outline plus the clearance.
 

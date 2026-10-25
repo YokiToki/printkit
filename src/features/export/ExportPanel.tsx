@@ -1,3 +1,4 @@
+import { log } from '../../app/activityLog'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconAlertTriangle, IconCheck, IconDownload } from '@tabler/icons-react'
@@ -28,7 +29,16 @@ export function ExportPanel({ model, busy, name }: { model: ModelResult | null; 
   const many = parts.length > 1 && s.multi === 'separate'
   const fmt = s.format.toUpperCase()
   const label = many ? t('export.downloadFiles', { n: parts.length, format: fmt }) : t('export.download', { format: fmt })
-  const go = () => buildExport(parts, s, name, !!model?.sheetLayout).files.forEach((f) => download(f.blob, f.name))
+  const logBuilt = (count: number, plateCount: number, overflowing: number) => {
+    log.info('export', 'log.export.built', { count, format: fmt, plates: plateCount })
+    log.info('export', 'log.export.printer', { printer: PRINTERS.find((p) => p.id === s.printerId)?.name ?? t('export.printer.custom') })
+    if (overflowing > 0) log.warn('export', 'log.export.overflow', { count: overflowing })
+  }
+  const go = () => {
+    const built = buildExport(parts, s, name, !!model?.sheetLayout)
+    logBuilt(built.files.length, plates, overflow)
+    built.files.forEach((f) => download(f.blob, f.name))
+  }
   const options = [...PRINTERS.map((p) => ({ value: p.id, label: p.name })), { value: CUSTOM_PRINTER, label: t('export.printer.custom') }]
 
   return (
@@ -56,7 +66,7 @@ export function ExportPanel({ model, busy, name }: { model: ModelResult | null; 
             const label = t(`export.partName.${p.label}`, { defaultValue: p.label })
             return (
               <Button key={p.label} className="h-8 px-2 text-xs" disabled={disabled} aria-label={t('export.part', { label })}
-                onClick={() => buildExport([p], s, `${name}_${p.label}`).files.forEach((f) => download(f.blob, f.name))}>
+                onClick={() => { const built = buildExport([p], s, `${name}_${p.label}`); logBuilt(built.files.length, 1, p.oversize ? 1 : 0); built.files.forEach((f) => download(f.blob, f.name)) }}>
                 {p.oversize && <span aria-hidden className="text-error">!</span>}{label}
               </Button>
             )

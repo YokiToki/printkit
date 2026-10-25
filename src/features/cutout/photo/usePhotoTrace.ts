@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { log } from '../../../app/activityLog'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { detectPaper } from '../../../geometry/photo/detect'
 import { guessPaper } from '../../../geometry/photo/aspect'
 import { checkQuad, rectify, type Pt, type QuadCheck, type Rectified } from '../../../geometry/photo/homography'
@@ -106,9 +107,12 @@ export function usePhotoTrace(debounceMs = 120): PhotoTrace {
         excluded: [],
         ...(guess ? { orientation: guess.orientation, ...(guess.preset ? { preset: guess.preset } : {}) } : {}),
       }))
+      if (found) log.info('photo', 'log.photo.sheetFound', { paper: guess?.preset ? guess.preset.toUpperCase() : '?', confidence: Math.round(found.confidence * 100) })
+      else log.warn('photo', 'log.photo.sheetNotFound')
       setDetection(found ? { status: 'auto', confidence: found.confidence, preset: guess?.preset ?? null, orientation: guess?.orientation ?? 'portrait' } : { status: 'failed' })
       return true
     } catch (e) {
+      log.error('photo', 'log.image.importFailed', { name: file.name }, e instanceof ImageError ? e.code : String(e))
       setError(e instanceof ImageError ? e.code : 'decode')
       return false
     } finally { setLoading(false) }
@@ -128,6 +132,19 @@ export function usePhotoTrace(debounceMs = 120): PhotoTrace {
     () => (rectified ? segment(rectified, { margin: stable.margin, ...(stable.sensitivity === null ? {} : { sensitivity: stable.sensitivity }) }) : null),
     [rectified, stable.margin, stable.sensitivity],
   )
+  const rectifiedLogged = useRef<Rectified | null>(null)
+  useEffect(() => {
+    if (!rectified || rectifiedLogged.current === rectified) return
+    rectifiedLogged.current = rectified
+    log.info('photo', 'log.photo.straightened', { width: rectified.image.width, height: rectified.image.height })
+  }, [rectified])
+  const segLogged = useRef<Segmentation | null>(null)
+  useEffect(() => {
+    if (!segmentation || segLogged.current === segmentation) return
+    segLogged.current = segmentation
+    const sizes = segmentation.silhouettes.map((s) => `${Math.round(s.widthMm)} × ${Math.round(s.heightMm)} mm`).join('; ')
+    log.info('photo', 'log.photo.silhouettes', { count: segmentation.silhouettes.length }, sizes || undefined)
+  }, [segmentation])
   const computing = needSeg && !!photo && quad === 'ok' && !segmentation
   const selected = useMemo(() => (segmentation?.silhouettes ?? []).map((s) => s.id).filter((id) => !settings.excluded.includes(id)), [segmentation, settings.excluded])
   const toggle = useCallback((id: number) => setSettings((s) => ({ ...s, excluded: s.excluded.includes(id) ? s.excluded.filter((x) => x !== id) : [...s.excluded, id] })), [])

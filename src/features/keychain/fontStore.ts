@@ -1,3 +1,4 @@
+import { memoryFallback } from '../../app/activityLog'
 /**
  * Хранилище пользовательского шрифта Keychain: IndexedDB в отдельной базе (файл шрифта велик для localStorage), без неё — память до
  * перезагрузки. `persistent` сообщает, переживёт ли шрифт перезагрузку.
@@ -28,7 +29,7 @@ class IdbFontStore implements FontStore {
   constructor(private db: IDBDatabase, private fallback: MemoryFontStore) {}
   private tx(mode: IDBTransactionMode) { return this.db.transaction(STORE, mode).objectStore(STORE) }
   async save(id: string, font: StoredFont) {
-    try { await req(this.tx('readwrite').put(font, id)) } catch { this.persistent = false; await this.fallback.save(id, font) }
+    try { await req(this.tx('readwrite').put(font, id)) } catch { this.persistent = false; memoryFallback('fonts'); await this.fallback.save(id, font) }
   }
   async load(id: string) {
     try { return ((await req(this.tx('readonly').get(id))) as StoredFont | undefined) ?? (await this.fallback.load(id)) } catch { return this.fallback.load(id) }
@@ -40,12 +41,13 @@ class IdbFontStore implements FontStore {
 export async function openFontStore(given?: IDBFactory | null): Promise<FontStore> {
   const memory = new MemoryFontStore()
   const factory = given === undefined ? (typeof indexedDB === 'undefined' ? undefined : indexedDB) : (given ?? undefined)
-  if (!factory) return memory
+  if (!factory) { memoryFallback('fonts'); return memory }
   try {
     const open = factory.open(DB, 1)
     open.onupgradeneeded = () => { if (!open.result.objectStoreNames.contains(STORE)) open.result.createObjectStore(STORE) }
     return new IdbFontStore(await req(open), memory)
   } catch {
+    memoryFallback('fonts')
     return memory
   }
 }

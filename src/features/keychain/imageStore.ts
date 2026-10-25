@@ -1,3 +1,4 @@
+import { memoryFallback } from '../../app/activityLog'
 import type { GrayImage } from '../../geometry/raster/threshold'
 
 /**
@@ -30,7 +31,7 @@ class IdbStore implements ImageStore {
   constructor(private db: IDBDatabase, private fallback: MemoryStore) {}
   private tx(mode: IDBTransactionMode) { return this.db.transaction(STORE, mode).objectStore(STORE) }
   async save(id: string, image: GrayImage) {
-    try { await req(this.tx('readwrite').put(image, id)) } catch { this.persistent = false; await this.fallback.save(id, image) }
+    try { await req(this.tx('readwrite').put(image, id)) } catch { this.persistent = false; memoryFallback('images'); await this.fallback.save(id, image) }
   }
   async load(id: string) {
     try { return ((await req(this.tx('readonly').get(id))) as GrayImage | undefined) ?? (await this.fallback.load(id)) } catch { return this.fallback.load(id) }
@@ -42,12 +43,13 @@ class IdbStore implements ImageStore {
 export async function openImageStore(given?: IDBFactory | null): Promise<ImageStore> {
   const memory = new MemoryStore()
   const factory = given === undefined ? (typeof indexedDB === 'undefined' ? undefined : indexedDB) : (given ?? undefined)
-  if (!factory) return memory
+  if (!factory) { memoryFallback('images'); return memory }
   try {
     const open = factory.open(DB, 1)
     open.onupgradeneeded = () => { if (!open.result.objectStoreNames.contains(STORE)) open.result.createObjectStore(STORE) }
     return new IdbStore(await req(open), memory)
   } catch {
+    memoryFallback('images')
     return memory
   }
 }

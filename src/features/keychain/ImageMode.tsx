@@ -1,3 +1,5 @@
+import { log } from '../../app/activityLog'
+import { fmtSize } from '../../app/logText'
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { usePersistedState } from '../../app/usePersistedState'
@@ -51,6 +53,8 @@ export function ImageMode() {
     setNotice({ kind: 'info', text: t('keychain.image.loading', { name: file.name }) })
     try {
       const decoded = await decodeImage(file)
+      log.info('image', 'log.image.imported', { name: file.name, size: fmtSize(file.size), width: decoded.image.width, height: decoded.image.height })
+      if (decoded.downscaled) log.info('image', 'log.image.downscaled', { name: file.name, width: decoded.image.width, height: decoded.image.height })
       const id = newImageId()
       const old = params.imageId
       await store.current?.save(id, decoded.image)
@@ -63,6 +67,7 @@ export function ImageMode() {
       setNotice(warns.length ? { kind: 'warn', text: warns.join(' ') } : null)
     } catch (e) {
       const code = e instanceof ImageError ? e.code : 'decode'
+      log.error('image', 'log.image.importFailed', { name: file.name }, `${code}${e instanceof Error && e.message ? `: ${e.message}` : ''}`)
       setNotice({ kind: 'error', text: t(`keychain.image.${code}`) })
     }
   }, [params.imageId, setState, t])

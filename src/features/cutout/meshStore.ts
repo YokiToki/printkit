@@ -1,3 +1,4 @@
+import { memoryFallback } from '../../app/activityLog'
 import type { IndexedMesh } from '../../geometry/stl-import'
 
 /**
@@ -30,7 +31,7 @@ class IdbStore implements MeshStore {
   constructor(private db: IDBDatabase, private fallback: MemoryStore) {}
   private tx(mode: IDBTransactionMode) { return this.db.transaction(STORE, mode).objectStore(STORE) }
   async save(id: string, mesh: IndexedMesh) {
-    try { await req(this.tx('readwrite').put(mesh, id)) } catch { this.persistent = false; await this.fallback.save(id, mesh) }
+    try { await req(this.tx('readwrite').put(mesh, id)) } catch { this.persistent = false; memoryFallback('meshes'); await this.fallback.save(id, mesh) }
   }
   async load(id: string) {
     try { return ((await req(this.tx('readonly').get(id))) as IndexedMesh | undefined) ?? (await this.fallback.load(id)) } catch { return this.fallback.load(id) }
@@ -42,13 +43,14 @@ class IdbStore implements MeshStore {
 export async function openMeshStore(given?: IDBFactory | null): Promise<MeshStore> {
   const memory = new MemoryStore()
   const factory = given === undefined ? (typeof indexedDB === 'undefined' ? undefined : indexedDB) : (given ?? undefined)
-  if (!factory) return memory
+  if (!factory) { memoryFallback('meshes'); return memory }
   try {
     const open = factory.open(DB, 1)
     open.onupgradeneeded = () => { if (!open.result.objectStoreNames.contains(STORE)) open.result.createObjectStore(STORE) }
     const db = await req(open)
     return new IdbStore(db, memory)
   } catch {
+    memoryFallback('meshes')
     return memory
   }
 }

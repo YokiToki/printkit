@@ -1,3 +1,5 @@
+import { log } from '../../app/activityLog'
+import { fmtSize } from '../../app/logText'
 import { useId, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { defaultText, MAX_TEXT_CHARS, type TextAlign, type TextMode, type TextParams } from '../../geometry/text'
@@ -63,8 +65,10 @@ export function TextSection({ value: t, error, splitOn, cell = null, minCell = n
     try {
       const f = await addUserFontFile(file, await openFontStore(), own ? t.font.id : undefined)
       setFontError(null)
+      log.info('image', 'log.image.fontImported', { name: file.name, size: fmtSize(file.size) })
       onChange({ font: { ...f, bold: false, italic: false } })
     } catch (e) {
+      log.error('image', 'log.image.fontFailed', { name: file.name }, e instanceof FontError ? e.code : String(e))
       setFontError(tr(`keychain.text.fontErrors.${e instanceof FontError ? e.code : 'decode'}`))
     } finally {
       if (fileRef.current) fileRef.current.value = ''

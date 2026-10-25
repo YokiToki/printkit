@@ -1,3 +1,4 @@
+import { log } from '../../app/activityLog'
 import { useRef, useState, type Dispatch, type DragEvent, type SetStateAction } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconArrowDown, IconArrowUp, IconCopy, IconEye, IconEyeOff, IconPhoto, IconPlus, IconTrash, IconUpload } from '@tabler/icons-react'
@@ -111,7 +112,7 @@ export function CutoutPanel({ params, onChange, selectedId, onSelect, meshes, on
 
       {photoOpen && (
         <PhotoDialog trace={photo} maxDepth={l.maxDepth} onClose={closePhoto}
-          onCreate={(created) => { if (!created.length) return; onChange((o) => withTraced(o, created)); onSelect(created[0].id); closePhoto() }} />
+          onCreate={(created) => { if (!created.length) return; log.info('photo', 'log.photo.cutouts', { count: created.length }); onChange((o) => withTraced(o, created)); onSelect(created[0].id); closePhoto() }} />
       )}
 
       <Section title={t('cutout.list.title')} summary={summary}>

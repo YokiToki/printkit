@@ -10,6 +10,7 @@ import { I18nextProvider } from 'react-i18next'
 import i18n from '../../i18n'
 import { routes } from '../../app/routes'
 import type { ModelResult } from '../../geometry/model'
+import { getLogSnapshot, resetActivityLog } from '../../app/activityLog'
 import type { GrayImage } from '../../geometry/raster/threshold'
 
 const registered: string[] = []
@@ -97,5 +98,18 @@ describe('Keychain: изображение (4.1)', () => {
     localStorage.setItem('keychain.relief', JSON.stringify({ silhouette: { close: 5 }, relief: null, base: 'x' }))
     open()
     expect(await screen.findByText(/Choose an image to start/)).toBeInTheDocument()
+  })
+  it('журнал: импорт изображения и ошибка пишут строки с именем и размером, без содержимого файла', async () => {
+    resetActivityLog()
+    open()
+    await userEvent.upload(await screen.findByTestId('image-input-empty'), png())
+    await screen.findByText('Silhouette')
+    await openSection('Image')
+    await userEvent.upload(screen.getByTestId('image-input'), new File(['hello'], 'a.txt', { type: 'text/plain' }), { applyAccept: false })
+    await screen.findByRole('alert')
+    const lines = getLogSnapshot().entries.filter((e) => e.source === 'image')
+    expect(lines[0]).toMatchObject({ level: 'info', key: 'log.image.imported', params: { name: 'logo.png', width: 4, height: 4 } })
+    expect(lines.at(-1)).toMatchObject({ level: 'error', key: 'log.image.importFailed', params: { name: 'a.txt' } })
+    expect(JSON.stringify(lines)).not.toContain('hello')
   })
 })

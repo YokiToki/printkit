@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { I18nextProvider } from 'react-i18next'
 import i18n from '../../i18n'
+import { getLogSnapshot, resetActivityLog } from '../../app/activityLog'
 import { resetExportSettings } from '../../export/settings'
 import type { ModelResult, PartMesh } from '../../geometry/model'
 import { ExportPanel } from './ExportPanel'
@@ -29,6 +30,15 @@ describe('ExportPanel', () => {
     URL.createObjectURL = vi.fn(() => 'blob:x'); URL.revokeObjectURL = vi.fn()
   })
 
+  it('журнал: экспорт пишет формат, принтер, плиты и непомещающиеся детали', async () => {
+    resetActivityLog()
+    wrap(<ExportPanel model={two} busy={false} name="plate" />)
+    await userEvent.click(screen.getByRole('button', { name: 'Download STL' }))
+    const e = getLogSnapshot().entries.filter((x) => x.source === 'export')
+    expect(e.map((x) => x.key)).toContain('log.export.built')
+    expect(e.find((x) => x.key === 'log.export.built')?.params).toMatchObject({ format: 'STL' })
+    expect(e.some((x) => x.key === 'log.export.printer')).toBe(true)
+  })
   it('одна деталь: кнопка «Download STL» скачивает один файл', async () => {
     wrap(<ExportPanel model={one} busy={false} name="cutout_84x84" />)
     await userEvent.click(screen.getByRole('button', { name: 'Download STL' }))

@@ -132,3 +132,64 @@ describe('aiSegmentation: настройка маски (порог и сгла�
     expect(aiSegmentation(blank(w, h), a, { ...tiny, smooth: 3 }).silhouettes).toHaveLength(0)
   })
 })
+
+describe('aiSegmentation: гибридный край (3.2)', () => {
+  const sizeOf = (seg: ReturnType<typeof aiSegmentation>, i: number) => seg.silhouettes[i]
+  for (const name of ['flash', 'noflash'] as const) {
+    it(`${name}: размеры в пределах 0,5 мм от классики (без вспышки 1 мм); IoU ≥ 0,97 (без вспышки ≥ 0,94, а у плоскогубцев ≥ 0,6: классика там захватывает тень, см. design.md)`, () => {
+      const r = rectOf(name), base = segment(r)
+      for (const model of ['birefnet-lite-512-fp32', 'isnet-imgly-fp32'] as const) {
+        const seg = aiSegmentation(r, loadAlpha(model, name).alpha)
+        expect(seg.silhouettes).toHaveLength(3)
+        seg.silhouettes.forEach((s, i) => {
+          const tol = name === 'noflash' ? 1.0 : 0.5 // без вспышки классика сама неточна (тень, до ~1 мм), там допуск 1 мм
+          expect(Math.abs(s.widthMm - base.silhouettes[i].widthMm), `${model} #${i + 1} ширина`).toBeLessThanOrEqual(tol)
+          expect(Math.abs(s.heightMm - base.silhouettes[i].heightMm), `${model} #${i + 1} высота`).toBeLessThanOrEqual(tol)
+          let inter = 0
+          for (let k = 0; k < seg.labels.length; k++) if (seg.labels[k] === s.id && base.labels[k] === i + 1) inter++
+          const px = 1 / (seg.scale * seg.scale), iou = (inter * px) / (s.areaMm2 + base.silhouettes[i].areaMm2 - inter * px)
+          expect(iou, `${model} #${i + 1} IoU`).toBeGreaterThanOrEqual(name === 'noflash' ? (i === 0 ? 0.6 : 0.94) : 0.97)
+        })
+      }
+    })
+  }
+
+  /** Лист A4 с одним тёмным прямоугольником; цвет задан, поэтому гибридный край работает. */
+  const scene = (x: number, y: number, w: number, h: number): Rectified => {
+    const scale = 4, W = Math.round(A4.width * scale), H = Math.round(A4.height * scale), rgb = new Uint8Array(W * H * 3), gray = new Uint8Array(W * H)
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+      const px = (i + 0.5) / scale, py = (j + 0.5) / scale, v = px >= x && px <= x + w && py >= y && py <= y + h ? 50 : 235
+      for (let c = 0; c < 3; c++) rgb[(j * W + i) * 3 + c] = v
+      gray[j * W + i] = v
+    }
+    return { image: { width: W, height: H, gray, alpha: null }, rgb, scale, paper: A4 }
+  }
+  const alphaRect = (r: Rectified, x: number, y: number, w: number, h: number) => {
+    const { width: W, height: H } = r.image, a = new Float32Array(W * H)
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const px = (i + 0.5) / r.scale, py = (j + 0.5) / r.scale; a[j * W + i] = px >= x && px <= x + w && py >= y && py <= y + h ? 1 : 0 }
+    return a
+  }
+
+  it('прямоугольник 40 × 20 мм с «раздутой» маской на 1 мм со всех сторон измеряется 40 × 20 мм с точностью 0,5 мм', () => {
+    const r = scene(60, 60, 40, 20), puffy = alphaRect(r, 59, 59, 42, 22)
+    const raw = aiSegmentation(r, puffy, { refine: false, smooth: 0 }).silhouettes[0]
+    expect(raw.widthMm).toBeGreaterThan(41.5) // без уточнения маска остаётся раздутой
+    const s = aiSegmentation(r, puffy, { smooth: 0 }).silhouettes[0]
+    expect(Math.abs(s.widthMm - 40)).toBeLessThanOrEqual(0.5); expect(Math.abs(s.heightMm - 20)).toBeLessThanOrEqual(0.5)
+  })
+
+  it('тёмная деталь, слитая с «тенью»: где классика края не видит, остаётся край сети, предмет не рвётся', () => {
+    // предмет до x = 110, сеть остановилась на 108: полоса вокруг её края целиком «предмет», классика ничего не различает
+    const r = scene(60, 60, 50, 20), a = alphaRect(r, 60, 60, 48, 20)
+    const out = aiSegmentation(r, a, { smooth: 0 })
+    expect(out.silhouettes).toHaveLength(1)
+    expect(Math.abs(out.silhouettes[0].widthMm - 48)).toBeLessThanOrEqual(0.5)
+  })
+
+  it('refine: false возвращает маску сети без уточнения', () => {
+    const r = scene(60, 60, 40, 20), puffy = alphaRect(r, 58, 58, 44, 24)
+    const raw = aiSegmentation(r, puffy, { refine: false, smooth: 0 }), noRgb = aiSegmentation({ ...r, rgb: undefined }, puffy, { smooth: 0 })
+    expect(raw.silhouettes[0].areaMm2).toBeCloseTo(noRgb.silhouettes[0].areaMm2, 5)
+    expect(raw.silhouettes[0].widthMm).toBeCloseTo(44, 0)
+  })
+})

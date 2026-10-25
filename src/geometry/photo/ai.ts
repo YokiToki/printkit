@@ -2,6 +2,7 @@ import { gaussianBlur, sigmaCells } from '../raster/blur'
 import { close } from '../raster/morphology'
 import { fillHoles, labelComponents, removeSpecks } from '../raster/components'
 import { defaultSegmentParams, type Segmentation, type Silhouette } from './segment'
+import { hybridMask, HYBRID_BAND } from './aiHybrid'
 import type { Rectified } from './homography'
 
 /** Настройки превращения мягкой альфы сети в силуэты. Длины в мм. Те же шаги очистки, что у классики (`segment`). */
@@ -10,6 +11,10 @@ export interface AiSegmentParams {
   threshold: number
   /** Радиус сглаживания альфы перед порогом, мм (гаусс, σ = радиус в пикселях): выравнивает волнистый край и склеивает волосяные щели, слишком большой съедает тонкие части. 0 — без сглаживания. */
   smooth: number
+  /** Гибридный край: точный край предмета берётся у классического теста цвета бумаги в полосе вокруг маски сети. false — край сети как есть. Без цветного растра не действует. */
+  refine: boolean
+  /** Ширина полосы гибридного края, мм. */
+  band: number
   /** Поле по краю листа, где предметы не ищутся. */
   margin: number
   /** Склейка щелей, радиус, мм. */
@@ -25,6 +30,8 @@ export interface AiSegmentParams {
 export const defaultAiParams: AiSegmentParams = {
   threshold: 0.5,
   smooth: 0.3,
+  refine: true,
+  band: HYBRID_BAND,
   margin: defaultSegmentParams.margin,
   close: defaultSegmentParams.close,
   minSpeck: defaultSegmentParams.minSpeck,
@@ -47,10 +54,15 @@ export function aiSegmentation(r: Rectified, alpha: Float32Array, params: Partia
 
   // сглаживание по всему растру (маска из единиц): край листа не тянет значения, а альфа сети остаётся в кэше у вызывающего
   const soft = gaussianBlur(alpha, w, h, sigmaCells(p.smooth * s, 1), new Uint8Array(w * h).fill(1))
+  const cleanup = (m: Uint8Array) => {
+    const c = new Uint8Array(fillHoles(removeSpecks(close(m, w, h, Math.round(p.close * s)), w, h, Math.max(1, Math.round(p.minSpeck * s * s))), w, h).mask)
+    for (let k = 0; k < c.length; k++) if (edge[k]) c[k] = 0 // заливка и склейка не должны залезть в поле
+    return c
+  }
   let mask = new Uint8Array(w * h)
   for (let k = 0; k < mask.length; k++) mask[k] = !edge[k] && soft[k] >= p.threshold ? 1 : 0
-  mask = new Uint8Array(fillHoles(removeSpecks(close(mask, w, h, Math.round(p.close * s)), w, h, Math.max(1, Math.round(p.minSpeck * s * s))), w, h).mask)
-  for (let k = 0; k < mask.length; k++) if (edge[k]) mask[k] = 0 // заливка и склейка не должны залезть в поле
+  mask = cleanup(mask)
+  if (p.refine && r.rgb) mask = cleanup(hybridMask(r, mask, p.band))
 
   const comps = labelComponents(mask, w, h, 1)
   const x0 = new Int32Array(comps.count + 1).fill(w), y0 = new Int32Array(comps.count + 1).fill(h)

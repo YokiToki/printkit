@@ -1287,5 +1287,48 @@
       "runCancelled": "AI run cancelled",
       "runFailed": "{{name}} failed"
     }
+  },
+  "ml": {
+    "button": "AI models",
+    "title": "AI models",
+    "close": "Close",
+    "intro": "Neural networks run in your browser: photos are never uploaded. A model is downloaded once, only after you confirm, and is kept in the browser.",
+    "notPersistent": "This browser does not keep downloaded models between visits: they stay until the page is reloaded.",
+    "kind": {
+      "matte": "Silhouette (mask)"
+    },
+    "purpose": {
+      "default": "Recommended",
+      "fast": "Fast (WebGPU)",
+      "light": "Light",
+      "accurate": "Accurate (WebGPU)"
+    },
+    "size": "{{mb}} MB",
+    "licence": "Licence {{spdx}}",
+    "status": {
+      "absent": "Not downloaded",
+      "ready": "Ready",
+      "downloading": "Downloading {{pct}} %",
+      "failed": "Failed: {{reason}}"
+    },
+    "unavailable": {
+      "noWebgpu": "Needs WebGPU, which this device does not have",
+      "noF16": "Needs WebGPU with fp16 support, which this device does not have"
+    },
+    "download": "Download",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleteAll": "Delete all",
+    "use": "Use this model",
+    "deleteAllTitle": "Delete all models?",
+    "deleteAllBody": "Downloaded models are removed from this browser. You can download them again later.",
+    "used": "Space used: {{mb}} MB",
+    "openLog": "Open the log",
+    "consent": {
+      "title": "Download {{name}}?",
+      "body": "{{mb}} MB from {{host}}. Licence: {{spdx}}. The file is saved in your browser; your photos are never uploaded.",
+      "confirm": "Download",
+      "cancel": "Cancel"
+    }
   }
 }

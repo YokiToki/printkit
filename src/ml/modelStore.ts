@@ -108,6 +108,7 @@ export function createModelStore(given?: Partial<StoreDeps>) {
             onProgress?.(loaded, spec.bytes)
           }
         } else { const b = new Uint8Array(await res.arrayBuffer()); chunks.push(b); loaded = b.length }
+        if (ctl.signal.aborted) throw new DOMException('aborted', 'AbortError') // отмена, пока поток дочитывался
         if (loaded !== spec.bytes) return set(spec.id, { state: 'failed', error: 'size', detail: `${loaded} ≠ ${spec.bytes}` })
         const buf = new Uint8Array(loaded)
         let at = 0

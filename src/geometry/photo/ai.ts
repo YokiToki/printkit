@@ -1,3 +1,4 @@
+import { gaussianBlur, sigmaCells } from '../raster/blur'
 import { close } from '../raster/morphology'
 import { fillHoles, labelComponents, removeSpecks } from '../raster/components'
 import { defaultSegmentParams, type Segmentation, type Silhouette } from './segment'
@@ -7,6 +8,8 @@ import type { Rectified } from './homography'
 export interface AiSegmentParams {
   /** Порог альфы 0…1: ниже — контур растёт в мягкую зону, выше — сжимается. */
   threshold: number
+  /** Радиус сглаживания альфы перед порогом, мм (гаусс, σ = радиус в пикселях): выравнивает волнистый край и склеивает волосяные щели, слишком большой съедает тонкие части. 0 — без сглаживания. */
+  smooth: number
   /** Поле по краю листа, где предметы не ищутся. */
   margin: number
   /** Склейка щелей, радиус, мм. */
@@ -21,6 +24,7 @@ export interface AiSegmentParams {
 
 export const defaultAiParams: AiSegmentParams = {
   threshold: 0.5,
+  smooth: 0.3,
   margin: defaultSegmentParams.margin,
   close: defaultSegmentParams.close,
   minSpeck: defaultSegmentParams.minSpeck,
@@ -41,8 +45,10 @@ export function aiSegmentation(r: Rectified, alpha: Float32Array, params: Partia
   const edge = new Uint8Array(w * h)
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (i < marginPx || j < marginPx || i >= w - marginPx || j >= h - marginPx) edge[j * w + i] = 1
 
+  // сглаживание по всему растру (маска из единиц): край листа не тянет значения, а альфа сети остаётся в кэше у вызывающего
+  const soft = gaussianBlur(alpha, w, h, sigmaCells(p.smooth * s, 1), new Uint8Array(w * h).fill(1))
   let mask = new Uint8Array(w * h)
-  for (let k = 0; k < mask.length; k++) mask[k] = !edge[k] && alpha[k] >= p.threshold ? 1 : 0
+  for (let k = 0; k < mask.length; k++) mask[k] = !edge[k] && soft[k] >= p.threshold ? 1 : 0
   mask = new Uint8Array(fillHoles(removeSpecks(close(mask, w, h, Math.round(p.close * s)), w, h, Math.max(1, Math.round(p.minSpeck * s * s))), w, h).mask)
   for (let k = 0; k < mask.length; k++) if (edge[k]) mask[k] = 0 // заливка и склейка не должны залезть в поле
 

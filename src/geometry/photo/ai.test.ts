@@ -79,8 +79,56 @@ describe('aiSegmentation: синтетические альфы', () => {
     const a = new Float32Array(w * h)
     rect(a, w, 100, 100, 200, 200)
     for (let j = 100; j < 200; j++) for (let i = 90; i < 100; i++) a[j * w + i] = 0.3 // мягкая зона слева
-    expect(aiSegmentation(blank(w, h), a, { threshold: 0.5 }).silhouettes[0].widthMm).toBeCloseTo(25, 5)
-    expect(aiSegmentation(blank(w, h), a, { threshold: 0.2 }).silhouettes[0].widthMm).toBeCloseTo(27.5, 5)
+    expect(aiSegmentation(blank(w, h), a, { threshold: 0.5, smooth: 0 }).silhouettes[0].widthMm).toBeCloseTo(25, 5)
+    expect(aiSegmentation(blank(w, h), a, { threshold: 0.2, smooth: 0 }).silhouettes[0].widthMm).toBeCloseTo(27.5, 5)
     expect(() => aiSegmentation(blank(w, h), new Float32Array(10))).toThrow()
+  })
+})
+
+describe('aiSegmentation: настройка маски (порог и сглаживание)', () => {
+  const r = rectOf('noflash'), { alpha } = loadAlpha('birefnet-lite-512-fp32', 'noflash')
+  const areas = (o: Parameters<typeof aiSegmentation>[2]) => aiSegmentation(r, alpha, o).silhouettes.map((s) => s.areaMm2)
+  /** Длина границы в пикселях: число рёбер между пикселем силуэта и не силуэта. */
+  const perimeter = (labels: Int32Array, w: number, h: number) => {
+    let n = 0
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const v = labels[j * w + i] > 0
+      if (i + 1 < w && v !== labels[j * w + i + 1] > 0) n++
+      if (j + 1 < h && v !== labels[(j + 1) * w + i] > 0) n++
+    }
+    return n
+  }
+
+  it('порог монотонен: ниже никогда не сжимает силуэт, выше никогда не раздувает', () => {
+    const [lo, mid, hi] = [0.3, 0.5, 0.7].map((threshold) => areas({ threshold }))
+    expect(lo).toHaveLength(3); expect(mid).toHaveLength(3); expect(hi).toHaveLength(3)
+    for (let i = 0; i < 3; i++) { expect(lo[i]).toBeGreaterThanOrEqual(mid[i]); expect(mid[i]).toBeGreaterThanOrEqual(hi[i]) }
+  })
+
+  it('сглаживание не удлиняет контур; smooth 0 даёт несглаженный результат, умолчание близко к нему по размерам', () => {
+    const raw = aiSegmentation(r, alpha, { smooth: 0 }), smooth = aiSegmentation(r, alpha, { smooth: 1 })
+    expect(perimeter(smooth.labels, smooth.width, smooth.height)).toBeLessThanOrEqual(perimeter(raw.labels, raw.width, raw.height))
+    const def = aiSegmentation(r, alpha)
+    expect(def.silhouettes).toHaveLength(raw.silhouettes.length)
+    def.silhouettes.forEach((s, i) => {
+      expect(Math.abs(s.widthMm - raw.silhouettes[i].widthMm)).toBeLessThanOrEqual(0.5)
+      expect(Math.abs(s.heightMm - raw.silhouettes[i].heightMm)).toBeLessThanOrEqual(0.5)
+    })
+  })
+
+  it('smooth 0 на жёсткой альфе возвращает ровно исходный прямоугольник', () => {
+    const w = 400, h = 400, a = new Float32Array(w * h)
+    rect(a, w, 100, 100, 220, 180)
+    const s = aiSegmentation(blank(w, h), a, { smooth: 0, close: 0 }).silhouettes[0]
+    expect(s.bbox).toEqual([100, 100, 219, 179])
+    expect(s.areaMm2).toBeCloseTo(120 * 80 / 16, 5)
+  })
+
+  it('тонкая деталь 1 мм исчезает при большом радиусе и остаётся при малом', () => {
+    const w = 400, h = 400, a = new Float32Array(w * h)
+    rect(a, w, 100, 100, 104, 300) // 4 пикселя = 1 мм шириной, 50 мм длиной
+    const tiny = { minSize: 0.5, minArea: 1, close: 0 }
+    expect(aiSegmentation(blank(w, h), a, { ...tiny, smooth: 0.3 }).silhouettes).toHaveLength(1)
+    expect(aiSegmentation(blank(w, h), a, { ...tiny, smooth: 3 }).silhouettes).toHaveLength(0)
   })
 })

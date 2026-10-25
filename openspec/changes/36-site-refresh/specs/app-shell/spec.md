@@ -77,3 +77,27 @@ Every product and mode card SHALL have a localized description and exactly two s
 #### Scenario: Same term everywhere
 - **WHEN** the Russian cards are read
 - **THEN** a name such as keystone is written the same way on every card where it occurs
+
+### Requirement: Product colour in illustrations and logo
+The start-page illustrations and the logo in the top bar SHALL take the hue of their product: blue for Gridfinity, green for Keychain and yellow for Rack. Only the hue of the illustrations and of the logo SHALL differ; the colours of the interface (accent, buttons, borders, focus, text, banners) and of the 3D viewport SHALL be the same in every product. The logo SHALL be blue where no product is active. The illustrations SHALL keep following colour tokens.
+
+#### Scenario: Cards by product
+- **WHEN** the root start page is shown
+- **THEN** the Gridfinity card illustration is blue, the Keychain one green and the Rack one yellow
+
+#### Scenario: Mode cards
+- **WHEN** a product's start page is shown
+- **THEN** all its mode illustrations have that product's hue
+
+#### Scenario: Logo
+- **WHEN** the user opens a product
+- **THEN** the logo in the top bar has that product's hue, and on the root page it is blue
+
+#### Scenario: Interface unchanged
+- **WHEN** the user moves between products
+- **THEN** buttons, selected states, focus rings and links keep the same colours
+
+#### Scenario: Token driven
+- **WHEN** a hue token changes
+- **THEN** the illustrations of that product change with it without regenerating the image files
+

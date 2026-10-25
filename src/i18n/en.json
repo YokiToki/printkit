@@ -1186,5 +1186,85 @@
         "help": "The front face prints on the bed and the floor and the side walls grow upward from it. A side wall height of 0 removes the walls; they slope in a straight line down to the floor at the back. Pattern \"None\" gives a solid floor."
       }
     }
+  },
+  "log": {
+    "title": "Activity log",
+    "open": "Open the log",
+    "close": "Close",
+    "copy": "Copy",
+    "copied": "Copied to the clipboard",
+    "clear": "Clear",
+    "details": "Details",
+    "jumpLatest": "Jump to latest",
+    "empty": "Nothing logged yet.",
+    "cancel": "Cancel",
+    "warnings": "{{count}} warnings",
+    "errors": "{{count}} errors",
+    "privacy": "The log stays in this tab and is never sent anywhere.",
+    "filterLevel": "Level",
+    "filterSource": "Source",
+    "levels": {
+      "all": "All",
+      "warn": "Warnings",
+      "error": "Errors"
+    },
+    "levelName": {
+      "info": "Info",
+      "warn": "Warning",
+      "error": "Error"
+    },
+    "sources": {
+      "model": "Model",
+      "photo": "Photo",
+      "image": "Files",
+      "storage": "Storage",
+      "export": "Export",
+      "ai": "AI",
+      "app": "App"
+    },
+    "copyHeader": {
+      "version": "Version",
+      "language": "Language",
+      "browser": "Browser"
+    },
+    "job": {
+      "cancelled": "Cancelled"
+    },
+    "model": {
+      "start": "Building the model…",
+      "done": "Model built in {{ms}} ms, {{triangles}} triangles",
+      "failed": "The model could not be built",
+      "invalid": "Parameters are invalid, the model was not rebuilt",
+      "fitIssue": "Fit warning for {{feature}}"
+    },
+    "image": {
+      "imported": "Image {{name}} loaded ({{size}}, {{width}} × {{height}} px)",
+      "downscaled": "Image {{name}} was reduced to {{width}} × {{height}} px",
+      "importFailed": "Image {{name}} could not be loaded",
+      "meshImported": "Model file {{name}} loaded ({{size}}, {{triangles}} triangles)",
+      "meshFailed": "Model file {{name}} could not be loaded",
+      "fontImported": "Font {{name}} loaded ({{size}})",
+      "fontFailed": "Font {{name}} could not be loaded"
+    },
+    "storage": {
+      "memory": "Browser storage is unavailable: {{what}} will not be kept after a reload"
+    },
+    "photo": {
+      "sheetFound": "Sheet found on the photo ({{paper}}, confidence {{confidence}} %)",
+      "sheetNotFound": "The sheet was not found on the photo, set the corners by hand",
+      "straightened": "Photo straightened ({{width}} × {{height}} px)",
+      "silhouettes": "Silhouettes found: {{count}}",
+      "cutouts": "Cutouts created: {{count}}"
+    },
+    "export": {
+      "built": "Export: {{count}} file(s), {{format}}, {{plates}} plate(s)",
+      "printer": "Printer: {{printer}}",
+      "overflow": "{{count}} part(s) do not fit on the plate"
+    },
+    "what": {
+      "images": "images",
+      "meshes": "imported models",
+      "fonts": "fonts"
+    }
   }
 }

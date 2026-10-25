@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>PoC: Keychain — пайплайн фото → рельеф</title>
+<style>
+:root{color-scheme:light}
+body{font:13px system-ui;margin:0;background:#f4f4f2;color:#222}
+header{padding:8px 14px;background:#fff;border-bottom:1px solid #ccc}
+main{display:grid;grid-template-columns:minmax(420px,520px) minmax(0,1fr);gap:12px;padding:12px;align-items:start}
+.col{display:flex;flex-direction:column;gap:10px}
+section{background:#fff;border:1px solid #d0d0cc;border-radius:6px;padding:8px 10px}
+section h4{margin:0 0 6px;font-size:13px}
+section h4 .n{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:10px;background:#333;color:#fff;margin-right:6px;font-size:12px}
+label{display:inline-block;margin:2px 8px 2px 0;white-space:nowrap}
+input[type=range]{width:110px;vertical-align:middle}
+input[type=number]{width:4.2em}
+canvas.pv{max-width:100%;max-height:180px;border:1px solid #999;margin-top:4px;background:#ddd}
+#view{width:100%;height:560px;background:#e8e8e4;border:1px solid #999;border-radius:6px;position:sticky;top:8px}
+#right{position:sticky;top:8px;min-width:0}
+#view canvas{display:block;width:100%;height:100%}
+#log{white-space:pre-wrap;font:11px ui-monospace,monospace;background:#fff;border:1px solid #ccc;padding:5px;height:150px;overflow:auto}
+.note{color:#666;font-size:12px}.ok{color:#080}.bad{color:#b00}
+button{padding:3px 10px}
+</style></head><body>
+<header><b>PoC Keychain: фото → рельеф, пайплайн по этапам</b> · <a href="./cutout.html">← PoC фото-вырезов (change 32)</a>
+ · isolated: <b id="coi"></b>, cores: <b id="cores"></b></header>
+<main>
+<div class="col">
+ <section><h4><span class="n">1</span>Изображение и кроп</h4>
+  <select id="sample"><option value="cat">cat (кот целиком)</option><option value="cat_face">cat_face (кроп морды)</option><option value="ring">ring (рисунок, кольцо)</option><option value="check">check (рисунок, галочка)</option></select>
+  <input id="file" type="file" accept="image/*">
+  <div>
+   <label>x <input id="cx" type="range" min="0" max="95" value="0"><b>0</b>%</label>
+   <label>y <input id="cy" type="range" min="0" max="95" value="0"><b>0</b>%</label>
+   <label>ширина <input id="cw" type="range" min="5" max="100" value="100"><b>100</b>%</label>
+   <label>высота <input id="ch" type="range" min="5" max="100" value="100"><b>100</b>%</label>
+   <button id="face">кроп морды (пример)</button> <button id="resetcrop">весь кадр</button>
+  </div>
+  <label>ширина детали, мм <input id="partw" type="number" value="40"></label>
+  <label>рабочий растр, px (больше — детальнее и медленнее) <input id="res" type="number" value="800" step="160" min="320" max="1600"></label>
+  <canvas id="pv-img" class="pv"></canvas>
+ </section>
+ <section><h4><span class="n">2</span>Силуэт <span class="note" id="st-sil"></span></h4>
+  <label>источник <select id="silsrc"><option value="model">модель (маска)</option><option value="brightness">яркость (Оцу)</option><option value="frame">весь кадр</option></select></label>
+  <div id="silmodel">
+   <select id="silmodelsel"></select> <select id="silep"><option>wasm</option><option>webgpu</option></select>
+   <button id="runsil">Запустить модель</button>
+   <div><label>порог <input id="thr" type="range" min="0.05" max="0.95" step="0.01" value="0.5"><b>0.5</b></label>
+   <label>сглаживание, мм <input id="smooth" type="range" min="0" max="3" step="0.1" value="0.3"><b>0.3</b></label></div>
+   <label><input id="largest" type="checkbox" checked> только самый большой объект</label>
+  </div>
+  <div id="silbright" hidden><label><input id="inv" type="checkbox"> инвертировать</label></div>
+  <label><input id="fill" type="checkbox" checked> заливать пустоты</label>
+  <label><input id="vec" type="checkbox" checked> векторный контур (острые углы сохраняются)</label>
+  <label><input id="fit" type="checkbox" checked> кривые Безье (минимум точек, гладкая стенка)</label>
+  <label>допуск подгонки, мм <input id="ftol" type="number" value="0.25" step="0.05" min="0.02"></label>
+  <label>шаг выборки кривой, мм <input id="fstep" type="number" value="1" step="0.1" min="0.2"></label>
+  <label>угол, °, с которого вершина считается острой <input id="cang" type="number" value="50" step="5" min="20" max="150"></label>
+  <label>сглаживание контура, мм (как в вырезах 0.25) <input id="osm" type="number" value="0.25" step="0.05" min="0"></label>
+  <label>открытыми оставить области больше, мм² <input id="openmm2" type="number" value="150" step="10" min="0"></label>
+  <canvas id="pv-mask" class="pv"></canvas>
+ </section>
+ <section><h4><span class="n">3</span>Глубина <span class="note" id="st-depth"></span></h4>
+  <select id="depthsel"></select> <select id="depthep"><option>wasm</option><option>webgpu</option></select>
+  <button id="rundepth">Посчитать глубину (для текущего кропа)</button>
+  <label><input id="dinv" type="checkbox"> инвертировать</label>
+  <label>сглаживание, мм <input id="dsm" type="number" value="0.6" step="0.1" min="0"></label>
+  <label>гамма <input id="dgam" type="number" value="1" step="0.1" min="0.2" max="3"></label>
+  <label>привязка к краям фото, мм (0 = выкл) <input id="dgr" type="number" value="1" step="0.5" min="0"></label>
+  <div class="note">Как применяется: сырая глубина → (привязка к краям фото, чтобы не было зернистости) → нормировка по 2–98 % внутри силуэта (ближе = выше) → гамма → сглаживание → доля «глубина» в смеси. Чтобы увидеть только её, выберите «только глубина» под 3D.</div>
+  <canvas id="pv-depth" class="pv"></canvas>
+ </section>
+ <section><h4><span class="n">4</span>Детали (локальный контраст)</h4>
+  <label>радиус, мм <input id="lcr" type="number" value="1.4" step="0.1"></label>
+  <label>усиление <input id="lca" type="number" value="0.7" step="0.1"></label>
+  <label>детали как <select id="dmode"><option value="engrave">гравировка (канавки в тёмном)</option><option value="bumps">рельеф (бугры)</option><option value="both">оба</option></select></label>
+  <label>порог тёмного <input id="dth" type="number" value="0.35" step="0.05" min="0" max="0.95"></label>
+  <label>подавление шума до контраста, мм <input id="tpre" type="number" value="0.25" step="0.05" min="0"></label>
+  <label>уровни (0 = нет) <input id="lvl" type="number" value="0" min="0" max="8"></label>
+  <label>сглаживание, мм <input id="tsm" type="number" value="0.3" step="0.1" min="0"></label>
+  <canvas id="pv-detail" class="pv"></canvas>
+ </section>
+ <section><h4><span class="n">5</span>Смесь формы → высота</h4>
+  <div><label>контур <input id="wc" type="range" min="0" max="100" value="30"><b>30</b></label>
+  <label>глубина <input id="wd" type="range" min="0" max="100" value="40"><b>40</b></label>
+  <label>детали <input id="wt" type="range" min="0" max="100" value="30"><b>30</b></label></div>
+  <div><label><input id="autopre" type="checkbox" checked> применять пресет при выборе образца</label> пресет: <button id="pre-face">лицо (кроп, 40 мм)</button> <button id="pre-whole">животное целиком (70 мм)</button> <button id="pre-drawing">рисунок / логотип (60 мм)</button></div>
+  <label>скос контура, мм <input id="bevel" type="number" value="3" step="0.5"></label>
+  <label>скругление края <input id="roll" type="range" min="0" max="100" value="70"><b>70</b>%</label><br>
+  <label>основание, мм <input id="floor" type="number" value="1.2" step="0.1"></label>
+  <label>диапазон высоты, мм <input id="range" type="number" value="2" step="0.1"></label><br>
+  <label>итоговое сглаживание, мм <input id="fsm" type="number" value="0.3" step="0.1" min="0"></label>
+  <label>макс. наклон (0 = выкл) <input id="slope" type="number" value="1.5" step="0.1" min="0"></label>
+  <span class="note">1.5 ≈ 56° от горизонтали: отвесные ступени становятся склонами</span>
+  <canvas id="pv-mix" class="pv"></canvas>
+ </section>
+</div>
+<div id="right">
+ <div id="view"></div>
+ <div style="margin-top:6px">
+  <label>узлов по длинной стороне <input id="nodes" type="number" value="320" step="20" min="60" max="600"></label>
+  <label><input id="wire" type="checkbox"> сетка</label>
+  <label>подсветка <input id="lightang" type="range" min="0" max="360" value="315"></label>
+  <button id="vtop">сверху</button> <button id="viso">под углом</button>
+  <span class="note" id="stat3d"></span>
+ </div>
+ <section style="margin-top:8px"><h4>Слои рельефа (галочки пересчитывают 3D)</h4>
+  <div><b>показывать в 3D:</b> <label><input type="radio" name="solo" value="mix" checked> смесь</label> <label><input type="radio" name="solo" value="contour"> только контур</label> <label><input type="radio" name="solo" value="depth"> только глубина</label> <label><input type="radio" name="solo" value="detail"> только детали</label></div>
+  <label><input id="lm" type="checkbox" checked> маска силуэта (вырез по контуру)</label>
+  <label><input id="lc" type="checkbox" checked> контур (скос)</label>
+  <label><input id="ld" type="checkbox" checked> глубина</label>
+  <label><input id="lt" type="checkbox" checked> детали</label>
+  <div class="note">Выключенный слой даёт нулевую долю, остальные нормируются; без маски рельеф строится на всём кадре.</div>
+ </section>
+ <div id="log" style="margin-top:8px"></div>
+</div>
+</main>
+<script type="module" src="./keychain.ts"></script>
+</body></html>

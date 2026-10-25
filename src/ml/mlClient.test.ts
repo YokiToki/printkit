@@ -8,8 +8,12 @@ const spec = MODELS[0]
 class FakeWorker implements MlWorkerLike {
   sent: MlRequest[] = []; terminated = false
   private cb: (e: { data: MlResponse }) => void = () => {}
+  private err: (e: { message?: string }) => void = () => {}
   postMessage(m: MlRequest) { this.sent.push(m) }
-  addEventListener(_t: 'message', cb: (e: { data: MlResponse }) => void) { this.cb = cb }
+  addEventListener(type: 'message', cb: (e: { data: MlResponse }) => void): void
+  addEventListener(type: 'error', cb: (e: { message?: string }) => void): void
+  addEventListener(type: 'message' | 'error', cb: ((e: { data: MlResponse }) => void) | ((e: { message?: string }) => void)) { if (type === 'message') this.cb = cb as (e: { data: MlResponse }) => void; else this.err = cb as (e: { message?: string }) => void }
+  crash(message: string) { this.err({ message }) }
   terminate() { this.terminated = true }
   reply(r: MlResponse) { this.cb({ data: r }) }
 }
@@ -43,6 +47,13 @@ describe('MlClient', () => {
     const bad = c.matte(spec, new Uint8Array(12), 2, 2)
     workers[0].reply({ id: workers[0].sent[1].id, error: 'bad_alloc' })
     await expect(bad).rejects.toThrow('bad_alloc')
+  })
+
+  it('ошибка самого воркера (модуль не загрузился) отклоняет ждущие запросы, они не зависают', async () => {
+    const { c, workers } = setup()
+    const p = c.load(spec, new ArrayBuffer(4), 'wasm')
+    workers[0].crash('Failed to fetch module')
+    await expect(p).rejects.toThrow('Failed to fetch module')
   })
 
   it('отмена закрывает воркер, ждущие запросы получают MlAbortError, следующий запрос создаёт новый воркер', async () => {

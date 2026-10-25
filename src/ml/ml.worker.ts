@@ -1,14 +1,17 @@
 /// <reference lib="webworker" />
 // Воркер ИИ: владеет сессиями onnxruntime-web. Создаётся лениво (только когда пользователь запускает ИИ), поэтому классический
 // путь не грузит ни этот файл, ни библиотеку с её WASM.
-import ortWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.jsep.wasm?url'
+import ortWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url'
+import ortJsepUrl from 'onnxruntime-web/ort-wasm-simd-threaded.jsep.wasm?url'
 import { createRuntime, type OrtLike } from './runtime'
 import type { MlRequest, MlResponse } from './mlClient'
 
-const runtime = createRuntime(async () => {
-  const ort = await import('onnxruntime-web/webgpu')
+const runtime = createRuntime(async (backend) => {
+  // две сборки: WASM-only (14 МБ) для обычного пути и с WebGPU (28 МБ) только там, где модель идёт на WebGPU
+  const ort = backend === 'webgpu' ? await import('onnxruntime-web/webgpu') : await import('onnxruntime-web/wasm')
+  ort.env.logLevel = 'error' // предупреждения ORT о неиспользуемых весах иначе попадают в консоль как ошибки
   ort.env.wasm.numThreads = 1 // без COOP/COEP (GitHub Pages их не отдаёт) многопоточного WASM нет
-  ort.env.wasm.wasmPaths = { wasm: ortWasmUrl }
+  ort.env.wasm.wasmPaths = { wasm: backend === 'webgpu' ? ortJsepUrl : ortWasmUrl }
   return ort as unknown as OrtLike
 }, (phase, modelId) => self.postMessage({ kind: 'phase', phase, modelId } satisfies MlResponse))
 

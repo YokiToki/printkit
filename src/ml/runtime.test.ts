@@ -37,6 +37,16 @@ describe('runtime', () => {
     expect(loads).toBe(1) // библиотека одна на воркер
   })
 
+  it('у каждого бэкенда своя сборка библиотеки: WASM-сессия не тянет WebGPU-сборку', async () => {
+    const asked: string[] = []
+    const rt = createRuntime(async (b) => { asked.push(b); return fakeOrt([]) })
+    await rt.load(spec, new ArrayBuffer(1), 'wasm')
+    expect(asked).toEqual(['wasm'])
+    await rt.load({ ...spec, id: 'g' }, new ArrayBuffer(1), 'webgpu')
+    expect(asked).toEqual(['wasm', 'webgpu'])
+    await expect(rt.matte({ ...spec, id: 'g' }, new Uint8Array(12), 2, 2)).resolves.toHaveLength(4)
+  })
+
   it('без загруженной сессии matte падает с понятной ошибкой; release убирает сессию', async () => {
     const log: string[] = []
     const rt = createRuntime(async () => fakeOrt(log))

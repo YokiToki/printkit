@@ -26,20 +26,23 @@ export interface MlRuntime {
   has(modelId: string): boolean
 }
 
-export function createRuntime(loadOrt: () => Promise<OrtLike>, onPhase?: (phase: Phase, modelId: string) => void): MlRuntime {
+export function createRuntime(loadOrt: (backend: Backend) => Promise<OrtLike>, onPhase?: (phase: Phase, modelId: string) => void): MlRuntime {
   const sessions = new Map<string, SessionLike>()
-  let ort: OrtLike | null = null
+  const libs = new Map<Backend, OrtLike>()
+  const sessionLib = new Map<string, OrtLike>()
   return {
     async load(spec, bytes, backend) {
       onPhase?.('session', spec.id)
-      ort ??= await loadOrt()
+      // WebGPU-сборка библиотеки ломается без WebGPU даже для WASM-сессии, поэтому у каждого бэкенда своя сборка
+      let ort = libs.get(backend)
+      if (!ort) { ort = await loadOrt(backend); libs.set(backend, ort) }
       // буфер весов сессии не переиспользуется: ORT может его передать (transfer), поэтому ей отдаём копию
       const session = await ort.InferenceSession.create(new Uint8Array(bytes.slice(0)), { executionProviders: [backend], graphOptimizationLevel: 'all' })
       await sessions.get(spec.id)?.release?.()
-      sessions.set(spec.id, session)
+      sessions.set(spec.id, session); sessionLib.set(spec.id, ort)
     },
     async matte(spec, rgb, w, h) {
-      const session = sessions.get(spec.id)
+      const session = sessions.get(spec.id), ort = sessionLib.get(spec.id)
       if (!session || !ort) throw new Error(`session ${spec.id} not loaded`)
       onPhase?.('run', spec.id)
       // тензор создаётся заново на каждый запуск: при wasm.proxy ORT забирает буфер

@@ -47,7 +47,7 @@ export function Header() {
         options={LANGUAGES.map((l) => ({ value: l, label: l.toUpperCase() }))} />
       <ModelsButton />
       <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" aria-label={t('site.github')} title={t('site.github')}
-        className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-group border border-border bg-bg text-text-muted no-underline hover:text-text md:h-8 md:w-8">
+        className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-group border border-border bg-bg text-text-muted no-underline hover:text-text max-[440px]:hidden md:h-8 md:w-8">
         <IconBrandGithub size={16} stroke={1.75} />
       </a>
     </header>

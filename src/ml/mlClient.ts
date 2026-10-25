@@ -13,6 +13,7 @@ export type MlResponse =
 export interface MlWorkerLike {
   postMessage(msg: MlRequest, transfer?: Transferable[]): void
   addEventListener(type: 'message', cb: (e: { data: MlResponse }) => void): void
+  addEventListener(type: 'error', cb: (e: { message?: string }) => void): void
   terminate?(): void
 }
 
@@ -40,6 +41,8 @@ export class MlClient {
     if (!this.worker) {
       this.worker = this.factory()
       this.worker.addEventListener('message', (e) => this.onMessage(e.data))
+      // ошибка вне запроса (не загрузился модуль воркера, необработанное исключение): ждущие запросы не должны зависнуть
+      this.worker.addEventListener('error', (e) => this.fail(new Error(e.message || 'worker error')))
     }
     return this.worker
   }
@@ -68,6 +71,11 @@ export class MlClient {
   }
 
   release(modelId: string): Promise<void> { return this.send<void>({ kind: 'release', modelId }) }
+
+  private fail(err: Error) {
+    for (const p of this.pending.values()) p.reject(err)
+    this.pending.clear()
+  }
 
   /** Отмена: ждущие запросы получают MlAbortError, воркер закрывается. */
   cancel() {

@@ -1264,7 +1264,28 @@
     "what": {
       "images": "images",
       "meshes": "imported models",
-      "fonts": "fonts"
+      "fonts": "fonts",
+      "models": "AI models"
+    },
+    "ai": {
+      "download": "Downloading {{name}}: {{loaded}} of {{total}} MB",
+      "downloaded": "{{name}} downloaded ({{size}})",
+      "downloadFailed": "Could not download {{name}}: {{reason}}",
+      "downloadCancelled": "Download of {{name}} cancelled",
+      "reason": {
+        "network": "network error",
+        "http": "the server refused the request",
+        "size": "the file size does not match",
+        "checksum": "the checksum does not match",
+        "storage": "the browser refused to store the file"
+      },
+      "run": "Running {{name}}…",
+      "session": "Starting the session ({{backend}})",
+      "firstPass": "Finding the objects on the sheet",
+      "object": "Objects refined: {{i}} of {{n}}",
+      "runDone": "{{name}}: done in {{seconds}} s",
+      "runCancelled": "AI run cancelled",
+      "runFailed": "{{name}} failed"
     }
   }
 }

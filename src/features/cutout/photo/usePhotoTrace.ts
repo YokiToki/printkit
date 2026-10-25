@@ -4,8 +4,14 @@ import { detectPaper } from '../../../geometry/photo/detect'
 import { guessPaper } from '../../../geometry/photo/aspect'
 import { checkQuad, rectify, type Pt, type QuadCheck, type Rectified } from '../../../geometry/photo/homography'
 import { paperSize, type Paper, type PaperOrientation, type PaperPreset } from '../../../geometry/photo/paper'
+import { aiSegmentation } from '../../../geometry/photo/ai'
 import { segment, type Segmentation } from '../../../geometry/photo/segment'
 import type { GrayImage } from '../../../geometry/raster/threshold'
+import { useCapabilities, useModelStore } from '../../../ml/useMl'
+import { usableModel } from '../../../ml/choice'
+import type { ModelSpec } from '../../../ml/models'
+import { getMlService, MlUnavailableError } from '../../../ml/service'
+import { MlAbortError } from '../../../ml/mlClient'
 import { decodeColorImage, ImageError, type ColorImage, type ImageErrorCode } from '../../keychain/decodeImage'
 
 export interface PhotoSettings {
@@ -21,11 +27,21 @@ export interface PhotoSettings {
   excluded: number[]
   depth: number
   clearance: number
+  /** Движок силуэтов: классический (по умолчанию, работает без загрузок) или нейросеть. */
+  engine: SegEngine
+  /** Настройка маски сети; null — значения модели по умолчанию (`maskDefaults`), пока пользователь их не трогал. */
+  ai: { threshold: number | null; smooth: number | null; secondPass: boolean }
+  /** Гибридный край (классический тест цвета в полосе вокруг маски сети); выключение показывает «сырой» край сети. */
+  aiRefine: boolean
+  /** Показывать на выпрямленном листе контуры другого движка и таблицу размеров. */
+  compare: boolean
 }
+export type SegEngine = 'classic' | 'ai'
 
 export const defaultPhotoSettings: PhotoSettings = {
   preset: 'a4', orientation: 'landscape', custom: { width: 210, length: 297 }, corners: [],
   sensitivity: null, margin: 3, excluded: [], depth: 10, clearance: 0.8,
+  engine: 'classic', ai: { threshold: null, smooth: null, secondPass: false }, aiRefine: true, compare: false,
 }
 
 /** Начальные углы: прямоугольник, отступивший от краёв снимка на 15 %. */
@@ -62,6 +78,12 @@ export interface PhotoTrace {
   /** Полное выпрямление и силуэты считаются только когда нужны (`needSilhouettes`), по настройкам, устоявшимся после паузы. */
   rectified: Rectified | null
   segmentation: Segmentation | null
+  /** Силуэты нейросети по кэшированной альфе (без запуска модели при смене порога); null, пока ИИ не запускали. */
+  aiSegmentation: Segmentation | null
+  /** Силуэты выбранного движка: при ошибке ИИ или без результата — классические. Всё дальше (список, выбор, вырезы) читает их. */
+  active: Segmentation | null
+  /** Модель маски, готовая к работе (выбранная или первая готовая), и запуск нейросети. */
+  ai: { model: ModelSpec | null; running: boolean; error: string | null; hasResult: boolean; run: () => Promise<void> }
   /** Нужны ли силуэты (шаг 3 окна): на шаге углов тяжёлый пересчёт не запускается. */
   needSilhouettes: (on: boolean) => void
   /** Идёт ли пересчёт полного растра и силуэтов. */
@@ -88,7 +110,7 @@ export function usePhotoTrace(debounceMs = 120): PhotoTrace {
   const [error, setError] = useState<ImageErrorCode | null>(null)
   const [loading, setLoading] = useState(false)
   const [detection, setDetection] = useState<Detection>({ status: 'none' })
-  const set = useCallback((patch: Partial<PhotoSettings>) => setSettings((s) => ({ ...s, ...patch })), [])
+  const set = useCallback((patch: Partial<PhotoSettings>) => setSettings((s) => ({ ...s, ...patch, ...(patch.engine && patch.engine !== s.engine ? { excluded: [] } : {}) })), [])
 
   const paper = useMemo(() => paperSize(settings.preset, settings.orientation, settings.custom), [settings.preset, settings.orientation, settings.custom])
   const quad = photo ? checkQuad(settings.corners) : 'tooSmall'
@@ -145,9 +167,32 @@ export function usePhotoTrace(debounceMs = 120): PhotoTrace {
     const sizes = segmentation.silhouettes.map((s) => `${Math.round(s.widthMm)} × ${Math.round(s.heightMm)} mm`).join('; ')
     log.info('photo', 'log.photo.silhouettes', { count: segmentation.silhouettes.length }, sizes || undefined)
   }, [segmentation])
-  const computing = needSeg && !!photo && quad === 'ok' && !segmentation
-  const selected = useMemo(() => (segmentation?.silhouettes ?? []).map((s) => s.id).filter((id) => !settings.excluded.includes(id)), [segmentation, settings.excluded])
+
+  // ---- нейросеть: запуск по кнопке, альфа кэшируется, порог и сглаживание пересчитывают силуэты без модели ----
+  const store = useModelStore(), caps = useCapabilities()
+  const model = usableModel(store, caps)
+  const [aiAlpha, setAiAlpha] = useState<{ rectified: Rectified; model: string; alpha: Float32Array } | null>(null)
+  const [aiRunning, setAiRunning] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const alphaOf = aiAlpha && aiAlpha.rectified === rectified ? aiAlpha : null // новый растр (углы, лист) — старая альфа не годится
+  const runAi = useCallback(async () => {
+    if (!rectified || !model || aiRunning) return
+    setAiRunning(true); setAiError(null)
+    try {
+      const alpha = await getMlService().silhouetteAlpha(model, rectified, { secondPass: settings.ai.secondPass, mask: { threshold: settings.ai.threshold ?? model.maskDefaults.threshold, smooth: settings.ai.smooth ?? model.maskDefaults.smooth } })
+      setAiAlpha({ rectified, model: model.id, alpha })
+    } catch (e) {
+      if (e instanceof MlAbortError || (e instanceof MlUnavailableError && e.reason === 'superseded')) return
+      setAiError(e instanceof MlUnavailableError ? e.reason : e instanceof Error ? e.message : String(e))
+    } finally { setAiRunning(false) }
+  }, [rectified, model, aiRunning, settings.ai.secondPass, settings.ai.threshold, settings.ai.smooth])
+  const aiParams = useDebounced({ threshold: settings.ai.threshold ?? model?.maskDefaults.threshold ?? 0.5, smooth: settings.ai.smooth ?? model?.maskDefaults.smooth ?? 0.3, refine: settings.aiRefine, margin: stable.margin }, debounceMs)
+  const wantAi = settings.engine === 'ai' || settings.compare
+  const aiSeg = useMemo(() => (wantAi && rectified && alphaOf ? aiSegmentation(rectified, alphaOf.alpha, aiParams) : null), [wantAi, rectified, alphaOf, aiParams])
+  const active = settings.engine === 'ai' && aiSeg && !aiError ? aiSeg : segmentation
+  const computing = (needSeg && !!photo && quad === 'ok' && !segmentation) || aiRunning
+  const selected = useMemo(() => (active?.silhouettes ?? []).map((s) => s.id).filter((id) => !settings.excluded.includes(id)), [segmentation, settings.excluded])
   const toggle = useCallback((id: number) => setSettings((s) => ({ ...s, excluded: s.excluded.includes(id) ? s.excluded.filter((x) => x !== id) : [...s.excluded, id] })), [])
 
-  return { photo, settings, set, paper, quad, preview, rectified, segmentation, needSilhouettes, computing, error, detection, loading, load, selected, toggle }
+  return { photo, settings, set, paper, quad, preview, rectified, segmentation, aiSegmentation: aiSeg, active, ai: { model, running: aiRunning, error: aiError, hasResult: !!alphaOf, run: runAi }, needSilhouettes, computing, error, detection, loading, load, selected, toggle }
 }

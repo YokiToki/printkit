@@ -106,7 +106,7 @@ const log = {
 export { log }
 
 /** Браузерное хранилище недоступно, данные живут в памяти до перезагрузки: предупреждение раз за сеанс на вид данных. */
-export const memoryFallback = (what: 'images' | 'meshes' | 'fonts') => log.once(`storage:${what}`, 'warn', 'storage', 'log.storage.memory', { what })
+export const memoryFallback = (what: 'images' | 'meshes' | 'fonts' | 'models') => log.once(`storage:${what}`, 'warn', 'storage', 'log.storage.memory', { what })
 
 export function startJob(o: { source: LogSource; key: string; params?: LogParams; cancel?: () => void; silent?: boolean }): Job {
   const id = nextId++

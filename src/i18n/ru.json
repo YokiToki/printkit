@@ -1264,7 +1264,28 @@
     "what": {
       "images": "изображения",
       "meshes": "импортированные модели",
-      "fonts": "шрифты"
+      "fonts": "шрифты",
+      "models": "модели ИИ"
+    },
+    "ai": {
+      "download": "Скачиваю {{name}}: {{loaded}} из {{total}} МБ",
+      "downloaded": "{{name}} скачана ({{size}})",
+      "downloadFailed": "Не удалось скачать {{name}}: {{reason}}",
+      "downloadCancelled": "Скачивание {{name}} отменено",
+      "reason": {
+        "network": "ошибка сети",
+        "http": "сервер отклонил запрос",
+        "size": "размер файла не совпал",
+        "checksum": "контрольная сумма не совпала",
+        "storage": "браузер не дал сохранить файл"
+      },
+      "run": "Запускаю {{name}}…",
+      "session": "Запускаю сессию ({{backend}})",
+      "firstPass": "Ищу предметы на листе",
+      "object": "Предметов уточнено: {{i}} из {{n}}",
+      "runDone": "{{name}}: готово за {{seconds}} с",
+      "runCancelled": "Запуск ИИ отменён",
+      "runFailed": "{{name}}: ошибка"
     }
   }
 }

@@ -12,14 +12,13 @@ import { AssembledControls } from '../features/viewport/AssembledControls'
 import { OPEN_GAP_MAX, type KeychainView } from '../features/viewport/layout'
 
 /** Раскладка режима: панель параметров, закреплённый блок экспорта и 3D-вид. На узком экране панель — нижняя шторка. */
-export function Workspace({ panel, footer, model, plate, gap, busy, exportOptions = true, overlay, onStartOver, modeName }: {
+export function Workspace({ panel, footer, model, plate, gap, exportOptions = true, overlay, onStartOver, modeName }: {
   panel: ReactNode
   footer?: ReactNode
   model: ModelResult | null
   plate?: BuildPlate | null
   /** Зазор между частями в разнесённом виде, мм (0 — собрано). */
   gap?: number
-  busy?: boolean
   /** Секция параметров экспорта в панели (у заглушек без модели не нужна). */
   exportOptions?: boolean
   /** Плавающий блок поверх вьюпорта (например, предпросмотр маски Keychain). */
@@ -106,7 +105,7 @@ export function Workspace({ panel, footer, model, plate, gap, busy, exportOption
         )}
         {hasAssembly && <AssembledControls view={keychainView} openGap={openGap} onView={(v) => setView({ ...view, keychainView: v })} onOpenGap={(g) => setView({ ...view, openGap: g })} />}
         {overlay}
-        <MeasurementsBar model={model} busy={busy} />
+        <MeasurementsBar model={model} />
       </section>
     </div>
   )

@@ -19,15 +19,16 @@ export function RackPanelMode() {
   const key = JSON.stringify(p)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const params = useMemo(() => p, [key])
-  const valid = validateRackPanel(params).errors.length === 0
-  const { model, busy, pending, error } = useModel('rackPanel', params, { enabled: valid })
+  const check = validateRackPanel(params)
+  const valid = check.errors.length === 0
+  const { model, pending, error } = useModel('rackPanel', params, { enabled: valid, invalid: check.errors })
 
   useEffect(() => { recordSession('panel', `${p.units} U`, 'rack') }, [p.units])
 
   const height = Math.round((p.units * RACK_UNIT - (p.tolerance ? HEIGHT_TOLERANCE : 0)) * 10) / 10
   return (
     <Workspace
-      model={model} busy={busy}
+      model={model}
       onStartOver={() => setP(defaultRackPanel)} modeName={t('rack.modes.panel')}
       panel={<RackPanel params={p} onChange={setP} buildError={error} />}
       footer={<ExportPanel model={model} busy={pending} name={`rack_panel_${p.units}u_${height}`} />}

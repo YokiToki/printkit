@@ -18,15 +18,16 @@ export function ShelfMode() {
   const key = JSON.stringify(p)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const params = useMemo(() => p, [key])
-  const valid = validateRackShelf(params).errors.length === 0
-  const { model, busy, pending, error } = useModel('rackShelf', params, { enabled: valid })
+  const check = validateRackShelf(params)
+  const valid = check.errors.length === 0
+  const { model, pending, error } = useModel('rackShelf', params, { enabled: valid, invalid: check.errors })
   const l = shelfLayout(params)
 
   useEffect(() => { recordSession('shelf', `${p.units} U · ${p.shelf.depth}`, 'rack') }, [p.units, p.shelf.depth])
 
   return (
     <Workspace
-      model={model} busy={busy}
+      model={model}
       onStartOver={() => setP(defaultRackShelf)} modeName={t('rack.modes.shelf')}
       panel={<ShelfPanel params={p} onChange={setP} buildError={error} />}
       footer={<ExportPanel model={model} busy={pending} name={`rack_shelf_${p.units}u_${Math.round(l.width)}x${Math.round(p.shelf.depth)}`} />}

@@ -9,7 +9,7 @@ type KeychainClient = Pick<ModelClient, 'generate' | 'registerImage'>
 
 /**
  * Модель Keychain: изображение один раз передаётся воркеру, параметры ссылаются на него по id. Как useModel
- * (debounce, busy, pending), но пустая маска и ошибки построения не стирают прежнюю сетку: она остаётся в `model`,
+ * (debounce, pending), но пустая маска и ошибки построения не стирают прежнюю сетку: она остаётся в `model`,
  * а причина лежит в `info.error`.
  */
 export function useKeychainModel(params: KeychainParams, image: GrayImage | null, opts: { client?: KeychainClient; debounce?: number } = {}) {
@@ -25,12 +25,13 @@ export function useKeychainModel(params: KeychainParams, image: GrayImage | null
     setReady(true)
   }, [image, params.imageId, client])
 
-  const valid = validateKeychain(params).ok
+  const validity = validateKeychain(params)
+  const valid = validity.ok
   const key = JSON.stringify(params)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stable = useMemo(() => params, [key])
   const shaped = params.origin.kind === 'shape' // фигуре изображение не нужно
-  const { model, busy, pending, error } = useModel('keychain', stable, { enabled: valid && (ready || shaped), client, debounce: opts.debounce })
+  const { model, pending, error } = useModel('keychain', stable, { enabled: valid && (ready || shaped), client, debounce: opts.debounce, invalid: validity.errors.map((e) => e.key) })
 
   const [good, setGood] = useState<ModelResult | null>(null)
   useEffect(() => { if (model && model.parts.length > 0) setGood(model) }, [model])
@@ -40,7 +41,6 @@ export function useKeychainModel(params: KeychainParams, image: GrayImage | null
     model: good,
     /** Сведения о последнем ответе: силуэт, размеры, ошибка (пустая маска, подложка меньше силуэта). */
     info,
-    busy,
     /** Сетка устарела или последний ответ — ошибка: экспортировать нельзя. */
     pending: pending || !!info?.error || !valid,
     error,

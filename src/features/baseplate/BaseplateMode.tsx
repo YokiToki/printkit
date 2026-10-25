@@ -26,8 +26,9 @@ export function BaseplateMode() {
   const key = JSON.stringify(candidate)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const geometry = useMemo(() => candidate, [key])
-  const valid = validateBaseplate(geometry).ok
-  const { model, busy, pending } = useModel('baseplate', geometry, { enabled: valid })
+  const check = validateBaseplate(geometry)
+  const valid = check.ok
+  const { model, pending } = useModel('baseplate', geometry, { enabled: valid, invalid: check.errors.map((e) => e.key) })
   const { sizeX, sizeY } = baseplateLayout(geometry)
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export function BaseplateMode() {
 
   return (
     <Workspace
-      model={model} busy={busy}
+      model={model}
       onStartOver={() => setP(defaultParams)} modeName={t('modes.baseplate')}
       gap={p.split.enabled && p.split.exploded ? p.split.gap : 0}
       plate={p.preview.showPlate ? { x: p.preview.plateX, y: p.preview.plateY, margin: ex.margin } : null}

@@ -19,8 +19,9 @@ export function BoxMode() {
   const key = JSON.stringify(p)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const params = useMemo(() => p, [key])
-  const valid = validateBox(params).ok
-  const { model, busy, pending } = useModel('box', params, { enabled: valid })
+  const check = validateBox(params)
+  const valid = check.ok
+  const { model, pending } = useModel('box', params, { enabled: valid, invalid: check.errors.map((e) => e.key) })
 
   useEffect(() => {
     const h = p.height.mode === 'units' ? p.height.value : Number((p.height.value / 7).toFixed(1))
@@ -29,7 +30,7 @@ export function BoxMode() {
 
   return (
     <Workspace
-      model={model} busy={busy}
+      model={model}
       onStartOver={() => setP(defaultBox)} modeName={t('modes.box')}
       panel={<BoxPanel params={p} onChange={setP} />}
       footer={<ExportPanel model={model} busy={pending} name={`box_${Math.round(axisMm(p.x, p.pitch))}x${Math.round(axisMm(p.y, p.pitch))}`} />}

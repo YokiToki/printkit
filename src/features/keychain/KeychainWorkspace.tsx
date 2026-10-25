@@ -27,7 +27,7 @@ export function KeychainWorkspace({ mode, params, image, panel, overlay, onDrop,
   // надпись растрируется здесь (шрифты и canvas только в главном потоке), воркеру уходит готовая маска; в параметры модели идёт её ключ
   const textState = useTextRaster(params.text)
   const modelParams = useMemo(() => ({ ...params, text: { ...params.text, maskId: textState.maskId } }), [params, textState.maskId])
-  const { model, info, busy, pending } = useKeychainModel(modelParams, image)
+  const { model, info, pending } = useKeychainModel(modelParams, image)
   const size = info?.size
 
   useEffect(() => { if (size) recordSession(mode, `${size[0].toFixed(0)} × ${size[1].toFixed(0)} ${t('units.mm')}`, 'keychain') }, [mode, size, t])
@@ -37,7 +37,7 @@ export function KeychainWorkspace({ mode, params, image, panel, overlay, onDrop,
     <TextRasterContext.Provider value={textState}>
     <div className="flex min-h-0 flex-1" onDragOver={onDrop ? (e) => e.preventDefault() : undefined} onDrop={onDrop}>
       <Workspace
-        model={model} busy={busy} onStartOver={onStartOver} modeName={t(`keychain.modes.${mode}`)}
+        model={model} onStartOver={onStartOver} modeName={t(`keychain.modes.${mode}`)}
         overlay={overlay?.(info) ?? null}
         panel={panel(info)}
         footer={<><ExportPanel model={model} busy={pending} name={name} /><SheetSize sheet={info?.mountInfo?.sheet} /></>}

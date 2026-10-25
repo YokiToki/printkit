@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useModel } from './useModel'
+import { getLogSnapshot, isLoading, resetActivityLog } from './activityLog'
 import type { ModelResult } from '../geometry/model'
 import { result as mesh, sharpParams as defaultParams, units } from '../geometry/testing'
 
 describe('useModel', () => {
+  beforeEach(() => resetActivityLog())
   it('склеивает быстрые правки: генерируется только последняя', async () => {
     vi.useFakeTimers()
     const generate = vi.fn().mockResolvedValue(mesh(1))
@@ -64,19 +66,54 @@ describe('useModel', () => {
     expect(result.current.pending).toBe(false)
     vi.useRealTimers()
   })
-  it('при ошибке остаётся прежняя сетка, индикатор появляется с задержкой', async () => {
+  it('при ошибке остаётся прежняя сетка, ошибка попадает в журнал', async () => {
     vi.useFakeTimers()
     const generate = vi.fn().mockResolvedValueOnce(mesh(1)).mockRejectedValueOnce(new Error('bad'))
     const { result, rerender } = renderHook(({ p }) => useModel('baseplate', p, { client: { generate } }), { initialProps: { p: defaultParams } })
     await act(async () => { await vi.advanceTimersByTimeAsync(200) })
-    expect(result.current.busy).toBe(false)
+    expect(isLoading(getLogSnapshot())).toBe(false)
     rerender({ p: { ...defaultParams, x: units(9) } })
-    await act(async () => { await vi.advanceTimersByTimeAsync(10) })
-    expect(result.current.busy).toBe(false) // быстрее порога
     await act(async () => { await vi.advanceTimersByTimeAsync(300) })
     expect(result.current.error).toBe('bad')
     expect(result.current.model?.parts[0].mesh.volume).toBe(1)
-    expect(result.current.busy).toBe(false)
+    const last = getLogSnapshot().entries.at(-1)
+    expect(last).toMatchObject({ level: 'error', source: 'model', key: 'log.model.failed', detail: 'bad' })
+    vi.useRealTimers()
+  })
+  it('одна задача на склеенную перестройку: старт и итог с длительностью', async () => {
+    vi.useFakeTimers()
+    const generate = vi.fn().mockResolvedValue(mesh(1))
+    const { rerender } = renderHook(({ p }) => useModel('baseplate', p, { client: { generate } }), { initialProps: { p: defaultParams } })
+    rerender({ p: { ...defaultParams, x: units(3) } })
+    rerender({ p: { ...defaultParams, x: units(4) } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(200) })
+    expect(getLogSnapshot().entries.map((e) => e.key)).toEqual(['log.model.start', 'log.model.done'])
+    expect(getLogSnapshot().entries[1].params).toHaveProperty('ms')
+    vi.useRealTimers()
+  })
+  it('индикатор включает генерация дольше 200 мс', async () => {
+    vi.useFakeTimers()
+    let resolve!: (m: ModelResult) => void
+    const generate = vi.fn(() => new Promise<ModelResult>((r) => (resolve = r)))
+    renderHook(() => useModel('baseplate', defaultParams, { client: { generate } }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(160) })
+    expect(isLoading(getLogSnapshot())).toBe(false)
+    await act(async () => { await vi.advanceTimersByTimeAsync(250) })
+    expect(isLoading(getLogSnapshot())).toBe(true)
+    await act(async () => { resolve(mesh(1)) })
+    expect(isLoading(getLogSnapshot())).toBe(false)
+    vi.useRealTimers()
+  })
+  it('замечания результата и ошибки проверки попадают в журнал, повтор не дублируется', async () => {
+    vi.useFakeTimers()
+    const warn: ModelResult = { ...mesh(1), rack: { warnings: [{ key: 'rack.warning.thin', setting: 'rack.field.slotWidth' }] } }
+    const generate = vi.fn().mockResolvedValue(warn)
+    const { rerender } = renderHook(({ p, invalid }) => useModel('baseplate', p, { client: { generate }, invalid }), { initialProps: { p: defaultParams, invalid: ['box.error.sizeMin'] } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(200) })
+    rerender({ p: { ...defaultParams, x: units(8) }, invalid: ['box.error.sizeMin'] })
+    await act(async () => { await vi.advanceTimersByTimeAsync(200) })
+    const warns = getLogSnapshot().entries.filter((e) => e.level === 'warn').map((e) => e.key)
+    expect(warns).toEqual(['box.error.sizeMin', 'rack.warning.thin'])
     vi.useRealTimers()
   })
 })

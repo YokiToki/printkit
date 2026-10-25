@@ -18,15 +18,16 @@ export function CaseMode() {
   const key = JSON.stringify(p)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const params = useMemo(() => p, [key])
-  const valid = validateRackCase(params).errors.length === 0
-  const { model, busy, pending } = useModel('rackCase', params, { enabled: valid })
+  const check = validateRackCase(params)
+  const valid = check.errors.length === 0
+  const { model, pending } = useModel('rackCase', params, { enabled: valid, invalid: check.errors })
   const l = valid ? caseLayout(params) : null
 
   useEffect(() => { recordSession('case', `${p.device.width} × ${p.device.depth} × ${p.device.height}`, 'rack') }, [p.device])
 
   return (
     <Workspace
-      model={model} busy={busy}
+      model={model}
       onStartOver={() => setP(defaultRackCase)} modeName={t('rack.modes.case')}
       panel={<CasePanel params={p} onChange={setP} />}
       footer={<ExportPanel model={model} busy={pending} name={`rack_case_${l?.units ?? 0}u_${Math.round(p.device.width)}x${Math.round(p.device.depth)}x${Math.round(p.device.height)}`} />}

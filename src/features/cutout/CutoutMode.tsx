@@ -1,3 +1,5 @@
+import { log } from '../../app/activityLog'
+import { fmtSize } from '../../app/logText'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { addCutout, cutoutLayout, defaultCutout, newCutoutId, type Cutout, type CutoutParams, type MeshSource } from '../../geometry/cutout'
@@ -57,8 +59,9 @@ export function CutoutMode() {
   const key = JSON.stringify(p)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const params = useMemo(() => p, [key])
-  const valid = validateCutout(params).ok
-  const { model, busy, pending, error } = useModel('cutout', params, { enabled: valid && ready })
+  const check = validateCutout(params)
+  const valid = check.ok
+  const { model, pending, error } = useModel('cutout', params, { enabled: valid && ready, invalid: check.errors.map((e) => e.key) })
 
   useEffect(() => { recordSession('cutout', `${p.cutouts.length}`) }, [p.cutouts.length])
 
@@ -66,6 +69,7 @@ export function CutoutMode() {
     setMessage({ kind: 'info', text: t('cutout.import.importing', { name: file.name }) })
     try {
       const imported = importStl(await file.arrayBuffer())
+      log.info('image', 'log.image.meshImported', { name: file.name, size: fmtSize(imported.sizeBytes), triangles: Math.floor(imported.mesh.triVerts.length / 3) })
       const meshId = newCutoutId()
       await store.current?.save(meshId, imported.mesh)
       getModelClient().registerMesh(meshId, imported.mesh)
@@ -82,6 +86,7 @@ export function CutoutMode() {
       setMessage(warns.length ? { kind: 'warn', text: warns.join(' ') } : null)
     } catch (e) {
       const code = e instanceof StlError ? e.code : 'invalid'
+      log.error('image', 'log.image.meshFailed', { name: file.name }, `${code}${e instanceof Error && e.message ? `: ${e.message}` : ''}`)
       setMessage({ kind: 'error', text: t(`cutout.import.${code}`) })
     }
   }, [p, setP, t])
@@ -89,7 +94,7 @@ export function CutoutMode() {
   const nameBase = `cutout_${Math.round(axisMm(p.x, p.pitch))}x${Math.round(axisMm(p.y, p.pitch))}`
   return (
     <Workspace
-      model={model} busy={busy}
+      model={model}
       onStartOver={() => { setP(defaultCutout); setSelectedId(null); setDraft(null); setMessage(null) }} modeName={t('modes.cutout')}
       panel={<CutoutPanel params={p} onChange={setP} selectedId={selectedId} onSelect={setSelectedId} meshes={meshes} onImport={(f) => void onImport(f)} importMessage={message}
         draft={draft} onDraft={setDraft} snap={snap} onSnap={setSnap} generationError={error} />}

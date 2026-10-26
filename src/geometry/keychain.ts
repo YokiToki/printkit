@@ -234,7 +234,7 @@ export interface KeychainParams {
 
 export const defaultSource: SourceParams = {
   kind: 'distance', contrast: 1, gamma: 1, invert: false, smooth: 0, despeckle: false,
-  mix: { contour: 25, depth: 45, detail: 30 }, depthId: '', boost: 2, boostRadius: 1.4, levels: 0, levelSoftness: 0.6, detailMode: 'engrave', darkThreshold: 0.25, snap: 60, maxSlope: 50, finalSmooth: 0.2,
+  mix: { contour: 25, depth: 45, detail: 30 }, depthId: '', depthModel: '', boost: 2, boostRadius: 1.4, levels: 0, levelSoftness: 0.6, detailMode: 'engrave', darkThreshold: 0.25, snap: 60, maxSlope: 50, finalSmooth: 0.2,
 }
 /** Сглаживание яркости, с которого начинается выбор источника «яркость» в интерфейсе (старые записи остаются на 0). */
 export const BRIGHTNESS_SMOOTH_DEFAULT = 0.4

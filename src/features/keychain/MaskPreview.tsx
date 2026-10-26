@@ -87,8 +87,8 @@ function LargeMask({ preview, selected, onSelect, onClose, soft, extra }: { prev
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" data-testid="mask-large-backdrop"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div role="dialog" aria-modal="true" aria-label={t('keychain.preview.large')}
-        style={{ width: `min(var(--mask-w, 70vw), calc(var(--mask-h, 70vh) * ${preview.width / Math.max(preview.height, 1)}))` }}
-        className="relative flex flex-col gap-2 rounded-card border border-border bg-surface-1 p-3 shadow-float [--mask-h:70vh] [--mask-w:70vw] max-md:[--mask-h:80vh] max-md:[--mask-w:92vw]">
+        style={{ width: extra ? 'min(94vw, 1040px)' : `min(var(--mask-w, 70vw), calc(var(--mask-h, 70vh) * ${preview.width / Math.max(preview.height, 1)}))` }}
+        className="relative flex max-h-[94vh] flex-col gap-2 overflow-auto rounded-card border border-border bg-surface-1 p-3 shadow-float [--mask-h:70vh] [--mask-w:70vw] max-md:[--mask-h:80vh] max-md:[--mask-w:92vw]">
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-medium text-text">{t('keychain.preview.title')}</span>
           <button ref={closeRef} type="button" aria-label={t('keychain.preview.close')} onClick={onClose}
@@ -96,10 +96,15 @@ function LargeMask({ preview, selected, onSelect, onClose, soft, extra }: { prev
             <IconX size={16} stroke={1.75} />
           </button>
         </div>
-        <canvas ref={ref} width={preview.width * scale} height={preview.height * scale} role="img" aria-label={t('keychain.preview.label')}
-          onClick={(e) => onSelect?.(clickArea(preview, e))}
-          className="block h-auto w-full cursor-pointer rounded-xs [image-rendering:pixelated]" />
-        {extra}
+        {/* с редактором кадра маска и кадр лежат рядом (на узком экране друг под другом), и всё окно прокручивается: на экран не влезать нельзя */}
+        <div className={extra ? 'flex flex-col gap-3 md:flex-row md:items-start' : ''}>
+          <div className="min-w-0 flex-1">
+            <canvas ref={ref} width={preview.width * scale} height={preview.height * scale} role="img" aria-label={t('keychain.preview.label')}
+              onClick={(e) => onSelect?.(clickArea(preview, e))}
+              className={`block h-auto w-full cursor-pointer rounded-xs [image-rendering:pixelated] ${extra ? 'mx-auto max-h-[calc(94vh-6rem)] object-contain' : ''}`} />
+          </div>
+          {extra && <div className="md:w-[320px] md:shrink-0" data-testid="mask-large-extra">{extra}</div>}
+        </div>
       </div>
     </div>
   )

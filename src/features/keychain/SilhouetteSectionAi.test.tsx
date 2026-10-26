@@ -145,4 +145,13 @@ describe('MaskPreview: мягкая маска (33, 4.2)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Enlarge mask' }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
+
+  it('увеличенный вид с редактором кадра прокручивается и держит маску и кадр рядом: окно не больше экрана', async () => {
+    render(<MaskPreview preview={preview} extra={<div data-testid="crop-slot" />} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Enlarge mask' }))
+    const dlg = screen.getByRole('dialog')
+    expect(dlg.className).toMatch(/max-h-\[94vh\]/); expect(dlg.className).toMatch(/overflow-auto/)
+    expect(screen.getByTestId('mask-large-extra')).toContainElement(screen.getByTestId('crop-slot'))
+    expect(dlg.querySelector('canvas')!.className).toMatch(/max-h-/)
+  })
 })

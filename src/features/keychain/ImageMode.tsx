@@ -87,7 +87,7 @@ export function ImageMode() {
 
   // «Начать заново»: параметры по умолчанию, изображение убирается из модели (сам файл остаётся в хранилище)
   const startOver = () => { setState(defaults); setImage(null); setNotice(null); setSelectedArea(null) }
-  const onAi = useCallback((patch: Partial<AiSilhouetteParams>) => setState((o) => ({ ...o, silhouette: { ...o.silhouette, source: 'ai', ...(o.silhouette.source !== 'ai' || (patch.matteId !== undefined && patch.matteId !== o.silhouette.ai.matteId) ? { areas: {} } : {}), ai: { ...o.silhouette.ai, ...patch } } })), [setState])
+  const onAi = useCallback((patch: Partial<AiSilhouetteParams>) => setState((o) => ({ ...o, silhouette: { ...o.silhouette, source: 'ai', ai: { ...o.silhouette.ai, ...patch } } })), [setState])
   const matte = useMatte({ imageId: params.imageId, image, store: imageStore, ai: params.silhouette.ai, source: params.silhouette.source, onAi })
   const isSvg = /\.svg$/i.test(imageName)
   const aiSource = useMemo(() => (image ? { control: matte, imageSize: { width: image.width, height: image.height }, transparent: hasAlpha(image), svg: isSvg, logo: looksLikeLogo(image) } : undefined), [matte, image, isSvg])

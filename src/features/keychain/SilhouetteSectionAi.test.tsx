@@ -41,7 +41,7 @@ describe('Silhouette: источник ИИ (33, 4.1)', () => {
     const group = screen.getByRole('group', { name: 'Silhouette from' })
     expect(within(group).getByRole('button', { name: 'Brightness' })).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(within(group).getByRole('button', { name: 'AI' }))
-    expect(a.onChange).toHaveBeenCalledWith({ source: 'ai', areas: {} }) // номера областей другого источника не переносятся
+    expect(a.onChange).toHaveBeenCalledWith({ source: 'ai' })
     document.body.innerHTML = ''
     const b = setup(ai, src(control())); await b.open()
     expect(screen.queryByLabelText('Threshold')).toBeNull(); expect(screen.queryByText(/^Invert/)).toBeNull()
@@ -122,7 +122,7 @@ describe('Silhouette: источник ИИ (33, 4.1)', () => {
     expect(screen.queryByLabelText('Threshold')).toBeNull(); expect(screen.queryByText(/^Invert/)).toBeNull(); expect(screen.queryByTestId('ai-silhouette')).toBeNull()
     expect(screen.queryByText(/Close gaps/i)).toBeNull(); expect(screen.queryByText(/Remove specks/i)).toBeNull()
     await userEvent.click(within(group).getByRole('button', { name: 'Brightness' }))
-    expect(a.onChange).toHaveBeenCalledWith({ source: 'brightness', areas: {} })
+    expect(a.onChange).toHaveBeenCalledWith({ source: 'brightness' })
   })
 
   it('оба языка: подписи переведены', async () => {
@@ -185,14 +185,5 @@ describe('MaskPreview: мягкая маска (33, 4.2)', () => {
     render(<MaskPreview preview={preview} />)
     await userEvent.click(screen.getByRole('button', { name: 'Enlarge mask' }))
     expect(screen.queryByTestId('view-soft')).toBeNull(); expect(screen.queryByTestId('view-height')).toBeNull()
-  })
-
-  it('смена источника сбрасывает настройки областей: их номера относятся к маске прежнего источника', async () => {
-    const a = setup({ areas: { 1: { mode: 'level', level: 0.6 } } }, src(control())); await a.open()
-    const group = screen.getByRole('group', { name: 'Silhouette from' })
-    await userEvent.click(within(group).getByRole('button', { name: 'AI' }))
-    expect(a.onChange).toHaveBeenLastCalledWith({ source: 'ai', areas: {} })
-    await userEvent.click(within(group).getByRole('button', { name: 'Brightness' })) // уже выбран: настройки сохраняются
-    expect(a.onChange).toHaveBeenLastCalledWith({ source: 'brightness' })
   })
 })

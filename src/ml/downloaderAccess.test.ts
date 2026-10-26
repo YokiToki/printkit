@@ -11,9 +11,11 @@ describe('скачивание весов недостижимо мимо мен
   })
 
   it('сервис ИИ сам модель не скачивает: нет модели — ошибка, а не загрузка', () => {
-    const run = sources['/src/ml/service.ts'].split('async silhouetteAlpha')[1]
-    expect(run).not.toMatch(/\.download\(|downloadModel/)
-    expect(run).toMatch(/noModel/)
+    const src = sources['/src/ml/service.ts']
+    const afterDownload = src.slice(src.indexOf('async downloadModel')) // всё после метода скачивания: запуск сети
+    const runPart = afterDownload.slice(afterDownload.indexOf('/** Альфа предметов'))
+    expect(runPart).not.toMatch(/\.download\(|downloadModel/)
+    expect(src.slice(0, src.indexOf('return {\n    capabilities'))).toMatch(/noModel/)
   })
 
   it('кнопка «Скачать» менеджера идёт только через окно подтверждения (setConsent), прямого вызова нет', () => {

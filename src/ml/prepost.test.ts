@@ -23,4 +23,19 @@ describe('подготовка входа и разбор выхода', () => {
     const big = new Float32Array(16).fill(8) // вне 0…1: тоже логиты
     for (const v of fromOutput(big, spec, 2, 1)) expect(v).toBeGreaterThan(0.99)
   })
+
+  it('высокая картинка 1 × 2 вписывается по высоте: поля слева и справа, середина — картинка', () => {
+    const rgb = Uint8Array.of(255, 255, 255, 0, 0, 0) // сверху белый, снизу чёрный пиксель
+    const t = toInput(rgb, 1, 2, spec), n = 16
+    for (let j = 0; j < 4; j++) { expect(t[j * 4 + 0]).toBeCloseTo(0); expect(t[j * 4 + 3]).toBeCloseTo(0) } // поля слева и справа
+    expect(t[0 * 4 + 1]).toBeCloseTo(1); expect(t[3 * 4 + 1]).toBeCloseTo(-1) // белый сверху, чёрный снизу
+    expect(t[n + 0]).toBeCloseTo(0)
+  })
+
+  it('выход высокой картинки возвращается без искажений: полоса вписывания обрезается, поля отбрасываются', () => {
+    const out = new Float32Array(16)
+    for (let j = 0; j < 4; j++) { out[j * 4 + 1] = 0.2 * (j + 1); out[j * 4 + 2] = 0.2 * (j + 1) } // содержимое в двух средних столбцах
+    const a = fromOutput(out, spec, 1, 2)
+    expect(a).toHaveLength(2); expect(a[0]).toBeLessThan(a[1]) // градиент по вертикали сохранился
+  })
 })

@@ -7,7 +7,9 @@ import { Button } from '../../../ui/Button'
 import { LengthField } from '../../../ui/LengthField'
 import { NumberField } from '../../../ui/NumberField'
 import { formatLength, useUnit } from '../../../ui/units'
-import type { PhotoSettings } from './usePhotoTrace'
+
+/** Две настройки маски; null — значения модели по умолчанию. Лишние поля вызывающего (secondPass) игнорируются. */
+export interface MaskValues { threshold: number | null; smooth: number | null; secondPass?: boolean }
 
 /** Насколько должен уменьшиться силуэт относительно значений модели по умолчанию, чтобы показать подсказку про тонкие детали, мм. */
 export const THIN_SHRINK_MM = 1
@@ -19,9 +21,10 @@ export const THIN_SHRINK_MM = 1
  */
 export function MaskTuning({ model, ai, onChange, alpha, size, active, baseline }: {
   model: ModelSpec
-  ai: PhotoSettings['ai']
-  onChange: (patch: Partial<PhotoSettings['ai']>) => void
-  alpha: Float32Array | null
+  ai: MaskValues
+  onChange: (patch: Partial<MaskValues>) => void
+  /** Мягкая альфа для серого просмотра: 0…1 (Float32Array) или 0…255 (Uint8Array). */
+  alpha: Float32Array | Uint8Array | null
   size: { width: number; height: number } | null
   active: Segmentation | null
   baseline: Segmentation | null
@@ -40,7 +43,7 @@ export function MaskTuning({ model, ai, onChange, alpha, size, active, baseline 
     c.width = size.width; c.height = size.height
     const ctx = c.getContext('2d'); if (!ctx) return
     const img = ctx.createImageData(size.width, size.height)
-    for (let i = 0; i < alpha.length; i++) { const v = Math.round(alpha[i] * 255); img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255 }
+    for (let i = 0; i < alpha.length; i++) { const v = Math.round(alpha[i] * (alpha instanceof Uint8Array ? 1 : 255)); img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = v; img.data[i * 4 + 3] = 255 }
     ctx.putImageData(img, 0, 0)
   }, [showAlpha, alpha, size])
 

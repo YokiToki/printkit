@@ -12,7 +12,7 @@ type KeychainClient = Pick<ModelClient, 'generate' | 'registerImage'> & Partial<
  * (debounce, pending), но пустая маска и ошибки построения не стирают прежнюю сетку: она остаётся в `model`,
  * а причина лежит в `info.error`.
  */
-export function useKeychainModel(params: KeychainParams, image: GrayImage | null, opts: { client?: KeychainClient; debounce?: number } = {}) {
+export function useKeychainModel(params: KeychainParams, image: GrayImage | null, opts: { client?: KeychainClient; debounce?: number; /** Не строить, пока ждёт восстановление (альфа ИИ ещё не в воркере). */ hold?: boolean } = {}) {
   const client = opts.client
   const registered = useRef<GrayImage | null>(null)
   const [ready, setReady] = useState(false)
@@ -31,7 +31,7 @@ export function useKeychainModel(params: KeychainParams, image: GrayImage | null
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stable = useMemo(() => params, [key])
   const shaped = params.origin.kind === 'shape' // фигуре изображение не нужно
-  const { model, pending, error } = useModel('keychain', stable, { enabled: valid && (ready || shaped), client, debounce: opts.debounce, invalid: validity.errors.map((e) => e.key) })
+  const { model, pending, error } = useModel('keychain', stable, { enabled: valid && (ready || shaped) && !opts.hold, client, debounce: opts.debounce, invalid: validity.errors.map((e) => e.key) })
 
   const [good, setGood] = useState<ModelResult | null>(null)
   useEffect(() => { if (model && model.parts.length > 0) setGood(model) }, [model])

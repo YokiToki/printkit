@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconArrowsMaximize, IconChevronDown, IconChevronUp, IconX } from '@tabler/icons-react'
-import type { MaskPreview as Preview } from '../../geometry/keychain'
+import { IconContrast } from '@tabler/icons-react'
+import type { Matte, MaskPreview as Preview } from '../../geometry/keychain'
 
 const css = (name: string, fallback: string) => (typeof document === 'undefined' ? fallback : getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback)
 
@@ -20,13 +21,24 @@ function clickArea(preview: Preview, e: MouseEvent<HTMLCanvasElement>): number |
 }
 
 /** Рисует маску в canvas; scale > 1 — крупный вид: пиксели маски укрупняются, номера областей растут вместе с ним. */
-function drawMask(c: HTMLCanvasElement, preview: Preview, scale: number, selected: number | null) {
+/** Серая мягкая альфа сети вместо маски: выборка по ближайшему пикселю в размер предпросмотра. */
+function softImage(preview: Preview, soft: Matte): ImageData {
+  const img = new ImageData(preview.width, preview.height)
+  for (let j = 0; j < preview.height; j++) for (let i = 0; i < preview.width; i++) {
+    const x = Math.min(soft.width - 1, Math.floor(((i + 0.5) * soft.width) / preview.width)), y = Math.min(soft.height - 1, Math.floor(((j + 0.5) * soft.height) / preview.height))
+    const v = soft.data[y * soft.width + x]
+    img.data.set([v, v, v, 255], (j * preview.width + i) * 4)
+  }
+  return img
+}
+
+function drawMask(c: HTMLCanvasElement, preview: Preview, scale: number, selected: number | null, soft: Matte | null = null) {
   const ctx = c.getContext('2d')
   if (!ctx) return // jsdom без canvas
   const colors = [css('--color-bg', '#0e1013'), css('--color-accent', '#7c9cff'), css('--color-warn-border', '#8a6d2b'), css('--color-accent-muted', '#25356b'), css('--color-success-text', '#a9e5c6')]
-  const img = new ImageData(preview.width, preview.height)
+  const img = soft ? softImage(preview, soft) : new ImageData(preview.width, preview.height)
   const rgb = colors.map((hex) => { const n = parseInt(hex.replace('#', '').padEnd(6, '0').slice(0, 6), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] })
-  for (let i = 0; i < preview.data.length; i++) { const col = rgb[preview.data[i]] ?? rgb[0]; img.data.set([col[0], col[1], col[2], 255], i * 4) }
+  if (!soft) for (let i = 0; i < preview.data.length; i++) { const col = rgb[preview.data[i]] ?? rgb[0]; img.data.set([col[0], col[1], col[2], 255], i * 4) }
   if (scale === 1) ctx.putImageData(img, 0, 0)
   else {
     const tmp = document.createElement('canvas')
@@ -35,6 +47,7 @@ function drawMask(c: HTMLCanvasElement, preview: Preview, scale: number, selecte
     ctx.imageSmoothingEnabled = false
     ctx.drawImage(tmp, 0, 0, c.width, c.height)
   }
+  if (soft) return // в мягком виде нет ни областей, ни их номеров
   // контур выбранной области: пиксели области, у которых есть сосед из другой области
   if (selected !== null) {
     ctx.fillStyle = '#ffd24a'
@@ -56,7 +69,7 @@ function drawMask(c: HTMLCanvasElement, preview: Preview, scale: number, selecte
 }
 
 /** Большой вид маски: ~70 % окна, закрывается кнопкой, Esc и щелчком снаружи. Тот же preview, поэтому обновляется вживую. */
-function LargeMask({ preview, selected, onSelect, onClose }: { preview: Preview; selected: number | null; onSelect?: (id: number | null) => void; onClose: () => void }) {
+function LargeMask({ preview, selected, onSelect, onClose, soft }: { preview: Preview; selected: number | null; onSelect?: (id: number | null) => void; onClose: () => void; soft: Matte | null }) {
   const { t } = useTranslation()
   const ref = useRef<HTMLCanvasElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -68,7 +81,7 @@ function LargeMask({ preview, selected, onSelect, onClose }: { preview: Preview;
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
   }, [onClose])
-  useEffect(() => { if (ref.current) drawMask(ref.current, preview, scale, selected) }, [preview, scale, selected])
+  useEffect(() => { if (ref.current) drawMask(ref.current, preview, scale, selected, soft) }, [preview, scale, selected, soft])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" data-testid="mask-large-backdrop"
@@ -92,16 +105,18 @@ function LargeMask({ preview, selected, onSelect, onClose }: { preview: Preview;
 }
 
 /** Предпросмотр маски силуэта с номерами дырок: фон, материал, залитая дырка, открытая дырка. Закрепляется в углу вьюпорта, сворачивается, увеличивается. */
-export function MaskPreview({ preview, selected = null, onSelect }: { preview: Preview | null; selected?: number | null; onSelect?: (id: number | null) => void }) {
+export function MaskPreview({ preview, selected = null, onSelect, matte = null }: { preview: Preview | null; selected?: number | null; onSelect?: (id: number | null) => void; /** Мягкая альфа сети (источник «ИИ»): даёт переключатель на серый вид. */ matte?: Matte | null }) {
   const { t } = useTranslation()
   const ref = useRef<HTMLCanvasElement>(null)
   const enlargeRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(true)
   const [large, setLarge] = useState(false)
+  const [softOn, setSoftOn] = useState(false)
+  const soft = softOn && matte ? matte : null
 
   useEffect(() => {
-    if (ref.current && preview && open) drawMask(ref.current, preview, 1, selected)
-  }, [preview, open, selected])
+    if (ref.current && preview && open) drawMask(ref.current, preview, 1, selected, soft)
+  }, [preview, open, selected, soft])
 
   const closeLarge = () => { setLarge(false); setTimeout(() => enlargeRef.current?.focus(), 0) }
 
@@ -112,6 +127,12 @@ export function MaskPreview({ preview, selected = null, onSelect }: { preview: P
           className="flex h-8 min-w-0 flex-1 cursor-pointer items-center justify-between gap-1 rounded-tl-card border-0 bg-transparent px-2.5 text-xs font-medium text-text-muted hover:text-text">
           <span>{t('keychain.preview.title')}</span>{open ? <IconChevronUp size={14} stroke={1.75} /> : <IconChevronDown size={14} stroke={1.75} />}
         </button>
+        {preview && matte && (
+          <button type="button" aria-pressed={softOn} aria-label={t('keychain.preview.soft')} title={t('keychain.preview.soft')} onClick={() => setSoftOn((v) => !v)}
+            className={`flex h-8 w-8 flex-none cursor-pointer items-center justify-center border-0 bg-transparent ${softOn ? 'text-accent-text' : 'text-text-muted hover:text-text'}`}>
+            <IconContrast size={14} stroke={1.75} />
+          </button>
+        )}
         {preview && (
           <button ref={enlargeRef} type="button" aria-label={t('keychain.preview.enlarge')} title={t('keychain.preview.enlarge')} onClick={() => setLarge(true)}
             className="flex h-8 w-8 flex-none cursor-pointer items-center justify-center rounded-tr-card border-0 bg-transparent text-text-muted hover:text-text">
@@ -126,7 +147,7 @@ export function MaskPreview({ preview, selected = null, onSelect }: { preview: P
             : <span className="text-xs text-text-subtle">{t('keychain.preview.empty')}</span>}
         </div>
       )}
-      {large && preview && <LargeMask preview={preview} selected={selected} onSelect={onSelect} onClose={closeLarge} />}
+      {large && preview && <LargeMask preview={preview} selected={selected} onSelect={onSelect} onClose={closeLarge} soft={soft} />}
     </div>
   )
 }

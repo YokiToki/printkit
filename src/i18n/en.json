@@ -667,7 +667,8 @@
         "mode": "Mode for all areas",
         "level": "Level for all areas",
         "apply": "Apply to all areas"
-      }
+      },
+      "summaryAi": "AI"
     },
     "preview": {
       "title": "Silhouette mask",
@@ -675,7 +676,9 @@
       "close": "Close",
       "large": "Enlarged silhouette mask",
       "label": "Mask of the silhouette with numbered areas",
-      "empty": "The mask is empty"
+      "empty": "The mask is empty",
+      "soft": "Show the soft mask of the network",
+      "softOn": "Soft mask"
     },
     "size": {
       "title": "Size",
@@ -985,6 +988,29 @@
       "raise": "Raise resolution (step {{cell}} {{u}})",
       "clipped": "Part of the text is outside the material and is not generated: move it onto the base plate.",
       "summary": "{{text}}"
+    },
+    "ai": {
+      "from": "Silhouette from",
+      "brightness": "Brightness",
+      "ai": "AI",
+      "remove": "Remove background",
+      "removeAgain": "Remove background again",
+      "run": "The whole picture goes through the network once and the result is kept with the image. Moving the sliders does not run it again.",
+      "keepLargest": "Keep only the largest object",
+      "autoOpen": "Open areas larger than",
+      "autoOpenHint": "Enclosed gaps at least this big are cut through (a ring, a gap between legs); smaller ones are filled. A mode set for one area always wins.",
+      "matteFrom": "The mask is from {{model}}.",
+      "matteNone": "No result yet: the silhouette follows the brightness until you remove the background.",
+      "lost": "The AI result is gone (browser storage was cleared). Remove the background again; the brightness is used meanwhile.",
+      "transparent": "This image has transparency, so its own alpha is used as is. AI ignores it and looks at the colours.",
+      "transparentBrightness": "This image has transparency, so its own alpha is used as is.",
+      "logo": "This looks like a logo on a clean background. Brightness is usually better and quicker here.",
+      "error": {
+        "noModel": "The selected model is not downloaded.",
+        "unavailable": "This model cannot run on this device.",
+        "noColour": "The colours of this image were not kept: choose the image again.",
+        "failed": "The AI run failed."
+      }
     }
   },
   "startOver": {

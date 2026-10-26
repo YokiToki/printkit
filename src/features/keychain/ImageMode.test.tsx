@@ -24,7 +24,7 @@ vi.mock('../viewport/Viewport', () => ({ Viewport: () => <div data-testid="viewp
 const tiny: GrayImage = { width: 4, height: 4, gray: new Uint8Array(16), alpha: null }
 vi.mock('./decodeImage', async (orig) => {
   const real = await orig<typeof import('./decodeImage')>()
-  return { ...real, decodeImage: vi.fn(async (f: File) => (f.type === 'image/png' ? { image: tiny, original: { width: 4, height: 4 }, downscaled: false } : real.decodeImage(f))) }
+  return { ...real, decodeColorImage: vi.fn(async (f: File) => (f.type === 'image/png' ? { image: tiny, color: { width: 4, height: 4, rgb: new Uint8Array(48) }, original: { width: 4, height: 4 }, downscaled: false } : real.decodeColorImage(f))) }
 })
 
 const open = () => render(<I18nextProvider i18n={i18n}><RouterProvider router={createMemoryRouter(routes, { initialEntries: ['/keychain/image'] })} /></I18nextProvider>)

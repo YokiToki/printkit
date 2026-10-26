@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildKeychain, buildSilhouette, defaultAiSilhouette, defaultKeychain, type KeychainParams, type Matte, type SilhouetteParams } from './keychain'
+import { buildKeychain, buildSilhouette, maskPreview, defaultAiSilhouette, defaultKeychain, type KeychainParams, type Matte, type SilhouetteParams } from './keychain'
 import type { GrayImage } from './raster/threshold'
 import { expectValidSolid } from './testing'
 
@@ -127,5 +127,12 @@ describe('автоматические области (33, 2.2a)', () => {
     const off = buildSilhouette(img, { ...defaultKeychain.silhouette, close: 0, speck: 0, grow: 0 }, { size }), on = buildSilhouette(img, { ...defaultKeychain.silhouette, close: 0, speck: 0, grow: 0, autoOpen: 150 }, { size })
     expect(off.areas.every((x) => !x.open)).toBe(true)
     expect(ids(on).some((s) => s.endsWith(':true'))).toBe(true)
+  })
+
+  it('предпросмотр маски и список областей строятся по силуэту ИИ (4.2)', () => {
+    const img = gradient(1), r = buildSilhouette(img, ai(), { matte: ring(1), size })
+    const pv = maskPreview(img, r)!
+    expect(pv.areas.map((a) => a.open).sort()).toEqual([false, true]) // та же пара областей: открытый просвет и залитое отверстие
+    expect(pv.areas).toHaveLength(r.areas.length)
   })
 })

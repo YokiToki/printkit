@@ -13,7 +13,7 @@ import { TextRasterContext, useTextRaster } from './useTextRaster'
  * Общая раскладка обоих режимов Keychain: модель (воркер), 3D-вид, панель, блок экспорта и запись последнего сеанса.
  * Режим даёт параметры, изображение (только Изображение) и содержимое панели; `info` приходит из ответа воркера.
  */
-export function KeychainWorkspace({ mode, params, image, panel, overlay, onDrop, onStartOver }: {
+export function KeychainWorkspace({ mode, params, image, panel, overlay, onDrop, onStartOver, hold }: {
   mode: 'image' | 'shape'
   params: KeychainParams
   image: GrayImage | null
@@ -22,12 +22,14 @@ export function KeychainWorkspace({ mode, params, image, panel, overlay, onDrop,
   onDrop?: DragEventHandler
   /** Вернуть параметры режима к умолчаниям (кнопка «Начать заново»). */
   onStartOver: () => void
+  /** Построение ждёт восстановления сохранённых данных (альфа ИИ). */
+  hold?: boolean
 }) {
   const { t } = useTranslation()
   // надпись растрируется здесь (шрифты и canvas только в главном потоке), воркеру уходит готовая маска; в параметры модели идёт её ключ
   const textState = useTextRaster(params.text)
   const modelParams = useMemo(() => ({ ...params, text: { ...params.text, maskId: textState.maskId } }), [params, textState.maskId])
-  const { model, info, pending } = useKeychainModel(modelParams, image)
+  const { model, info, pending } = useKeychainModel(modelParams, image, { hold })
   const size = info?.size
 
   useEffect(() => { if (size) recordSession(mode, `${size[0].toFixed(0)} × ${size[1].toFixed(0)} ${t('units.mm')}`, 'keychain') }, [mode, size, t])

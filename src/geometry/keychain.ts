@@ -378,7 +378,6 @@ export function buildSilhouette(img: GrayImage, s: SilhouetteParams, ctx: { matt
     ink = new Uint8Array(w * h)
     for (let i = 0; i < ink.length; i++) ink[i] = alpha[i] >= 128 ? 1 : 0
     if (s.ai.keepLargest) ink = keepLargest(ink, w, h)
-    if (s.invert) for (let i = 0; i < ink.length; i++) ink[i] = ink[i] ? 0 : 1
   } else {
     threshold = s.threshold === 'auto' ? otsu(img.gray) : s.threshold
     ink = toMask(img, threshold, s.invert)

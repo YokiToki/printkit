@@ -3,10 +3,12 @@ import { fmtSize } from '../../app/logText'
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { usePersistedState } from '../../app/usePersistedState'
-import { defaultKeychain, type KeychainParams } from '../../geometry/keychain'
+import { defaultKeychain, type AiSilhouetteParams, type KeychainParams } from '../../geometry/keychain'
 import type { GrayImage } from '../../geometry/raster/threshold'
-import { decodeImage, ImageError } from './decodeImage'
+import { decodeColorImage, ImageError } from './decodeImage'
 import { openImageStore, type ImageStore } from './imageStore'
+import { downscaleColor, looksLikeLogo, useMatte } from './matte'
+import { hasAlpha } from '../../geometry/raster/threshold'
 import { migrateKeychain } from './migrate'
 import { KeychainPanel } from './KeychainPanel'
 import { MaskPreview } from './MaskPreview'
@@ -32,12 +34,14 @@ export function ImageMode() {
   const [notice, setNotice] = useState<ImageNotice | null>(null)
   const [selectedArea, setSelectedArea] = useState<number | null>(null)
   const store = useRef<ImageStore | null>(null)
+  const [imageStore, setImageStore] = useState<ImageStore | null>(null)
 
   // при открытии: хранилище и сохранённое изображение
   useEffect(() => {
     let cancelled = false
     void (async () => {
       store.current = await openImageStore()
+      if (!cancelled) setImageStore(store.current)
       if (!params.imageId) return
       const saved = await store.current.load(params.imageId)
       if (cancelled) return
@@ -52,15 +56,18 @@ export function ImageMode() {
   const onFile = useCallback(async (file: File) => {
     setNotice({ kind: 'info', text: t('keychain.image.loading', { name: file.name }) })
     try {
-      const decoded = await decodeImage(file)
+      const decoded = await decodeColorImage(file)
       log.info('image', 'log.image.imported', { name: file.name, size: fmtSize(file.size), width: decoded.image.width, height: decoded.image.height })
       if (decoded.downscaled) log.info('image', 'log.image.downscaled', { name: file.name, width: decoded.image.width, height: decoded.image.height })
       const id = newImageId()
       const old = params.imageId
       await store.current?.save(id, decoded.image)
+      // цветная копия нужна нейросети, потом исходный файл уже не доступен; для SVG и без неё силуэт по ИИ не предлагается
+      await store.current?.saveColor(id, downscaleColor(decoded.color.rgb, decoded.color.width, decoded.color.height))
       if (old) void store.current?.remove(old)
       setImage(decoded.image)
-      setState((o) => ({ ...o, imageId: id, imageName: file.name, silhouette: { ...o.silhouette, areas: {} } }))
+      // новое изображение: прежняя альфа ИИ к нему не относится (она ушла вместе со старым изображением), силуэт снова по яркости
+      setState((o) => ({ ...o, imageId: id, imageName: file.name, silhouette: { ...o.silhouette, areas: {}, source: 'brightness', ai: { ...o.silhouette.ai, model: '', matteId: '' } } }))
       const warns: string[] = []
       if (decoded.downscaled) warns.push(t('keychain.image.downscaled', { w: decoded.original.width, h: decoded.original.height, nw: decoded.image.width, nh: decoded.image.height }))
       if (store.current && !store.current.persistent) warns.push(t('keychain.image.notPersisted'))
@@ -74,12 +81,18 @@ export function ImageMode() {
 
   // «Начать заново»: параметры по умолчанию, изображение убирается из модели (сам файл остаётся в хранилище)
   const startOver = () => { setState(defaults); setImage(null); setNotice(null); setSelectedArea(null) }
+  const onAi = useCallback((patch: Partial<AiSilhouetteParams>) => setState((o) => ({ ...o, silhouette: { ...o.silhouette, source: 'ai', ai: { ...o.silhouette.ai, ...patch } } })), [setState])
+  const matte = useMatte({ imageId: params.imageId, image, store: imageStore, ai: params.silhouette.ai, source: params.silhouette.source, onAi })
+  const isSvg = /\.svg$/i.test(imageName)
+  const aiSource = useMemo(() => (image ? { control: matte, imageSize: { width: image.width, height: image.height }, transparent: hasAlpha(image), svg: isSvg, logo: looksLikeLogo(image) } : undefined), [matte, image, isSvg])
+  // источник «ИИ» без восстановленной альфы в воркере: модель ждёт, чтобы не мелькнул силуэт по яркости
+  const hold = params.silhouette.source === 'ai' && !!params.silhouette.ai.matteId && !matte.restored
   const onDrop = (e: DragEvent) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) void onFile(f) }
   return (
     <KeychainWorkspace
-      mode="image" params={params} image={image} onDrop={onDrop} onStartOver={startOver}
-      overlay={(info) => (image ? <MaskPreview preview={info?.preview ?? null} selected={selectedArea} onSelect={setSelectedArea} /> : null)}
-      panel={(info) => <KeychainPanel params={params} onChange={setState} imageName={imageName} hasImage={!!image} info={info} notice={notice} onFile={(f) => void onFile(f)} selectedArea={selectedArea} onSelectArea={setSelectedArea} />}
+      mode="image" params={params} image={image} onDrop={onDrop} onStartOver={startOver} hold={hold}
+      overlay={(info) => (image ? <MaskPreview preview={info?.preview ?? null} selected={selectedArea} onSelect={setSelectedArea} matte={params.silhouette.source === 'ai' ? matte.matte : null} /> : null)}
+      panel={(info) => <KeychainPanel params={params} onChange={setState} imageName={imageName} hasImage={!!image} info={info} notice={notice} onFile={(f) => void onFile(f)} selectedArea={selectedArea} onSelectArea={setSelectedArea} aiSource={aiSource} />}
     />
   )
 }

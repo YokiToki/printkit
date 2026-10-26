@@ -61,6 +61,7 @@ export function normalizePhotoSource(source: Record<string, unknown>): SourcePar
     ...(source as unknown as SourceParams),
     mix: { contour: clampNum(mix.contour, d.mix!.contour, 0, 100), depth: clampNum(mix.depth, d.mix!.depth, 0, 100), detail: clampNum(mix.detail, d.mix!.detail, 0, 100) },
     depthId: typeof source.depthId === 'string' ? source.depthId : '',
+    depthModel: typeof source.depthModel === 'string' ? source.depthModel : '',
     boost: clampNum(source.boost, d.boost!, 0, 10), boostRadius: clampNum(source.boostRadius, d.boostRadius!, 0.2, 10),
     levels: levels >= 2 ? Math.min(8, levels) : 0, levelSoftness: clampNum(source.levelSoftness, d.levelSoftness!, 0, 1),
     detailMode: source.detailMode === 'relief' || source.detailMode === 'both' ? source.detailMode : 'engrave',

@@ -763,7 +763,8 @@
       "source": "Height source",
       "sources": {
         "distance": "Silhouette",
-        "brightness": "Brightness"
+        "brightness": "Brightness",
+        "photo": "Photo"
       },
       "contrast": "Contrast",
       "gamma": "Gamma",
@@ -1010,7 +1011,104 @@
         "unavailable": "This model cannot run on this device.",
         "noColour": "The colours of this image were not kept: choose the image again.",
         "failed": "The AI run failed."
-      }
+      },
+      "frame": "Whole frame",
+      "frameNote": "Every pixel of the crop is material, like a portrait plaque. Set its shape in the Base section."
+    },
+    "crop": {
+      "title": "Crop",
+      "hint": "Drag the frame over the picture. Everything below works on the framed part; the picture itself stays whole.",
+      "label": "Crop of the picture",
+      "move": "Move the crop",
+      "handle": {
+        "nw": "top left corner",
+        "n": "top edge",
+        "ne": "top right corner",
+        "e": "right edge",
+        "se": "bottom right corner",
+        "s": "bottom edge",
+        "sw": "bottom left corner",
+        "w": "left edge"
+      },
+      "aspect": "Proportions",
+      "free": "Free",
+      "fit": "Fit to subject",
+      "fitNeedsAi": "Needs an AI mask: remove the background first.",
+      "reset": "Reset",
+      "readout": "{{w}} % × {{h}} % of the picture",
+      "edit": "Edit the crop"
+    },
+    "photo": {
+      "subject": {
+        "label": "Subject",
+        "face": "Face",
+        "animal": "Whole animal",
+        "drawing": "Drawing / logo",
+        "custom": "Custom",
+        "auto": "Choose automatically"
+      },
+      "intensity": {
+        "label": "Strength",
+        "subtle": "Subtle",
+        "portrait": "Portrait",
+        "deep": "Deep",
+        "custom": "Custom"
+      },
+      "mix": {
+        "title": "Mix of sources",
+        "contour": "Contour",
+        "depth": "Depth",
+        "detail": "Detail",
+        "bar": "Mix of contour, depth and detail"
+      },
+      "depth": {
+        "title": "Depth",
+        "compute": "Compute depth",
+        "recompute": "Compute depth again",
+        "needModel": "Download a depth model to use depth.",
+        "using": "Depth model: {{name}}",
+        "hint": "The depth is computed once on the cropped picture and kept with the image. Moving the sliders does not run it again.",
+        "stale": "The depth was computed for another crop. It still works; compute it again for more detail.",
+        "lost": "The depth result is gone (browser storage was cleared). Compute it again; the relief uses the other sources meanwhile.",
+        "missing": "There is no depth yet: its share counts as zero until you compute it.",
+        "error": {
+          "noModel": "The depth model is not downloaded.",
+          "unavailable": "This model cannot run on this device.",
+          "noColour": "The colours of this image were not kept: choose the image again.",
+          "failed": "The depth run failed."
+        }
+      },
+      "detail": {
+        "title": "Detail",
+        "boost": "Detail boost",
+        "radius": "Detail radius",
+        "mode": "Detail as",
+        "engrave": "Engraving",
+        "relief": "Relief",
+        "both": "Both",
+        "dark": "Dark threshold",
+        "levels": "Tone levels (0 = continuous)",
+        "softness": "Level softness"
+      },
+      "shaping": {
+        "snap": "Snap depth to edges",
+        "slope": "Max slope",
+        "smooth": "Final smoothing"
+      },
+      "hints": {
+        "coarse": "The grid cell is larger than a third of the detail radius: choose a finer quality to see the detail.",
+        "smallFace": "The face is small in this part: crop closer or use the whole frame."
+      },
+      "height": "Show the relief height"
+    },
+    "outline": {
+      "title": "Outline",
+      "smooth": "Outline smoothness",
+      "smoothHint": "Rounds the edge of the silhouette; thin tips stay sharp.",
+      "advanced": "Advanced",
+      "corner": "Corner angle",
+      "step": "Sampling step",
+      "reset": "Reset the outline"
     }
   },
   "startOver": {

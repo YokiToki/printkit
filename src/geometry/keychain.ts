@@ -883,6 +883,8 @@ export interface KeychainInfo {
   aiMissing?: boolean
   /** Источник «Фото» с долей глубины, а глубины в воркере нет: доля считается нулём. */
   depthMissing?: boolean
+  /** Высота рельефа «Фото» по узлам сетки (серая плоскость 0…255) для просмотра рядом с маской. */
+  height?: { width: number; height: number; data: Uint8Array }
   /** Размер силуэта, мм. */
   size?: [number, number]
   /** Шаг сетки рельефа, мм, признак, что он увеличен из-за бюджета, и самый мелкий шаг в пределах бюджета. */
@@ -1162,7 +1164,15 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
   const raw = new w.Mesh({ numProp: 3, vertProperties: mesh.vertProperties, triVerts: mesh.triVerts })
   raw.merge()
   let relief = new w.Manifold(raw)
-  const info: KeychainInfo = { ...base, size: [wMm, hMm], cell, reduced, minCell: min, triangles: mesh.triangles, ...(traster ? { text: { ...textBoxMm(traster), clipped: region.clipped } } : {}) }
+  // высота «Фото» для просмотра: максимум верха сетки → 255, вне силуэта 0
+  let heightPreview: KeychainInfo['height']
+  if (p.source.kind === 'photo') {
+    const g = grid, z = new Uint8Array(g.nx * g.ny); let hi = 0
+    for (let k = 0; k < z.length; k++) if (g.silBlocks && g.solid[k]) hi = Math.max(hi, g.top[k])
+    for (let k = 0; k < z.length; k++) if (g.solid[k] && hi > 0) z[k] = Math.round(255 * Math.min(1, g.top[k] / hi))
+    heightPreview = { width: g.nx, height: g.ny, data: z }
+  }
+  const info: KeychainInfo = { ...base, ...(heightPreview ? { height: heightPreview } : {}), size: [wMm, hMm], cell, reduced, minCell: min, triangles: mesh.triangles, ...(traster ? { text: { ...textBoxMm(traster), clipped: region.clipped } } : {}) }
   if (relief.status() !== 'NoError' || relief.isEmpty()) return { parts: [], info: { ...info, error: 'keychain.error.mesh' } }
   // точный контур фигуры (null у изображения): по нему обрезается рельеф и строится подложка по контуру
   let exact: CrossSection | null = shape ? shapeCrossSection(w, shape) : null

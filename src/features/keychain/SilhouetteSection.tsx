@@ -45,19 +45,21 @@ export function SilhouetteSection({ value: s, threshold, preview, heightFloor = 
   const [all, setAll] = useState<AreaSetting>({ mode: 'open', level: DEFAULT_AREA_LEVEL })
   const applyAll = () => onChange({ areas: Object.fromEntries(areas.map((a) => [a.id, { mode: all.mode, level: Math.max(all.level, heightFloor) }])) })
   const isAi = s.source === 'ai' && !!aiSource && !aiSource.svg
-  const summary = isAi ? t('keychain.silhouette.summaryAi') : auto ? t('keychain.silhouette.summaryAuto', { value: threshold ?? '–' }) : t('keychain.silhouette.summary', { value: s.threshold })
+  const isFrame = s.source === 'frame' && !!aiSource && !aiSource.svg
+  const summary = isFrame ? t('keychain.ai.frame') : isAi ? t('keychain.silhouette.summaryAi') : auto ? t('keychain.silhouette.summaryAuto', { value: threshold ?? '–' }) : t('keychain.silhouette.summary', { value: s.threshold })
   const modeOptions = MODES.map((m) => ({ value: m, label: t(`keychain.silhouette.areaModes.${m}`) }))
   return (
     <Section title={t('keychain.silhouette.title')} summary={summary} modified={isChanged(s, defaultKeychain.silhouette)} onReset={() => onChange({ ...defaultKeychain.silhouette })}>
       {aiSource && !aiSource.svg && (
         <div className="flex flex-col gap-1 text-xs text-text-muted">{t('keychain.ai.from')}
-          <SegmentedControl<SilhouetteParams['source']> fill ariaLabel={t('keychain.ai.from')} value={isAi ? 'ai' : 'brightness'} onChange={(v) => onChange({ source: v })}
-            options={[{ value: 'brightness', label: t('keychain.ai.brightness') }, { value: 'ai', label: t('keychain.ai.ai') }]} />
+          <SegmentedControl<SilhouetteParams['source']> fill ariaLabel={t('keychain.ai.from')} value={isFrame ? 'frame' : isAi ? 'ai' : 'brightness'} onChange={(v) => onChange({ source: v })}
+            options={[{ value: 'brightness', label: t('keychain.ai.brightness') }, { value: 'ai', label: t('keychain.ai.ai') }, { value: 'frame', label: t('keychain.ai.frame') }]} />
         </div>
       )}
-      {aiSource?.transparent && <Banner>{t(isAi ? 'keychain.ai.transparent' : 'keychain.ai.transparentBrightness')}</Banner>}
+      {isFrame && <p className="m-0 text-xs text-text-subtle" data-testid="frame-note">{t('keychain.ai.frameNote')}</p>}
+      {aiSource?.transparent && !isFrame && <Banner>{t(isAi ? 'keychain.ai.transparent' : 'keychain.ai.transparentBrightness')}</Banner>}
       {isAi && aiSource?.logo && <Banner kind="warn">{t('keychain.ai.logo')}</Banner>}
-      {isAi && aiSource ? <AiSilhouette control={aiSource.control} value={s} imageSize={aiSource.imageSize} onChange={onChange} /> : (
+      {isFrame ? null : isAi && aiSource ? <AiSilhouette control={aiSource.control} value={s} imageSize={aiSource.imageSize} onChange={onChange} /> : (
         <>
           <Toggle label={t('keychain.silhouette.auto')} checked={auto} onChange={(v) => onChange({ threshold: v ? 'auto' : (threshold ?? 128) })} />
           <NumberField label={t('keychain.silhouette.threshold')} value={auto ? (threshold ?? 128) : (s.threshold as number)} min={0} max={255} step={1} digits={0} disabled={auto}
@@ -65,6 +67,8 @@ export function SilhouetteSection({ value: s, threshold, preview, heightFloor = 
           <Toggle label={t('keychain.silhouette.invert')} checked={s.invert} onChange={(v) => onChange({ invert: v })} />
         </>
       )}
+      {!isFrame && (
+        <>
       <NumberField label={t('keychain.silhouette.close')} value={s.close} min={0} max={30} step={1} digits={0} unit="px" onChange={(v) => onChange({ close: v })} />
       <NumberField label={t('keychain.silhouette.speck')} value={s.speck} min={0} max={100000} step={50} digits={0} unit="px" onChange={(v) => onChange({ speck: v })} />
       <NumberField label={t('keychain.silhouette.grow')} value={s.grow} min={-30} max={30} step={1} digits={0} unit="px" onChange={(v) => onChange({ grow: v })} />
@@ -107,6 +111,8 @@ export function SilhouetteSection({ value: s, threshold, preview, heightFloor = 
         )}
         {areas.some((a) => (s.areas?.[a.id]?.mode ?? 'follow') === 'level') && <span className="text-xs text-text-subtle">{t('keychain.silhouette.levelHint')}</span>}
       </div>
+        </>
+      )}
     </Section>
   )
 }

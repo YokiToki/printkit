@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { BRIGHTNESS_SMOOTH_DEFAULT, defaultKeychain, MAX_SMOOTH, smoothResolution, type HeightSource, type ReliefParams, type SourceParams } from '../../geometry/keychain'
+import { BRIGHTNESS_SMOOTH_DEFAULT, defaultKeychain, MAX_SMOOTH, smoothResolution, type HeightSource, type KeychainInfo, type KeychainParams, type ReliefParams, type SourceParams } from '../../geometry/keychain'
 import { applyPreset, PROFILE_KINDS, presetOf, type ProfileKind } from '../../geometry/patterns/profile'
 import { Section } from '../../ui/Section'
 import { isChanged } from '../../ui/isChanged'
@@ -11,9 +11,10 @@ import { NumberField } from '../../ui/NumberField'
 import { Banner } from '../../ui/Banner'
 import { Button } from '../../ui/Button'
 import { formatLength, useUnit } from '../../ui/units'
+import { PhotoReliefBlock, type PhotoPanel } from './PhotoReliefBlock'
 
 /** Рельеф: источник высоты (расстояние или яркость), пресет профиля (после правки значений — «Свой») и параметры профиля. Макета нет: собрана из ui/. */
-export function ProfileSection({ relief: r, source: s, error, onRelief, onSource, cell = null, minCell = null, onRaise }: {
+export function ProfileSection({ relief: r, source: s, error, onRelief, onSource, cell = null, minCell = null, onRaise, photo }: {
   relief: ReliefParams
   source: SourceParams
   error: (field: string) => string | undefined
@@ -23,6 +24,8 @@ export function ProfileSection({ relief: r, source: s, error, onRelief, onSource
   cell?: number | null
   minCell?: number | null
   onRaise?: (cell: number) => void
+  /** Источник «Фото» (только режим «Изображение», не SVG): параметры целиком и ход глубины; без него источника «Фото» нет. */
+  photo?: { panel: PhotoPanel; params: KeychainParams; apply: (f: (p: KeychainParams) => KeychainParams) => void; info: KeychainInfo | null; imageId: string }
 }) {
   const { t } = useTranslation()
   const { unit } = useUnit()
@@ -47,9 +50,10 @@ export function ProfileSection({ relief: r, source: s, error, onRelief, onSource
   const usesPow = r.profile === 'bevel' || r.profile === 'engraved'
   return (
     <Section title={t('keychain.relief.title')} summary={summary} modified={isChanged({ relief: r, source: s }, { relief: defaultKeychain.relief, source: defaultKeychain.source })} onReset={() => { onRelief({ ...defaultKeychain.relief }); onSource({ ...defaultKeychain.source }) }}>
-      <SegmentedControl fill ariaLabel={t('keychain.profile.source')} value={s.kind} onChange={(v: HeightSource) => onSource({ kind: v, ...(v === 'brightness' && !((s.smooth ?? 0) > 0) ? { smooth: BRIGHTNESS_SMOOTH_DEFAULT } : {}) })}
-        options={[{ value: 'distance', label: t('keychain.profile.sources.distance') }, { value: 'brightness', label: t('keychain.profile.sources.brightness') }]} />
-      {s.kind === 'brightness' && (
+      <SegmentedControl fill ariaLabel={t('keychain.profile.source')} value={s.kind} onChange={(v: HeightSource) => onSource({ kind: v, ...((v === 'brightness' || v === 'photo') && !((s.smooth ?? 0) > 0) ? { smooth: BRIGHTNESS_SMOOTH_DEFAULT } : {}) })}
+        options={[{ value: 'distance', label: t('keychain.profile.sources.distance') }, { value: 'brightness', label: t('keychain.profile.sources.brightness') }, ...(photo ? [{ value: 'photo' as HeightSource, label: t('keychain.profile.sources.photo') }] : [])]} />
+      {s.kind === 'photo' && photo && <PhotoReliefBlock params={photo.params} apply={photo.apply} info={photo.info} panel={photo.panel} imageId={photo.imageId} />}
+      {(s.kind === 'brightness' || s.kind === 'photo') && (
         <>
           <NumberField label={t('keychain.profile.contrast')} value={s.contrast} min={0.1} max={5} step={0.1} digits={2} error={error('source.contrast')} onChange={(v) => onSource({ contrast: v })} />
           <NumberField label={t('keychain.profile.gamma')} value={s.gamma} min={0.1} max={5} step={0.1} digits={2} error={error('source.gamma')} onChange={(v) => onSource({ gamma: v })} />

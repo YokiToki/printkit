@@ -114,6 +114,17 @@ describe('Silhouette: источник ИИ (33, 4.1)', () => {
     expect(screen.getByText(/The AI result is gone/)).toBeInTheDocument()
   })
 
+  it('«Весь кадр»: третий вариант источника, ручки трассировки скрыты, остаётся пояснение', async () => {
+    const a = setup({ source: 'frame' }, src(control())); await a.open()
+    const group = screen.getByRole('group', { name: 'Silhouette from' })
+    expect(within(group).getByRole('button', { name: 'Whole frame' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('frame-note')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Threshold')).toBeNull(); expect(screen.queryByText(/^Invert/)).toBeNull(); expect(screen.queryByTestId('ai-silhouette')).toBeNull()
+    expect(screen.queryByText(/Close gaps/i)).toBeNull(); expect(screen.queryByText(/Remove specks/i)).toBeNull()
+    await userEvent.click(within(group).getByRole('button', { name: 'Brightness' }))
+    expect(a.onChange).toHaveBeenCalledWith({ source: 'brightness' })
+  })
+
   it('оба языка: подписи переведены', async () => {
     await i18n.changeLanguage('ru')
     const a = setup(ai, src(control())); await userEvent.click(screen.getByRole('button', { name: /Развернуть: Силуэт/ }))

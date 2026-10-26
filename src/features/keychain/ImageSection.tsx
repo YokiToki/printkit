@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from 'react'
+import { useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconPhoto, IconUpload } from '@tabler/icons-react'
 import { Section } from '../../ui/Section'
@@ -7,7 +7,7 @@ import { Banner } from '../../ui/Banner'
 export interface ImageNotice { kind: 'info' | 'warn' | 'error'; text: string }
 
 /** Выбор изображения: кнопка и зона перетаскивания. Ошибка не меняет текущий брелок. */
-export function ImageSection({ name, notice, onFile, photoLike }: { name: string; notice: ImageNotice | null; onFile: (f: File) => void; photoLike: boolean }) {
+export function ImageSection({ name, notice, onFile, photoLike, children }: { name: string; notice: ImageNotice | null; onFile: (f: File) => void; photoLike: boolean; /** Кадр и контур: ниже выбора файла. */ children?: ReactNode }) {
   const { t } = useTranslation()
   const input = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
@@ -25,6 +25,7 @@ export function ImageSection({ name, notice, onFile, photoLike }: { name: string
         <span className="inline-flex items-center gap-1.5 text-xs text-text-subtle"><IconPhoto size={14} stroke={1.75} />{name ? t('keychain.image.current', { name }) : t('keychain.image.drop')}</span>
         {notice && <Banner kind={notice.kind}>{notice.text}</Banner>}
         {photoLike && <Banner kind="warn">{t('keychain.image.photo')}</Banner>}
+        {children}
       </div>
     </Section>
   )

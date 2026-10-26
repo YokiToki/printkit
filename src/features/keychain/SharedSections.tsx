@@ -12,6 +12,7 @@ import { TextSection } from './TextSection'
 import { PlacementEditor } from './PlacementEditor'
 import type { PlacementPatch } from './PlacementEditor'
 import { mmToRelPos } from './place'
+import type { PhotoPanel } from './PhotoReliefBlock'
 
 /** Часть параметров, общая для режимов Изображение и Форма: сюда пишут общие секции. */
 export type SharedParams = Pick<KeychainParams, 'source' | 'relief' | 'detail' | 'pattern' | 'base' | 'mount' | 'split' | 'text' | 'quality'>
@@ -20,7 +21,7 @@ export type SharedParams = Pick<KeychainParams, 'source' | 'relief' | 'detail' |
  * Секции, общие для обоих режимов Keychain: рельеф, детали, узор, подложка, крепление, половины, разрешение.
  * `S` — состояние режима (оно шире общей части); `params` — полные параметры для проверок.
  */
-export function SharedSections<S extends SharedParams>({ params: p, info, onChange, imageOnly = true, defaults }: {
+export function SharedSections<S extends SharedParams>({ params: p, info, onChange, imageOnly = true, defaults, photo }: {
   params: KeychainParams
   info: KeychainInfo | null
   onChange: Dispatch<SetStateAction<S>>
@@ -28,6 +29,8 @@ export function SharedSections<S extends SharedParams>({ params: p, info, onChan
   imageOnly?: boolean
   /** Умолчания режима: подложка у формы тоньше, чем у изображения, и «изменено» считается от них. */
   defaults?: SharedParams
+  /** Источник «Фото»: ход глубины и выбор предмета; без него (SVG, режим «Форма») источника «Фото» нет. */
+  photo?: { panel: PhotoPanel; imageId: string }
 }) {
   const { t } = useTranslation()
   const { errors } = validateKeychain(p)
@@ -48,7 +51,8 @@ export function SharedSections<S extends SharedParams>({ params: p, info, onChan
   const plateError = info?.error === 'keychain.error.plateTooSmall' ? info.error : null
   return (
     <>
-      {imageOnly && <ProfileSection relief={p.relief} source={p.source} error={err} onRelief={patch('relief')} onSource={patch('source')} cell={info?.cell ?? null} minCell={info?.minCell ?? null} onRaise={(c) => patch('quality')({ cell: c })} />}
+      {imageOnly && <ProfileSection relief={p.relief} source={p.source} error={err} onRelief={patch('relief')} onSource={patch('source')} cell={info?.cell ?? null} minCell={info?.minCell ?? null} onRaise={(c) => patch('quality')({ cell: c })}
+        photo={photo ? { panel: photo.panel, params: p, apply: (f) => onChange((o) => ({ ...o, ...f(o as unknown as KeychainParams) })), info, imageId: photo.imageId } : undefined} />}
       {imageOnly && <DetailSection value={p.detail} error={err} onChange={patch('detail')} />}
       <PatternSection value={p.pattern} quality={p.quality} cell={info?.cell ?? null} minCell={info?.minCell ?? null} error={err} onChange={patch('pattern')} onRaise={(c) => patch('quality')({ cell: c })} />
       <TextSection value={p.text} error={err} splitOn={p.split.enabled} cell={info?.cell ?? null} minCell={info?.minCell ?? null} clipped={!!info?.text?.clipped}

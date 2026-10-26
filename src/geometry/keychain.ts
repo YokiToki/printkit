@@ -8,6 +8,7 @@ import { close, dilate, erode } from './raster/morphology'
 import { maskBounds, resampleGray, resampleIds, resampleMask } from './raster/resample'
 import { keepLargest, smoothThreshold } from './raster/matte'
 import { photoHeights, type DetailMode, type PhotoMix } from './photoRelief'
+import { defaultOutline, traceImageOutline, type OutlineParams } from './imageOutline'
 import { midtoneShare, otsu, toMask, type GrayImage } from './raster/threshold'
 import { profileValue, type ProfileParams } from './patterns/profile'
 import { coverage, type PatternParams } from './patterns/fields'
@@ -213,6 +214,8 @@ export interface KeychainParams {
   imageId: string
   /** Окно изображения, с которым работает всё остальное. */
   crop: Crop
+  /** Контур силуэта из изображения: гладкий многоугольник, по которому точно обрезается рельеф. */
+  outline?: OutlineParams
   silhouette: SilhouetteParams
   size: SizeParams
   source: SourceParams
@@ -244,6 +247,7 @@ export const defaultKeychain: KeychainParams = {
   origin: { kind: 'image' },
   imageId: '',
   crop: fullCrop,
+  outline: defaultOutline,
   silhouette: { source: 'brightness', ai: defaultAiSilhouette, autoOpen: null, threshold: 'auto', invert: false, close: 3, fillHoles: true, areas: {}, speck: 200, grow: 2 },
   size: { mode: 'longest', longest: 70, width: 70, height: 70 },
   source: defaultSource,
@@ -1101,6 +1105,12 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
   const patternBase = !!plate.spec && p.pattern.kind !== 'none' && p.pattern.scope === 'base'
   let gridText: GridInput['text'] | undefined
   let plateInGrid = patternBase
+  // запас сетки вокруг силуэта изображения (пиксели): без запаса у края картинки гладкий контур невозможен — остаётся ступенчатый
+  let inflate: { mpx: number; sx: number; sy: number } | null = null
+  if (!shape && p.outline) {
+    const sx = wMm / (b[2] - b[0] + 1), sy = hMm / (b[3] - b[1] + 1), mpx = Math.ceil((1.75 * effectiveCell(wMm, hMm, 1, p.quality).cell) / Math.min(sx, sy))
+    if (b[0] - mpx >= 0 && b[1] - mpx >= 0 && b[2] + mpx <= img.width - 1 && b[3] + mpx <= img.height - 1) inflate = { mpx, sx, sy }
+  }
   const build = () => {
     // Фигура без подложки в сетке строится с запасом m и обрезается по точному контуру: скругления не зависят от шага сетки.
     // Запас — полторы ячейки с поправкой на рост площади: так любая точка фигуры целиком лежит в блоках сетки.
@@ -1109,6 +1119,11 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
       const m = 1.75 * effectiveCell(wMm, hMm, 1, p.quality).cell
       const big = shapeMask(inflateShape(shape, m))
       rel = { img: { width: big.width, height: big.height, gray: big.mask, alpha: null }, mask: big.mask, bounds: [0, 0, big.width - 1, big.height - 1], wMm: big.wMm, hMm: big.hMm, shift: m }
+    }
+    // Изображение: сетка строится по маске, расширенной на запас, а рельеф потом обрезается гладким контуром: стена не зависит от ячейки
+    if (!shape && !plateInGrid && inflate) {
+      const mpx = inflate.mpx, bnd: [number, number, number, number] = [b[0] - mpx, b[1] - mpx, b[2] + mpx, b[3] + mpx]
+      rel = { img, mask: dilate(mask, img.width, img.height, mpx), bounds: bnd, wMm: (bnd[2] - bnd[0] + 1) * inflate.sx, hMm: (bnd[3] - bnd[1] + 1) * inflate.sy, shift: mpx * Math.min(inflate.sx, inflate.sy) }
     }
     let count = 0
     for (let i = 0; i < rel.mask.length; i++) count += rel.mask[i]
@@ -1148,7 +1163,11 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
   const info: KeychainInfo = { ...base, size: [wMm, hMm], cell, reduced, minCell: min, triangles: mesh.triangles, ...(traster ? { text: { ...textBoxMm(traster), clipped: region.clipped } } : {}) }
   if (relief.status() !== 'NoError' || relief.isEmpty()) return { parts: [], info: { ...info, error: 'keychain.error.mesh' } }
   // точный контур фигуры (null у изображения): по нему обрезается рельеф и строится подложка по контуру
-  const exact = shape ? shapeCrossSection(w, shape) : null
+  let exact: CrossSection | null = shape ? shapeCrossSection(w, shape) : null
+  if (!shape && rel.shift > 0 && p.outline) {
+    const loops = traceImageOutline(mask, img.width, img.height, [rel.bounds[0], rel.bounds[1], rel.bounds[2] + 1, rel.bounds[3] + 1], rel.wMm, rel.hMm, p.outline)
+    if (loops.length) exact = w.CrossSection.ofPolygons(loops, 'EvenOdd')
+  }
   if (exact && rel.shift > 0) {
     const prism = w.Manifold.extrude(exact, relief.boundingBox().max[2] + 1)
     const clipped = relief.intersect(prism)
@@ -1156,10 +1175,10 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
     relief = clipped
     if (relief.status() !== 'NoError' || relief.isEmpty()) return { parts: [], info: { ...info, error: 'keychain.error.mesh' } }
     // бортик — точное кольцо между контуром и его сжатием: внутренний радиус тоже настоящая дуга, а не ступеньки сетки
-    if (shape!.rim.enabled && shape!.rim.height > 0) {
-      const inner = exact.offset(-shape!.rim.width, 'Round', 2, 256)
+    if (shape && shape.rim.enabled && shape.rim.height > 0) {
+      const inner = exact.offset(-shape.rim.width, 'Round', 2, 256)
       const ring = inner.isEmpty() ? exact : exact.subtract(inner)
-      const top = (p.relief.profile === 'engraved' ? p.base.thickness : p.base.thickness + p.relief.hmax) + shape!.rim.height
+      const top = (p.relief.profile === 'engraved' ? p.base.thickness : p.base.thickness + p.relief.hmax) + shape.rim.height
       const wall = w.Manifold.extrude(ring, top)
       const merged = relief.add(wall)
       wall.delete(); relief.delete()
@@ -1184,8 +1203,8 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
 
   // поле для крепления: подложка должна быть в сетке, иначе места на подложке вне сетки не видны
   // у фигуры поле строится по точной маске без запаса (расстояния до края настоящие)
-  const fgrid = shape && needsField
-    ? buildGrid({ img, mask, bounds: b, wMm, hMm, cell, p, plate: plate.spec, plateInGrid: true, text: gridText })
+  const fgrid = (shape || rel.shift > 0) && needsField
+    ? buildGrid({ img, mask, bounds: b, wMm, hMm, cell, p, plate: plate.spec, plateInGrid: true, text: gridText, ...(shape ? {} : { levels, depth }) })
     : !needsField || plateInGrid || !plate.spec ? grid : buildGrid({ ...gridInput, plateInGrid: true })
   const field = needsField ? anchorField(fgrid, wMm, hMm, cell) : null
   const res = field ? resolveMounts(p, field, wMm, hMm) : { info: { mount: null, pins: [], candidates: [], rejected: [], issues: [] } as MountInfo, pins: [] as { x: number; y: number }[], mount: null as MountInfo['mount'] }

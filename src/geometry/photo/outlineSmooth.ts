@@ -78,11 +78,55 @@ export function smoothLoop(p: Pt[], sigma: number, corner: boolean[]): Pt[] {
 export const OUTLINE_STEP = 0.175
 export const CORNER_DEG = 50
 
-/** Сглаживание контура в мм вдоль кривой с сохранением острых углов (острия остаются острыми). sigmaMm = 0 возвращает контур как есть. */
+/** Диапазон дуги (мм) по обе стороны угла, где ищутся прямые участки сторон для восстановления острия, и допуск прямизны, мм. */
+const TIP_FROM = 1.5, TIP_TO = 4.5, TIP_STRAIGHT = 0.05, TIP_MAX_SHIFT = 3
+
+/** Прямая по точкам методом главных компонент: точка и единичное направление; null — точек мало или они не лежат на прямой (разброс больше допуска). */
+function fitLine(pts: Pt[]): { c: Pt; d: Pt } | null {
+  if (pts.length < 4) return null
+  let cx = 0, cy = 0; for (const [x, y] of pts) { cx += x; cy += y } cx /= pts.length; cy /= pts.length
+  let sxx = 0, sxy = 0, syy = 0; for (const [x, y] of pts) { sxx += (x - cx) ** 2; sxy += (x - cx) * (y - cy); syy += (y - cy) ** 2 }
+  const a = 0.5 * Math.atan2(2 * sxy, sxx - syy), d: Pt = [Math.cos(a), Math.sin(a)]
+  let worst = 0; for (const [x, y] of pts) worst = Math.max(worst, Math.abs(-(x - cx) * d[1] + (y - cy) * d[0]))
+  return worst <= TIP_STRAIGHT ? { c: [cx, cy], d } : null
+}
+
+/**
+ * Восстановление острия: размытие маски скругляет и укорачивает острый угол. Для каждого угла по прямым участкам обеих сторон
+ * (на расстоянии TIP_FROM…TIP_TO мм по дуге, если там нет другого угла и стороны прямые) находится их пересечение; угол
+ * переносится туда, если оно лежит впереди угла (по внешней стороне) и не дальше TIP_MAX_SHIFT мм. Иначе угол остаётся как есть.
+ */
+export function restoreTips(loop: Pt[], corner: boolean[], step: number): Pt[] {
+  const n = loop.length, out = loop.map((p) => [p[0], p[1]] as Pt), from = Math.round(TIP_FROM / step), to = Math.round(TIP_TO / step)
+  for (let c = 0; c < n; c++) {
+    if (!corner[c] || to * 2 >= n) continue
+    const side = (dir: 1 | -1): Pt[] | null => {
+      const pts: Pt[] = []
+      for (let k = 1; k <= to; k++) { const i = (c + dir * k + n * 4) % n; if (corner[i]) return k > from ? pts : null; if (k >= from) pts.push(loop[i]) }
+      return pts
+    }
+    const a = side(-1), b = side(1)
+    if (!a || !b) continue
+    const la = fitLine(a), lb = fitLine(b)
+    if (!la || !lb) continue
+    const det = la.d[0] * lb.d[1] - la.d[1] * lb.d[0]
+    if (Math.abs(det) < 0.05) continue // стороны почти параллельны: пересечения нет или оно далеко
+    const t = ((lb.c[0] - la.c[0]) * lb.d[1] - (lb.c[1] - la.c[1]) * lb.d[0]) / det, apex: Pt = [la.c[0] + la.d[0] * t, la.c[1] + la.d[1] * t]
+    const shift = Math.hypot(apex[0] - loop[c][0], apex[1] - loop[c][1])
+    if (shift > TIP_MAX_SHIFT || shift < 1e-6) continue
+    // впереди угла: острие смотрит наружу, то есть от середины соседних точек к вершине
+    const mid: Pt = [(a[0][0] + b[0][0]) / 2, (a[0][1] + b[0][1]) / 2]
+    if ((apex[0] - loop[c][0]) * (loop[c][0] - mid[0]) + (apex[1] - loop[c][1]) * (loop[c][1] - mid[1]) <= 0) continue
+    out[c] = apex
+  }
+  return out
+}
+
+/** Сглаживание контура в мм вдоль кривой с сохранением острых углов (острия остаются острыми и восстанавливаются). sigmaMm = 0 возвращает контур как есть. */
 export function smoothOutline(points: Pt[], sigmaMm: number, cornerDeg = CORNER_DEG, step = OUTLINE_STEP): Pt[] {
   if (points.length < 4 || !(sigmaMm > 0)) return points
-  const rs = resampleLoop(points, step), win = Math.max(2, Math.round(1.5 / step))
-  return smoothLoop(rs, sigmaMm / step, findCorners(rs, win, cornerDeg))
+  const rs = resampleLoop(points, step), win = Math.max(2, Math.round(1.5 / step)), corners = findCorners(rs, win, cornerDeg)
+  return restoreTips(smoothLoop(rs, sigmaMm / step, corners), corners, step)
 }
 
 /**

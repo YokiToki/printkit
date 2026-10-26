@@ -89,7 +89,8 @@ describe('умолчания не изменились (регрессия об�
     for (let y = 0; y < 200; y++) for (let x = 0; x < 200; x++) if ((x + 0.5 - 100) ** 2 + (y + 0.5 - 100) ** 2 <= 400) img.gray[y * 200 + x] = 255
     return img
   })()
-  const base = P()
+  // объёмы до перехода на гладкий контур (34): охрана прежнего ступенчатого пути (outline не задан)
+  const base: KeychainParams = { ...P(), outline: undefined }
   it('диск без подложки, с подложкой по силуэту и со скруглённым прямоугольником совпадают с объёмами до рефакторинга', async () => {
     const run = async (over: Partial<KeychainParams>) => (await buildKeychain({ ...base, ...over }, reg(holey))).solid!.volume()
     expect(await run({ base: { ...base.base, thickness: 0 } })).toBeCloseTo(6905.7119, 2)

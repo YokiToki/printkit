@@ -152,7 +152,7 @@ describe('масштаб (2.3)', () => {
   it('силуэт обрезается по габариту: поля картинки не влияют на размер', async () => {
     const small = shape(300, 300, 70, 70) // тот же диск, но в большой пустой картинке
     const a = bbox((await solid(P(), small)).solid!)
-    expect(a.w).toBeCloseTo(70, 1)
+    expect(Math.abs(a.w - 70)).toBeLessThan(0.15) // гладкий контур слегка скругляет крайние точки (≈ 0.05 мм)
   })
 })
 

@@ -26,6 +26,9 @@ export const registerImage = (id: string, image: GrayImage) => { imageRegistry.s
 export const matteRegistry: MatteRegistry = new Map()
 export const registerMatte = (id: string, matte: Matte) => { matteRegistry.set(id, matte) }
 
+export const depthRegistry: MatteRegistry = new Map()
+export const registerDepth = (id: string, depth: Matte) => { depthRegistry.set(id, depth) }
+
 export const textRegistry: TextRegistry = new Map()
 export const registerText = (id: string, raster: TextRaster) => { textRegistry.set(id, raster) }
 export type ModeId = keyof ModeParams
@@ -65,7 +68,7 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
       } finally { m.delete() }
     }
     case 'keychain': {
-      const { parts, info, assembly } = await buildKeychainSheet(params as KeychainParams, imageRegistry, wasmUrl, textRegistry, matteRegistry)
+      const { parts, info, assembly } = await buildKeychainSheet(params as KeychainParams, imageRegistry, wasmUrl, textRegistry, matteRegistry, depthRegistry)
       try {
         return { parts: parts.map((q) => ({ label: q.label, col: q.col, row: q.row, oversize: false, mesh: meshOf(q.solid) })), keychain: info, ...(parts.length > 1 ? { sheetLayout: true } : {}), ...(assembly ? { assembly } : {}) }
       } finally { parts.forEach((q) => q.solid.delete()) }

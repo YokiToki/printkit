@@ -7,6 +7,7 @@ import { edt } from './raster/edt'
 import { close, dilate, erode } from './raster/morphology'
 import { maskBounds, resampleGray, resampleIds, resampleMask } from './raster/resample'
 import { keepLargest, smoothThreshold } from './raster/matte'
+import { photoHeights, type DetailMode, type PhotoMix } from './photoRelief'
 import { midtoneShare, otsu, toMask, type GrayImage } from './raster/threshold'
 import { profileValue, type ProfileParams } from './patterns/profile'
 import { coverage, type PatternParams } from './patterns/fields'
@@ -29,7 +30,7 @@ export interface AreaSetting { mode: AreaMode; /** Высота плоской �
 export const DEFAULT_AREA_LEVEL = 0.6
 
 /** Откуда берётся силуэт: яркость (порог, как раньше) или нейросеть (мягкая альфа, зарегистрированная в воркере). */
-export type SilhouetteSource = 'brightness' | 'ai'
+export type SilhouetteSource = 'brightness' | 'ai' | 'frame'
 
 /** Силуэт по нейросети: мягкая альфа (matte) хранится рядом с изображением, а эти значения превращают её в маску без нового запуска сети. */
 export interface AiSilhouetteParams {
@@ -76,7 +77,7 @@ export type SizeMode = 'longest' | 'width' | 'height' | 'box'
 export interface SizeParams { mode: SizeMode; longest: number; width: number; height: number }
 
 /** Что задаёт высоту рельефа: расстояние от кромки силуэта или яркость изображения внутри него. */
-export type HeightSource = 'distance' | 'brightness'
+export type HeightSource = 'distance' | 'brightness' | 'photo'
 export interface SourceParams {
   kind: HeightSource
   /** Контраст яркости (1 — без изменений). */
@@ -89,6 +90,25 @@ export interface SourceParams {
   smooth?: number
   /** Убрать одиночные пятна яркости (медиана 3 × 3) до размытия. */
   despeckle?: boolean
+  // ---- источник «Фото» (смесь контура, глубины и деталей); у остальных источников не используется ----
+  /** Доли смеси 0…100: нормируются по сумме. Поля источника «Фото» необязательны: пропущенные берутся из умолчаний (`resolvePhoto`). */
+  mix?: PhotoMix
+  /** Глубина в реестре воркера (`registerDepth`); пусто — глубины нет. */
+  depthId?: string
+  /** Усиление деталей (локальный контраст), 0 — выключено. */
+  boost?: number
+  /** Радиус деталей, мм детали. */
+  boostRadius?: number
+  /** Тоновые уровни детали 2…8 (0 — без квантования) и мягкость ступеней 0…1. */
+  levels?: number
+  levelSoftness?: number
+  /** Детали: гравировка тёмного, тон как высота или оба; порог тёмного для гравировки. */
+  detailMode?: DetailMode
+  darkThreshold?: number
+  /** Привязка глубины к краям 0…100, предел крутизны (градусы), итоговое сглаживание (мм); 0 — выключено. */
+  snap?: number
+  maxSlope?: number
+  finalSmooth?: number
 }
 
 export interface ReliefParams extends ProfileParams {
@@ -181,11 +201,18 @@ export const RING_PRESETS = [{ id: 'thin', diameter: 3 }, { id: 'standard', diam
 /** Откуда берётся контур: изображение (маска по порогу) или готовая фигура (аналитическая маска). */
 export type Origin = { kind: 'image' } | { kind: 'shape'; shape: ShapeParams }
 
+/** Кадрирование: доли изображения (по умолчанию всё изображение). Дальше силуэт, яркость, альфа и глубина берутся из этого окна. */
+export interface Crop { x: number; y: number; w: number; h: number }
+export const fullCrop: Crop = { x: 0, y: 0, w: 1, h: 1 }
+export const MIN_CROP = 0.05
+
 export interface KeychainParams {
   /** Режим: у фигуры нет порога, дырок и яркости, а размер задаёт сама фигура (`size` и `silhouette` игнорируются). */
   origin: Origin
   /** Изображение лежит вне параметров (в IndexedDB и в воркере), параметры ссылаются на него по id. */
   imageId: string
+  /** Окно изображения, с которым работает всё остальное. */
+  crop: Crop
   silhouette: SilhouetteParams
   size: SizeParams
   source: SourceParams
@@ -200,7 +227,10 @@ export interface KeychainParams {
   quality: QualityParams
 }
 
-export const defaultSource: SourceParams = { kind: 'distance', contrast: 1, gamma: 1, invert: false, smooth: 0, despeckle: false }
+export const defaultSource: SourceParams = {
+  kind: 'distance', contrast: 1, gamma: 1, invert: false, smooth: 0, despeckle: false,
+  mix: { contour: 25, depth: 45, detail: 30 }, depthId: '', boost: 2, boostRadius: 1.4, levels: 0, levelSoftness: 0.6, detailMode: 'engrave', darkThreshold: 0.25, snap: 60, maxSlope: 50, finalSmooth: 0.2,
+}
 /** Сглаживание яркости, с которого начинается выбор источника «яркость» в интерфейсе (старые записи остаются на 0). */
 export const BRIGHTNESS_SMOOTH_DEFAULT = 0.4
 export const MAX_SMOOTH = 3
@@ -213,6 +243,7 @@ export const defaultSplit: SplitParams = { enabled: false, pins: 3, pinRadius: 0
 export const defaultKeychain: KeychainParams = {
   origin: { kind: 'image' },
   imageId: '',
+  crop: fullCrop,
   silhouette: { source: 'brightness', ai: defaultAiSilhouette, autoOpen: null, threshold: 'auto', invert: false, close: 3, fillHoles: true, areas: {}, speck: 200, grow: 2 },
   size: { mode: 'longest', longest: 70, width: 70, height: 70 },
   source: defaultSource,
@@ -350,6 +381,31 @@ export interface SilhouetteResult {
 
 const PHOTO_SHARE = 0.4
 
+/** Окно кадрирования в пикселях [x0, y0, x1, y1) (границы целые, окно не меньше одного пикселя, внутри изображения). */
+export function cropRect(c: Crop, w: number, h: number): [number, number, number, number] {
+  const x0 = Math.min(w - 1, Math.max(0, Math.round(c.x * w))), y0 = Math.min(h - 1, Math.max(0, Math.round(c.y * h)))
+  const x1 = Math.min(w, Math.max(x0 + 1, Math.round((c.x + c.w) * w))), y1 = Math.min(h, Math.max(y0 + 1, Math.round((c.y + c.h) * h)))
+  return [x0, y0, x1, y1]
+}
+const isFull = (c: Crop) => c.x <= 0 && c.y <= 0 && c.w >= 1 && c.h >= 1
+
+/** Кадрированная копия изображения (яркость и альфа); полный кадр возвращается как есть, без копирования. */
+export function cropImage(img: GrayImage, c: Crop): GrayImage {
+  if (isFull(c)) return img
+  const [x0, y0, x1, y1] = cropRect(c, img.width, img.height), w = x1 - x0, h = y1 - y0
+  const gray = new Uint8Array(w * h), alpha = img.alpha ? new Uint8Array(w * h) : null
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = (y0 + j) * img.width + x0 + i; gray[j * w + i] = img.gray[q]; if (alpha) alpha[j * w + i] = img.alpha![q] }
+  return { width: w, height: h, gray, alpha }
+}
+
+/** То же для плоскости того же размера, что и изображение (альфа нейросети, глубина). */
+export function cropPlane(m: Matte, c: Crop): Matte {
+  if (isFull(c)) return m
+  const [x0, y0, x1, y1] = cropRect(c, m.width, m.height), w = x1 - x0, h = y1 - y0, data = new Uint8Array(w * h)
+  for (let j = 0; j < h; j++) data.set(m.data.subarray((y0 + j) * m.width + x0, (y0 + j) * m.width + x1), j * w)
+  return { width: w, height: h, data }
+}
+
 /** Пикселей изображения на мм готового брелка: по габариту маски и режиму размера; без габарита (пусто) — 1. */
 function pxPerMmOf(mask: Uint8Array, w: number, h: number, size: SizeParams | undefined): number {
   const b = size ? maskBounds(mask, w, h) : null
@@ -370,7 +426,10 @@ export function buildSilhouette(img: GrayImage, s: SilhouetteParams, ctx: { matt
   const matte = useAi && ctx.matte && ctx.matte.width === w && ctx.matte.height === h ? ctx.matte : undefined
   const aiMissing = useAi && !matte
   let threshold = 0, ink: Uint8Array
-  if (matte) {
+  if (s.source === 'frame') {
+    // «Весь кадр»: каждый пиксель кадрированного изображения — материал (портрет в плашке); ни порога, ни областей
+    ink = new Uint8Array(w * h).fill(1)
+  } else if (matte) {
     // масштаб (пикселей на мм) определяется по грубой маске без сглаживания: габарит силуэта задаёт размер брелка
     const rough = smoothThreshold(matte.data, w, h, 0, s.ai.threshold)
     const scale = pxPerMmOf(rough, w, h, ctx.size)
@@ -463,6 +522,12 @@ export function reliefHeight(distMm: number, r: ReliefParams): number {
 }
 
 /** Яркость пикселя 0…1 → доля высоты 0…1: контраст вокруг середины, гамма, инверсия. */
+/** Параметры источника «Фото» с умолчаниями на месте пропущенных полей. */
+export function resolvePhoto(s: SourceParams): Required<Pick<SourceParams, 'mix' | 'depthId' | 'boost' | 'boostRadius' | 'levels' | 'levelSoftness' | 'detailMode' | 'darkThreshold' | 'snap' | 'maxSlope' | 'finalSmooth'>> & Pick<SourceParams, 'contrast' | 'gamma' | 'invert'> {
+  const d = defaultSource
+  return { mix: s.mix ?? d.mix!, depthId: s.depthId ?? '', boost: s.boost ?? d.boost!, boostRadius: s.boostRadius ?? d.boostRadius!, levels: s.levels ?? 0, levelSoftness: s.levelSoftness ?? d.levelSoftness!, detailMode: s.detailMode ?? d.detailMode!, darkThreshold: s.darkThreshold ?? d.darkThreshold!, snap: s.snap ?? d.snap!, maxSlope: s.maxSlope ?? d.maxSlope!, finalSmooth: s.finalSmooth ?? d.finalSmooth!, contrast: s.contrast, gamma: s.gamma, invert: s.invert }
+}
+
 export function brightnessValue(g: number, s: SourceParams): number {
   const c = Math.min(1, Math.max(0, (g - 0.5) * s.contrast + 0.5)) ** s.gamma
   return s.invert ? 1 - c : c
@@ -590,6 +655,8 @@ export interface GridInput {
   plate: PlateSpec | null
   /** Подложка строится в той же сетке (нужно для узора на подложке). */
   plateInGrid: boolean
+  /** Глубина в разрешении `img` (источник «Фото»): значения 0…255; null — глубины нет. */
+  depth?: Matte | null
   /** Фигура растеризована с запасом на столько мм (потом обрезается по точному контуру): расстояния до кромки считаются от настоящего края. */
   edgeShift?: number
   /** Бортик строится отдельно точным кольцом, в сетке его нет. */
@@ -649,7 +716,8 @@ export function buildGrid(inp: GridInput): Grid {
   const spine = p.detail.spineAmp > 0 ? edt(inv(skeleton(m, nx, ny)), nx, ny) : null
   const shape = p.origin.kind === 'shape' ? p.origin.shape : null
   const rim = shape?.rim.enabled && shape.rim.height > 0 && !inp.exactRim ? shape.rim : null
-  let gray: Float32Array | null = p.source.kind === 'brightness' && !shape ? new Float32Array(nx * ny) : null
+  const photo = p.source.kind === 'photo' && !shape
+  let gray: Float32Array | null = (p.source.kind === 'brightness' || photo) && !shape ? new Float32Array(nx * ny) : null
   if (gray) {
     const g = resampleGray(img.gray, img.width, bounds[0], bounds[1], bounds[2] + 1, bounds[3] + 1, sx, sy)
     for (let j = 0; j < sy; j++) for (let i = 0; i < sx; i++) gray[(j + ay) * nx + i + ax] = g[j * sx + i]
@@ -657,6 +725,20 @@ export function buildGrid(inp: GridInput): Grid {
     if (p.source.despeckle) gray = median3(gray, nx, ny, m, fixed)
     const sg = sigmaCells(p.source.smooth ?? 0, cell)
     if (sg > 0) gray = gaussianBlur(gray, nx, ny, sg, m, fixed)
+  }
+  // источник «Фото»: смесь контура, глубины и деталей считается один раз на всю сетку (с пределом крутизны и сглаживанием)
+  let photoH: Float32Array | null = null
+  if (photo && gray) {
+    const ph = resolvePhoto(p.source)
+    let depthNodes: Float32Array | null = null
+    if (inp.depth && inp.depth.width === img.width && inp.depth.height === img.height) {
+      depthNodes = new Float32Array(nx * ny)
+      const dd = resampleGray(inp.depth.data, img.width, bounds[0], bounds[1], bounds[2] + 1, bounds[3] + 1, sx, sy)
+      for (let j = 0; j < sy; j++) for (let i = 0; i < sx; i++) depthNodes[(j + ay) * nx + i + ax] = dd[j * sx + i]
+    }
+    const contour = new Float32Array(nx * ny)
+    for (let k = 0; k < contour.length; k++) if (m[k]) contour[k] = reliefHeight(Math.max(d[k] * cell - shift, 0), r)
+    photoH = photoHeights({ nx, ny, mask: m, fixed, cell, gray, depth: depthNodes, contour, floor, hmax: r.hmax, p: ph }).height
   }
   const dOut = plateInGrid && plate?.shape === 'silhouette' ? edt(inv(m), nx, ny) : null
   const bevel: ReliefParams = { ...r, profile: 'bevel' }
@@ -667,7 +749,7 @@ export function buildGrid(inp: GridInput): Grid {
   for (let k = 0; k < raw.length; k++) {
     if (!m[k]) continue
     const dmm = Math.max(d[k] * cell - shift, 0)
-    raw[k] = gray ? floor + brightnessValue(gray[k], p.source) * (r.hmax - floor) : reliefHeight(dmm, r)
+    raw[k] = photoH ? photoH[k] : gray ? floor + brightnessValue(gray[k], p.source) * (r.hmax - floor) : reliefHeight(dmm, r)
   }
   if (sSurface > 0) raw = gaussianBlur(raw, nx, ny, sSurface, m, fixed)
   // надпись: рельеф поднимает поверхность на height, гравировка опускает на depth, но не ниже lo (минимальная высота кромки) и не выше прежней
@@ -793,6 +875,8 @@ export interface KeychainInfo {
   goneAreas?: number[]
   /** Выбран источник «ИИ», а альфы в воркере нет: силуэт построен по яркости. */
   aiMissing?: boolean
+  /** Источник «Фото» с долей глубины, а глубины в воркере нет: доля считается нулём. */
+  depthMissing?: boolean
   /** Размер силуэта, мм. */
   size?: [number, number]
   /** Шаг сетки рельефа, мм, признак, что он увеличен из-за бюджета, и самый мелкий шаг в пределах бюджета. */
@@ -957,10 +1041,11 @@ export function textRegion(raster: TextRaster, t: TextParams, wMm: number, hMm: 
   return { outside, clipped }
 }
 
-function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry, mattes: MatteRegistry = new Map()): CoreResult {
+function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry, mattes: MatteRegistry = new Map(), depths: MatteRegistry = new Map()): CoreResult {
   const shape = p.origin.kind === 'shape' ? p.origin.shape : null
   let img: GrayImage, mask: Uint8Array, b: [number, number, number, number], wMm: number, hMm: number
-  let base: { threshold: number; photoLike: boolean; preview: MaskPreview | null; goneAreas?: number[]; aiMissing?: boolean }
+  let depth: Matte | null = null
+  let base: { threshold: number; photoLike: boolean; preview: MaskPreview | null; goneAreas?: number[]; aiMissing?: boolean; depthMissing?: boolean }
   let levels: GridInput['levels']
   if (shape) {
     // фигура: аналитическая маска ровно по габариту фигуры, без порога, дырок и яркости
@@ -974,9 +1059,14 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
   } else {
     const found = registry.get(p.imageId)
     if (!found) return { parts: [], info: { error: 'keychain.error.noImage', threshold: 0, photoLike: false, preview: null } }
-    img = found
-    const sil = buildSilhouette(img, p.silhouette, { matte: p.silhouette.ai.matteId ? mattes.get(p.silhouette.ai.matteId) : undefined, size: p.size })
-    base = { threshold: sil.threshold, photoLike: sil.photoLike, preview: maskPreview(img, sil), ...(sil.goneAreas.length ? { goneAreas: sil.goneAreas } : {}), ...(sil.aiMissing ? { aiMissing: true } : {}) }
+    const crop = p.crop ?? fullCrop
+    img = cropImage(found, crop)
+    const rawMatte = p.silhouette.ai.matteId ? mattes.get(p.silhouette.ai.matteId) : undefined
+    const matte = rawMatte && rawMatte.width === found.width && rawMatte.height === found.height ? cropPlane(rawMatte, crop) : rawMatte
+    const rawDepth = p.source.kind === 'photo' && p.source.depthId ? depths.get(p.source.depthId) : undefined
+    depth = rawDepth && rawDepth.width === found.width && rawDepth.height === found.height ? cropPlane(rawDepth, crop) : null
+    const sil = buildSilhouette(img, p.silhouette, { matte, size: p.size })
+    base = { threshold: sil.threshold, photoLike: sil.photoLike, preview: maskPreview(img, sil), ...(sil.goneAreas.length ? { goneAreas: sil.goneAreas } : {}), ...(sil.aiMissing ? { aiMissing: true } : {}), ...(p.source.kind === 'photo' && (p.source.mix?.depth ?? 0) > 0 && !depth ? { depthMissing: true } : {}) }
     const lv = new Map(sil.areas.filter((x) => x.mode === 'level').map((x) => [x.id, x.level]))
     if (lv.size) levels = { ids: sil.areaId, level: lv }
     mask = sil.mask
@@ -1025,7 +1115,7 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
     const fillSil = count / ((rel.bounds[2] - rel.bounds[0] + 1) * (rel.bounds[3] - rel.bounds[1] + 1))
     const fill = plateInGrid ? plate.spec!.area / (wMm * hMm) : fillSil
     const { cell, reduced, min } = effectiveCell(rel.wMm, rel.hMm, fill, p.quality)
-    const gridInput = { img: rel.img, mask: rel.mask, bounds: rel.bounds, wMm: rel.wMm, hMm: rel.hMm, cell, p, plate: plate.spec, plateInGrid, edgeShift: rel.shift, exactRim: rel.shift > 0, levels, text: gridText }
+    const gridInput = { img: rel.img, mask: rel.mask, bounds: rel.bounds, wMm: rel.wMm, hMm: rel.hMm, cell, p, plate: plate.spec, plateInGrid, edgeShift: rel.shift, exactRim: rel.shift > 0, levels, text: gridText, depth }
     const grid = buildGrid(gridInput)
     return { rel, cell, reduced, min, gridInput, grid, mesh: reliefMesh(grid, rel.wMm, rel.hMm) }
   }
@@ -1141,14 +1231,14 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
  * Модель Keychain. Две половины: нижняя — зеркало верхней относительно плоскости разъёма, затем поворот на 180° вокруг X (лицом
  * вниз на стол). Надпись только на верхней: для нижней ядро строится ещё раз без надписи.
  */
-export function buildKeychainParts(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry = new Map(), mattes: MatteRegistry = new Map()): { parts: KeychainPart[]; info: KeychainInfo; assembly?: Assembly } {
-  const r = buildKeychainCore(w, p, registry, texts, mattes)
+export function buildKeychainParts(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry = new Map(), mattes: MatteRegistry = new Map(), depths: MatteRegistry = new Map()): { parts: KeychainPart[]; info: KeychainInfo; assembly?: Assembly } {
+  const r = buildKeychainCore(w, p, registry, texts, mattes, depths)
   if (!r.halves) return { parts: r.parts, info: r.info }
   const sp = p.split
   const top = r.halves.top
   let source = top
   if (p.text?.enabled && p.text.maskId && texts.has(p.text.maskId)) {
-    const plain = buildKeychainCore(w, { ...p, text: { ...p.text, enabled: false } }, registry, texts, mattes)
+    const plain = buildKeychainCore(w, { ...p, text: { ...p.text, enabled: false } }, registry, texts, mattes, depths)
     if (plain.halves) source = plain.halves.top
   }
   const bottom = source.mirror([0, 0, 1]).rotate([180, 0, 0])
@@ -1168,18 +1258,18 @@ function nodeIndex(f: AnchorField, x: number, y: number): number | null {
 }
 
 /** Совместимость: один Manifold (односторонняя деталь, а в режиме половин — верхняя половина) и сведения. */
-export function buildKeychainSolid(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry = new Map(), mattes: MatteRegistry = new Map()): { solid: Manifold | null; info: KeychainInfo } {
-  const r = buildKeychainParts(w, p, registry, texts, mattes)
+export function buildKeychainSolid(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry = new Map(), mattes: MatteRegistry = new Map(), depths: MatteRegistry = new Map()): { solid: Manifold | null; info: KeychainInfo } {
+  const r = buildKeychainParts(w, p, registry, texts, mattes, depths)
   const first = r.parts[0]?.solid ?? null
   r.parts.slice(1).forEach((q) => q.solid.delete())
   return { solid: first, info: r.info }
 }
 
-export async function buildKeychain(p: KeychainParams, registry: ImageRegistry, wasmUrl?: string, texts?: TextRegistry, mattes?: MatteRegistry) {
-  return buildKeychainSolid(await getWasm(wasmUrl), p, registry, texts, mattes)
+export async function buildKeychain(p: KeychainParams, registry: ImageRegistry, wasmUrl?: string, texts?: TextRegistry, mattes?: MatteRegistry, depths?: MatteRegistry) {
+  return buildKeychainSolid(await getWasm(wasmUrl), p, registry, texts, mattes, depths)
 }
 
-export async function buildKeychainSheet(p: KeychainParams, registry: ImageRegistry, wasmUrl?: string, texts?: TextRegistry, mattes?: MatteRegistry) {
-  return buildKeychainParts(await getWasm(wasmUrl), p, registry, texts, mattes)
+export async function buildKeychainSheet(p: KeychainParams, registry: ImageRegistry, wasmUrl?: string, texts?: TextRegistry, mattes?: MatteRegistry, depths?: MatteRegistry) {
+  return buildKeychainParts(await getWasm(wasmUrl), p, registry, texts, mattes, depths)
 }
 

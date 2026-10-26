@@ -13,7 +13,9 @@ export interface WorkerImageMessage { kind: 'image'; imageId: string; image: Gra
 export interface WorkerTextMessage { kind: 'text'; textId: string; raster: TextRaster }
 /** Регистрация мягкой альфы нейросети (силуэт Keychain по ИИ): параметры ссылаются на неё по matteId. */
 export interface WorkerMatteMessage { kind: 'matte'; matteId: string; matte: Matte }
-export type WorkerMessage = WorkerRequest | WorkerMeshMessage | WorkerImageMessage | WorkerTextMessage | WorkerMatteMessage
+/** Регистрация плоскости глубины (источник «Фото»): параметры ссылаются на неё по depthId. */
+export interface WorkerDepthMessage { kind: 'depth'; depthId: string; depth: Matte }
+export type WorkerMessage = WorkerRequest | WorkerMeshMessage | WorkerImageMessage | WorkerTextMessage | WorkerMatteMessage | WorkerDepthMessage
 export type WorkerResponse = { id: number; result: ModelResult } | { id: number; error: string }
 
 /** Минимальный интерфейс воркера: нужен, чтобы подменять его в тестах. */
@@ -74,6 +76,12 @@ export class ModelClient {
   registerMatte(matteId: string, matte: Matte) {
     const copy: Matte = { ...matte, data: matte.data.slice() }
     this.worker.postMessage({ kind: 'matte', matteId, matte: copy }, [copy.data.buffer])
+  }
+
+  /** То же для плоскости глубины. */
+  registerDepth(depthId: string, depth: Matte) {
+    const copy: Matte = { ...depth, data: depth.data.slice() }
+    this.worker.postMessage({ kind: 'depth', depthId, depth: copy }, [copy.data.buffer])
   }
 
   /** То же для растра надписи: копию передаём воркеру с передачей владения буфером. */

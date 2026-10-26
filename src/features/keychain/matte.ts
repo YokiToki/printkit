@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getModelClient } from '../../app/useModel'
-import type { AiSilhouetteParams, Matte } from '../../geometry/keychain'
+import type { AiSilhouetteParams, Matte, SilhouetteSource } from '../../geometry/keychain'
 import { linearSample } from '../../geometry/photo/aiResample'
 import { midtoneShare, type GrayImage } from '../../geometry/raster/threshold'
 import { usableModel } from '../../ml/choice'
@@ -77,7 +77,7 @@ export function useMatte({ imageId, image, store, ai, source, onAi, ml = getMlSe
   image: GrayImage | null
   store: ImageStore | null
   ai: AiSilhouetteParams
-  source: 'brightness' | 'ai'
+  source: SilhouetteSource
   /** Принять результат: источник «ИИ» и параметры альфы. */
   onAi: (patch: Partial<AiSilhouetteParams> & { model: string; matteId: string }) => void
   ml?: Pick<MlService, 'matteAlpha'>

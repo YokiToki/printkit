@@ -1,4 +1,4 @@
-import { DEFAULT_AREA_LEVEL, defaultKeychain, type AreaSetting } from '../../geometry/keychain'
+import { DEFAULT_AREA_LEVEL, defaultAiSilhouette, defaultKeychain, type AiSilhouetteParams, type AreaSetting } from '../../geometry/keychain'
 import { defaultText, MAX_TEXT_CHARS, type TextParams } from '../../geometry/text'
 import { PATTERN_KINDS } from '../../geometry/patterns/fields'
 import { PROFILE_KINDS } from '../../geometry/patterns/profile'
@@ -23,6 +23,19 @@ export function normalizeText(raw: unknown): TextParams {
   }
 }
 
+/** Силуэт по ИИ из сохранённого: частичные и испорченные значения возвращаются к умолчаниям, порог и сглаживание приводятся к допустимым пределам. */
+export function normalizeAiSilhouette(raw: unknown): AiSilhouetteParams {
+  const r = obj(raw), d = defaultAiSilhouette
+  const num = (v: unknown, def: number, lo: number, hi: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def)
+  return {
+    model: typeof r.model === 'string' ? r.model : d.model,
+    threshold: num(r.threshold, d.threshold, 0.05, 0.95),
+    smooth: num(r.smooth, d.smooth, 0, 3),
+    keepLargest: typeof r.keepLargest === 'boolean' ? r.keepLargest : d.keepLargest,
+    matteId: typeof r.matteId === 'string' ? r.matteId : d.matteId,
+  }
+}
+
 /** Состояние режима: параметры геометрии и подпись изображения (сами пиксели лежат в IndexedDB). */
 export interface KeychainState { imageName: string; [k: string]: unknown }
 
@@ -40,6 +53,10 @@ export function migrateKeychain(raw: Record<string, unknown>): Record<string, un
   }
   if (Array.isArray(sil.keepOpen)) for (const n of sil.keepOpen as unknown[]) if (Number.isInteger(n) && (n as number) >= 1 && !areas[n as number]) areas[n as number] = { mode: 'open', level: DEFAULT_AREA_LEVEL }
   delete sil.keepOpen
+  // источник силуэта: старые записи без поля остаются на яркости, ИИ и порог областей приводятся к допустимому виду
+  sil.source = sil.source === 'ai' ? 'ai' : 'brightness'
+  sil.ai = normalizeAiSilhouette(sil.ai)
+  sil.autoOpen = typeof sil.autoOpen === 'number' && Number.isFinite(sil.autoOpen) && sil.autoOpen >= 0 ? sil.autoOpen : null
   sil.areas = areas
   if (sil.threshold !== 'auto' && !(typeof sil.threshold === 'number' && Number.isFinite(sil.threshold))) sil.threshold = 'auto'
   const relief = { ...defaultKeychain.relief, ...obj(raw.relief) }

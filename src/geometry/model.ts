@@ -5,7 +5,7 @@ import { buildRackPanel, type RackPanelParams } from './rack/panel'
 import { buildRackShelf, type RackShelfParams } from './rack/shelf'
 import type { Issue } from './rack/patterns/types'
 import type { Assembly } from './keychainAssembly'
-import { buildKeychainSheet, type ImageRegistry, type KeychainInfo, type KeychainParams } from './keychain'
+import { buildKeychainSheet, type ImageRegistry, type KeychainInfo, type KeychainParams, type Matte, type MatteRegistry } from './keychain'
 import type { GrayImage } from './raster/threshold'
 import type { TextRaster, TextRegistry } from './text'
 import { buildCutout, buildCutoutTools, type CutoutParams, type MeshRegistry } from './cutout'
@@ -23,6 +23,9 @@ export const registerMesh = (id: string, mesh: IndexedMesh) => { meshRegistry.se
 export const imageRegistry: ImageRegistry = new Map()
 export const registerImage = (id: string, image: GrayImage) => { imageRegistry.set(id, image) }
 /** Растры надписей Keychain в этом потоке (воркере): параметры ссылаются на них по maskId. */
+export const matteRegistry: MatteRegistry = new Map()
+export const registerMatte = (id: string, matte: Matte) => { matteRegistry.set(id, matte) }
+
 export const textRegistry: TextRegistry = new Map()
 export const registerText = (id: string, raster: TextRaster) => { textRegistry.set(id, raster) }
 export type ModeId = keyof ModeParams
@@ -62,7 +65,7 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
       } finally { m.delete() }
     }
     case 'keychain': {
-      const { parts, info, assembly } = await buildKeychainSheet(params as KeychainParams, imageRegistry, wasmUrl, textRegistry)
+      const { parts, info, assembly } = await buildKeychainSheet(params as KeychainParams, imageRegistry, wasmUrl, textRegistry, matteRegistry)
       try {
         return { parts: parts.map((q) => ({ label: q.label, col: q.col, row: q.row, oversize: false, mesh: meshOf(q.solid) })), keychain: info, ...(parts.length > 1 ? { sheetLayout: true } : {}), ...(assembly ? { assembly } : {}) }
       } finally { parts.forEach((q) => q.solid.delete()) }

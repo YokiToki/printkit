@@ -2,6 +2,7 @@ import type { ModeId, ModeParams, ModelResult } from './model'
 import type { IndexedMesh } from './stl-import'
 import type { GrayImage } from './raster/threshold'
 import type { TextRaster } from './text'
+import type { Matte } from './keychain'
 
 export interface WorkerRequest { id: number; mode: ModeId; params: ModeParams[ModeId] }
 /** Регистрация импортированной сетки в воркере: дальше вырезы ссылаются на неё по id. */
@@ -10,7 +11,9 @@ export interface WorkerMeshMessage { kind: 'mesh'; meshId: string; mesh: Indexed
 export interface WorkerImageMessage { kind: 'image'; imageId: string; image: GrayImage }
 /** Регистрация растра надписи Keychain в воркере (альфа-маска): параметры ссылаются на неё по maskId. */
 export interface WorkerTextMessage { kind: 'text'; textId: string; raster: TextRaster }
-export type WorkerMessage = WorkerRequest | WorkerMeshMessage | WorkerImageMessage | WorkerTextMessage
+/** Регистрация мягкой альфы нейросети (силуэт Keychain по ИИ): параметры ссылаются на неё по matteId. */
+export interface WorkerMatteMessage { kind: 'matte'; matteId: string; matte: Matte }
+export type WorkerMessage = WorkerRequest | WorkerMeshMessage | WorkerImageMessage | WorkerTextMessage | WorkerMatteMessage
 export type WorkerResponse = { id: number; result: ModelResult } | { id: number; error: string }
 
 /** Минимальный интерфейс воркера: нужен, чтобы подменять его в тестах. */
@@ -65,6 +68,12 @@ export class ModelClient {
   registerImage(imageId: string, image: GrayImage) {
     const copy: GrayImage = { width: image.width, height: image.height, gray: image.gray.slice(), alpha: image.alpha ? image.alpha.slice() : null }
     this.worker.postMessage({ kind: 'image', imageId, image: copy }, [copy.gray.buffer, ...(copy.alpha ? [copy.alpha.buffer] : [])])
+  }
+
+  /** То же для мягкой альфы нейросети: копию передаём воркеру с передачей владения буфером. */
+  registerMatte(matteId: string, matte: Matte) {
+    const copy: Matte = { ...matte, data: matte.data.slice() }
+    this.worker.postMessage({ kind: 'matte', matteId, matte: copy }, [copy.data.buffer])
   }
 
   /** То же для растра надписи: копию передаём воркеру с передачей владения буфером. */

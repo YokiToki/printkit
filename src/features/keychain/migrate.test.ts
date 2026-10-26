@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { migrateKeychain } from './migrate'
-import { defaultKeychain } from '../../geometry/keychain'
+import { defaultAiSilhouette, defaultKeychain } from '../../geometry/keychain'
 import { defaultText } from '../../geometry/text'
 
 describe('migrateKeychain', () => {
@@ -101,5 +101,32 @@ describe('migrateKeychain', () => {
     it('шрифт: пустой идентификатор → Roboto, флаги только настоящие true', () => {
       expect(textOf({ font: { id: '', bold: 'true', italic: 1 } }).font).toEqual({ id: 'roboto', bold: false, italic: false })
     })
+  })
+})
+
+describe('силуэт по ИИ в сохранённом (33, 2.3)', () => {
+  const sil = (raw: Record<string, unknown>) => (migrateKeychain({ silhouette: raw }).silhouette as Record<string, unknown>)
+
+  it('старая запись без полей получает яркость, умолчания ИИ и автоматический порог областей', () => {
+    const s = sil({ threshold: 90 })
+    expect(s.source).toBe('brightness'); expect(s.autoOpen).toBeNull()
+    expect(s.ai).toEqual(defaultAiSilhouette)
+    expect(migrateKeychain({}).silhouette).toMatchObject({ source: 'brightness', autoOpen: null })
+  })
+
+  it('круговой проход: нормализованное значение не меняется при повторной нормализации', () => {
+    const once = migrateKeychain({ silhouette: { source: 'ai', autoOpen: 80, ai: { model: 'isnet', threshold: 0.4, smooth: 1, keepLargest: false, matteId: 'm1' } } })
+    expect(migrateKeychain(once)).toEqual(once)
+    expect(once.silhouette).toMatchObject({ source: 'ai', autoOpen: 80, ai: { model: 'isnet', threshold: 0.4, smooth: 1, keepLargest: false, matteId: 'm1' } })
+  })
+
+  it('частичные и испорченные значения возвращаются к умолчаниям или пределам, ничего не падает', () => {
+    expect(sil({ source: 'weird' }).source).toBe('brightness')
+    expect(sil({ source: 'ai', ai: { threshold: 'x', smooth: NaN, keepLargest: 'yes', matteId: 5, model: 7 } }).ai).toEqual(defaultAiSilhouette)
+    expect(sil({ ai: { threshold: 5, smooth: 99 } }).ai).toMatchObject({ threshold: 0.95, smooth: 3 })
+    expect(sil({ ai: { threshold: -1, smooth: -2 } }).ai).toMatchObject({ threshold: 0.05, smooth: 0 })
+    expect(sil({ ai: 'oops' }).ai).toEqual(defaultAiSilhouette)
+    for (const bad of [-5, 'x', NaN, Infinity, null]) expect(sil({ autoOpen: bad }).autoOpen).toBeNull()
+    expect(sil({ autoOpen: 0 }).autoOpen).toBe(0)
   })
 })

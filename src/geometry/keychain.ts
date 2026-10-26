@@ -6,6 +6,7 @@ import { findHoles, removeSpecks, type Hole } from './raster/components'
 import { edt } from './raster/edt'
 import { close, dilate, erode } from './raster/morphology'
 import { maskBounds, resampleGray, resampleIds, resampleMask } from './raster/resample'
+import { keepLargest, smoothThreshold } from './raster/matte'
 import { midtoneShare, otsu, toMask, type GrayImage } from './raster/threshold'
 import { profileValue, type ProfileParams } from './patterns/profile'
 import { coverage, type PatternParams } from './patterns/fields'
@@ -27,7 +28,35 @@ export type AreaMode = 'follow' | 'open' | 'level'
 export interface AreaSetting { mode: AreaMode; /** Высота плоской вершины над подложкой, мм (режим level). */ level: number }
 export const DEFAULT_AREA_LEVEL = 0.6
 
+/** Откуда берётся силуэт: яркость (порог, как раньше) или нейросеть (мягкая альфа, зарегистрированная в воркере). */
+export type SilhouetteSource = 'brightness' | 'ai'
+
+/** Силуэт по нейросети: мягкая альфа (matte) хранится рядом с изображением, а эти значения превращают её в маску без нового запуска сети. */
+export interface AiSilhouetteParams {
+  /** Модель, которой получена альфа (для подписи и устаревания). */
+  model: string
+  /** Порог альфы 0…1: ниже — контур заходит дальше в мягкий край. */
+  threshold: number
+  /** Радиус сглаживания альфы, мм готового брелка: одно значение даёт одинаковую гладкость при любом разрешении картинки. */
+  smooth: number
+  /** Оставить только крупнейшую связную область. */
+  keepLargest: boolean
+  /** Номер альфы в реестре воркера; пусто — альфы нет. */
+  matteId: string
+}
+/** Мягкая альфа в реестре воркера: размеры картинки, значения 0…255. */
+export interface Matte { width: number; height: number; data: Uint8Array }
+export type MatteRegistry = Map<string, Matte>
+export const defaultAiSilhouette: AiSilhouetteParams = { model: '', threshold: 0.5, smooth: 0.3, keepLargest: true, matteId: '' }
+/** Площадь области, начиная с которой она открыта сама (мм² детали), если `autoOpen` не задан: нейросеть 150, яркость 0 (как раньше). */
+export const AUTO_OPEN_AI = 150
+
 export interface SilhouetteParams {
+  /** Источник силуэта; по умолчанию яркость (результат прежний). */
+  source: SilhouetteSource
+  ai: AiSilhouetteParams
+  /** Область фона без своего режима открывается сама, если её площадь не меньше этого значения, мм² детали; меньшие заливаются. null — по источнику (150 для ИИ, 0 для яркости), 0 — выключено. */
+  autoOpen: number | null
   /** Порог яркости 0…255 или 'auto' (Оцу). */
   threshold: number | 'auto'
   invert: boolean
@@ -184,7 +213,7 @@ export const defaultSplit: SplitParams = { enabled: false, pins: 3, pinRadius: 0
 export const defaultKeychain: KeychainParams = {
   origin: { kind: 'image' },
   imageId: '',
-  silhouette: { threshold: 'auto', invert: false, close: 3, fillHoles: true, areas: {}, speck: 200, grow: 2 },
+  silhouette: { source: 'brightness', ai: defaultAiSilhouette, autoOpen: null, threshold: 'auto', invert: false, close: 3, fillHoles: true, areas: {}, speck: 200, grow: 2 },
   size: { mode: 'longest', longest: 70, width: 70, height: 70 },
   source: defaultSource,
   relief: { hmax: 2, edgeWidth: 6, pow: 0.65, heightFloor: 0.06, profile: 'bevel', steps: 3, smooth: 0 },
@@ -315,21 +344,55 @@ export interface SilhouetteResult {
   goneAreas: number[]
   /** Доля полутонов: у фотографий велика. */
   photoLike: boolean
+  /** Выбран источник «ИИ», но альфы нет (хранилище очищено): силуэт построен по яркости. */
+  aiMissing?: boolean
 }
 
 const PHOTO_SHARE = 0.4
 
-/** Картинка → чистый силуэт: порог → смыкание → заливка областей → удаление пятен → расширение (как 01_silhouette.py). */
-export function buildSilhouette(img: GrayImage, s: SilhouetteParams): SilhouetteResult {
+/** Пикселей изображения на мм готового брелка: по габариту маски и режиму размера; без габарита (пусто) — 1. */
+function pxPerMmOf(mask: Uint8Array, w: number, h: number, size: SizeParams | undefined): number {
+  const b = size ? maskBounds(mask, w, h) : null
+  if (!b || !size) return 1
+  const bw = b[2] - b[0] + 1, bh = b[3] - b[1] + 1
+  const mm = sizeMm(size, bw, bh)
+  return mm.w > 0 ? bw / mm.w : 1
+}
+
+/**
+ * Картинка → чистый силуэт: порог → смыкание → заливка областей → удаление пятен → расширение (как 01_silhouette.py). Источник
+ * «ИИ»: вместо порога яркости маска строится из мягкой альфы (сглаживание в мм брелка, порог, крупнейшая область), дальше тот же
+ * путь. `ctx.size` нужен для перевода мм в пиксели; `ctx.matte` — альфа из реестра воркера.
+ */
+export function buildSilhouette(img: GrayImage, s: SilhouetteParams, ctx: { matte?: Matte; size?: SizeParams } = {}): SilhouetteResult {
   const { width: w, height: h } = img
-  const threshold = s.threshold === 'auto' ? otsu(img.gray) : s.threshold
-  const ink = toMask(img, threshold, s.invert)
+  const useAi = s.source === 'ai'
+  const matte = useAi && ctx.matte && ctx.matte.width === w && ctx.matte.height === h ? ctx.matte : undefined
+  const aiMissing = useAi && !matte
+  let threshold = 0, ink: Uint8Array
+  if (matte) {
+    // масштаб (пикселей на мм) определяется по грубой маске без сглаживания: габарит силуэта задаёт размер брелка
+    const rough = smoothThreshold(matte.data, w, h, 0, s.ai.threshold)
+    const scale = pxPerMmOf(rough, w, h, ctx.size)
+    const alpha = smoothThreshold(matte.data, w, h, s.ai.smooth * scale, s.ai.threshold)
+    ink = new Uint8Array(w * h)
+    for (let i = 0; i < ink.length; i++) ink[i] = alpha[i] >= 128 ? 1 : 0
+    if (s.ai.keepLargest) ink = keepLargest(ink, w, h)
+    if (s.invert) for (let i = 0; i < ink.length; i++) ink[i] = ink[i] ? 0 : 1
+  } else {
+    threshold = s.threshold === 'auto' ? otsu(img.gray) : s.threshold
+    ink = toMask(img, threshold, s.invert)
+  }
   const closed = close(ink, w, h, s.close)
   const { holes, labels } = findHoles(closed, w, h)
   const settings = s.areas ?? {}
+  // автоматические области: большой пробел (кольцо, просвет между лапами) открывается, мелкий между штрихами заливается
+  const autoOpen = s.autoOpen ?? (matte ? AUTO_OPEN_AI : 0)
+  const mm2PerPx = autoOpen > 0 ? 1 / pxPerMmOf(closed, w, h, ctx.size) ** 2 : 0
   const areas = holes.map((x) => {
     const set = settings[x.id]
-    const mode: AreaMode = s.fillHoles ? (set?.mode ?? 'follow') : 'open'
+    const auto: AreaMode = autoOpen > 0 && x.size * mm2PerPx >= autoOpen ? 'open' : 'follow'
+    const mode: AreaMode = s.fillHoles ? (set?.mode ?? auto) : 'open'
     return { ...x, mode, level: set && Number.isFinite(set.level) ? set.level : DEFAULT_AREA_LEVEL, open: mode === 'open' }
   })
   // номер области по метке компоненты фона; заливаются все, кроме открытых
@@ -346,7 +409,7 @@ export function buildSilhouette(img: GrayImage, s: SilhouetteParams): Silhouette
   const mask = s.grow > 0 ? dilate(clean, w, h, s.grow) : s.grow < 0 ? erode(clean, w, h, -s.grow) : clean
   const known = new Set(areas.map((x) => x.id))
   const goneAreas = Object.keys(settings).map(Number).filter((id) => !known.has(id) && settings[id].mode !== 'follow').sort((a, b) => a - b)
-  return { mask, threshold, areas, areaId, goneAreas, photoLike: midtoneShare(img.gray) > PHOTO_SHARE }
+  return { mask, threshold, areas, areaId, goneAreas, photoLike: midtoneShare(img.gray) > PHOTO_SHARE, ...(aiMissing ? { aiMissing: true } : {}) }
 }
 
 // ---------- предпросмотр маски ----------
@@ -729,6 +792,8 @@ export interface KeychainInfo {
   preview: MaskPreview | null
   /** Номера областей с настройками, которых в силуэте больше нет. */
   goneAreas?: number[]
+  /** Выбран источник «ИИ», а альфы в воркере нет: силуэт построен по яркости. */
+  aiMissing?: boolean
   /** Размер силуэта, мм. */
   size?: [number, number]
   /** Шаг сетки рельефа, мм, признак, что он увеличен из-за бюджета, и самый мелкий шаг в пределах бюджета. */
@@ -893,10 +958,10 @@ export function textRegion(raster: TextRaster, t: TextParams, wMm: number, hMm: 
   return { outside, clipped }
 }
 
-function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry): CoreResult {
+function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry, mattes: MatteRegistry = new Map()): CoreResult {
   const shape = p.origin.kind === 'shape' ? p.origin.shape : null
   let img: GrayImage, mask: Uint8Array, b: [number, number, number, number], wMm: number, hMm: number
-  let base: { threshold: number; photoLike: boolean; preview: MaskPreview | null; goneAreas?: number[] }
+  let base: { threshold: number; photoLike: boolean; preview: MaskPreview | null; goneAreas?: number[]; aiMissing?: boolean }
   let levels: GridInput['levels']
   if (shape) {
     // фигура: аналитическая маска ровно по габариту фигуры, без порога, дырок и яркости
@@ -911,8 +976,8 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
     const found = registry.get(p.imageId)
     if (!found) return { parts: [], info: { error: 'keychain.error.noImage', threshold: 0, photoLike: false, preview: null } }
     img = found
-    const sil = buildSilhouette(img, p.silhouette)
-    base = { threshold: sil.threshold, photoLike: sil.photoLike, preview: maskPreview(img, sil), ...(sil.goneAreas.length ? { goneAreas: sil.goneAreas } : {}) }
+    const sil = buildSilhouette(img, p.silhouette, { matte: p.silhouette.ai.matteId ? mattes.get(p.silhouette.ai.matteId) : undefined, size: p.size })
+    base = { threshold: sil.threshold, photoLike: sil.photoLike, preview: maskPreview(img, sil), ...(sil.goneAreas.length ? { goneAreas: sil.goneAreas } : {}), ...(sil.aiMissing ? { aiMissing: true } : {}) }
     const lv = new Map(sil.areas.filter((x) => x.mode === 'level').map((x) => [x.id, x.level]))
     if (lv.size) levels = { ids: sil.areaId, level: lv }
     mask = sil.mask
@@ -1077,14 +1142,14 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
  * Модель Keychain. Две половины: нижняя — зеркало верхней относительно плоскости разъёма, затем поворот на 180° вокруг X (лицом
  * вниз на стол). Надпись только на верхней: для нижней ядро строится ещё раз без надписи.
  */
-export function buildKeychainParts(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry = new Map()): { parts: KeychainPart[]; info: KeychainInfo; assembly?: Assembly } {
-  const r = buildKeychainCore(w, p, registry, texts)
+export function buildKeychainParts(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry = new Map(), mattes: MatteRegistry = new Map()): { parts: KeychainPart[]; info: KeychainInfo; assembly?: Assembly } {
+  const r = buildKeychainCore(w, p, registry, texts, mattes)
   if (!r.halves) return { parts: r.parts, info: r.info }
   const sp = p.split
   const top = r.halves.top
   let source = top
   if (p.text?.enabled && p.text.maskId && texts.has(p.text.maskId)) {
-    const plain = buildKeychainCore(w, { ...p, text: { ...p.text, enabled: false } }, registry, texts)
+    const plain = buildKeychainCore(w, { ...p, text: { ...p.text, enabled: false } }, registry, texts, mattes)
     if (plain.halves) source = plain.halves.top
   }
   const bottom = source.mirror([0, 0, 1]).rotate([180, 0, 0])
@@ -1104,18 +1169,18 @@ function nodeIndex(f: AnchorField, x: number, y: number): number | null {
 }
 
 /** Совместимость: один Manifold (односторонняя деталь, а в режиме половин — верхняя половина) и сведения. */
-export function buildKeychainSolid(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry = new Map()): { solid: Manifold | null; info: KeychainInfo } {
-  const r = buildKeychainParts(w, p, registry, texts)
+export function buildKeychainSolid(w: ManifoldToplevel, p: KeychainParams, registry: ImageRegistry, texts: TextRegistry = new Map(), mattes: MatteRegistry = new Map()): { solid: Manifold | null; info: KeychainInfo } {
+  const r = buildKeychainParts(w, p, registry, texts, mattes)
   const first = r.parts[0]?.solid ?? null
   r.parts.slice(1).forEach((q) => q.solid.delete())
   return { solid: first, info: r.info }
 }
 
-export async function buildKeychain(p: KeychainParams, registry: ImageRegistry, wasmUrl?: string, texts?: TextRegistry) {
-  return buildKeychainSolid(await getWasm(wasmUrl), p, registry, texts)
+export async function buildKeychain(p: KeychainParams, registry: ImageRegistry, wasmUrl?: string, texts?: TextRegistry, mattes?: MatteRegistry) {
+  return buildKeychainSolid(await getWasm(wasmUrl), p, registry, texts, mattes)
 }
 
-export async function buildKeychainSheet(p: KeychainParams, registry: ImageRegistry, wasmUrl?: string, texts?: TextRegistry) {
-  return buildKeychainParts(await getWasm(wasmUrl), p, registry, texts)
+export async function buildKeychainSheet(p: KeychainParams, registry: ImageRegistry, wasmUrl?: string, texts?: TextRegistry, mattes?: MatteRegistry) {
+  return buildKeychainParts(await getWasm(wasmUrl), p, registry, texts, mattes)
 }
 

@@ -5,7 +5,7 @@ import type { ModelClient } from '../../geometry/modelClient'
 import type { ModelResult } from '../../geometry/model'
 import type { GrayImage } from '../../geometry/raster/threshold'
 
-type KeychainClient = Pick<ModelClient, 'generate' | 'registerImage'>
+type KeychainClient = Pick<ModelClient, 'generate' | 'registerImage'> & Partial<Pick<ModelClient, 'registerMatte'>>
 
 /**
  * Модель Keychain: изображение один раз передаётся воркеру, параметры ссылаются на него по id. Как useModel

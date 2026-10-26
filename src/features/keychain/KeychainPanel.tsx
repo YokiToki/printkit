@@ -49,7 +49,7 @@ export function KeychainPanel({ params: p, onChange, imageName, hasImage, info, 
   return (
     <>
       {/* без изображения секция «Изображение» свёрнута, поэтому первый шаг — кнопка прямо в подсказке; ошибка первого файла видна здесь же */}
-      <ImageSection name={imageName} notice={hasImage ? notice : null} onFile={onFile} photoLike={!!info?.photoLike && p.source.kind === 'distance'} />
+      <ImageSection name={imageName} notice={hasImage ? notice : null} onFile={onFile} photoLike={!!info?.photoLike && p.source.kind === 'distance' && p.silhouette.source !== 'ai'} />
       {!hasImage ? (
         <div className="flex flex-col gap-3 p-4">
           <Banner>{t('keychain.empty')}</Banner>

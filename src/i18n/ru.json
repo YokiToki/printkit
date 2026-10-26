@@ -1348,7 +1348,8 @@
       "object": "Предметов уточнено: {{i}} из {{n}}",
       "runDone": "{{name}}: готово за {{seconds}} с",
       "runCancelled": "Запуск ИИ отменён",
-      "runFailed": "{{name}}: ошибка"
+      "runFailed": "{{name}}: ошибка",
+      "firstPassImage": "Убираю фон"
     }
   },
   "ml": {

@@ -26,6 +26,14 @@ describe('MlService.matteAlpha (33, 3.2)', () => {
     expect(getLogSnapshot().jobs).toHaveLength(0)
   })
 
+  it('строка этапа для всей картинки говорит про фон, а не про лист', async () => {
+    const { svc } = make()
+    const lines: string[] = []
+    const stop = (await import('../app/activityLog')).subscribeLog(() => { const j = getLogSnapshot().jobs.at(-1); if (j && lines.at(-1) !== j.key) lines.push(j.key) })
+    await svc.matteAlpha(spec, new Uint8Array(12), 2, 2); stop()
+    expect(lines).toContain('log.ai.firstPassImage'); expect(lines).not.toContain('log.ai.firstPass')
+  })
+
   it('нет модели: ошибка noModel, сеть не вызывается, скачивания нет, в журнале нет следа задачи', async () => {
     const { svc, client, store } = make({ bytes: null })
     await expect(svc.matteAlpha(spec, new Uint8Array(12), 2, 2)).rejects.toMatchObject({ reason: 'noModel' })

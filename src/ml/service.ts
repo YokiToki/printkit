@@ -28,7 +28,7 @@ export function createMlService(deps: { client: Pick<MlClient, 'load' | 'matte' 
   const caps = () => (capsCache ??= deps.caps())
 
   /** Один запуск сети: доступность, веса, сессия (если ещё не поднята), первый проход и сообщение в журнал. */
-  async function matte(spec: ModelSpec, rgb: Uint8Array, w: number, h: number, job: Job): Promise<Float32Array> {
+  async function matte(spec: ModelSpec, rgb: Uint8Array, w: number, h: number, job: Job, line = 'log.ai.firstPass'): Promise<Float32Array> {
     const av = availability(spec, await caps())
     if (!av.ok) throw new MlUnavailableError('unavailable')
     const bytes = await store.read(spec)
@@ -38,7 +38,7 @@ export function createMlService(deps: { client: Pick<MlClient, 'load' | 'matte' 
       await client.load(spec, bytes, av.backend)
       loadedId = spec.id
     }
-    job.update({ key: 'log.ai.firstPass' })
+    job.update({ key: line })
     const alpha = await client.matte(spec, rgb, w, h)
     if (!alpha) throw new MlUnavailableError('superseded')
     return alpha
@@ -99,7 +99,7 @@ export function createMlService(deps: { client: Pick<MlClient, 'load' | 'matte' 
      * с полями среднего цвета, выход обрезается обратно. Брелок: один предмет, поэтому второго прохода нет.
      */
     async matteAlpha(spec: ModelSpec, rgb: Uint8Array, w: number, h: number): Promise<Float32Array> {
-      return run(spec, (job) => matte(spec, rgb, w, h, job))
+      return run(spec, (job) => matte(spec, rgb, w, h, job, 'log.ai.firstPassImage'))
     },
   }
 }

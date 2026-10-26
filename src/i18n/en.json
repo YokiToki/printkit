@@ -1348,7 +1348,8 @@
       "object": "Objects refined: {{i}} of {{n}}",
       "runDone": "{{name}}: done in {{seconds}} s",
       "runCancelled": "AI run cancelled",
-      "runFailed": "{{name}} failed"
+      "runFailed": "{{name}} failed",
+      "firstPassImage": "Removing the background"
     }
   },
   "ml": {

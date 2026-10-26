@@ -27,5 +27,5 @@
 
 ## 6. Verification
 
-- [ ] 6.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; with the Brightness source the existing keychain tests and volumes are unchanged.
-- [ ] 6.2 In the browser, en and ru and at 390 px, with a pet photo, a portrait and a logo: AI run with progress, silhouette and relief appear, sliders update without a model run (network panel shows no model activity), keep-largest drops a stray bit, a ring-shaped gap is open by itself and a small gap is filled, reload restores the same relief without a run, deleting the model keeps the silhouette, switching to Brightness and back works, a transparent PNG and an SVG behave as described, the exported STL is one valid piece, no request carries image data.
+- [x] 6.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; with the Brightness source the existing keychain tests and volumes are unchanged.
+- [x] 6.2 In the browser, en and ru and at 390 px, with a pet photo, a portrait and a logo: AI run with progress, silhouette and relief appear, sliders update without a model run (network panel shows no model activity), keep-largest drops a stray bit, a ring-shaped gap is open by itself and a small gap is filled, reload restores the same relief without a run, deleting the model keeps the silhouette, switching to Brightness and back works, a transparent PNG and an SVG behave as described, the exported STL is one valid piece, no request carries image data.

@@ -44,6 +44,8 @@ The app is a set of parametric modes: each mode owns a small serialisable parame
 └─────────────────┴──────────────────────────────────┴───────────────────┘
 ```
 
+13. **Forward rule (`openspec/EDITOR.md` 2a).** Mesh is the result, not the source, for anything built from sketches: this change stores `source` descriptions separately from meshes and keeps the geometry builder (`generate('editor')`) a pure function of those descriptions, so sketch features of `40` and the operation stack of `41` plug in as new source kinds without changing the scene or `.pkit` shape. Imported STL is the only source that is itself a mesh.
+
 ## Risks / Trade-offs
 
 - **Matrix as group transform vs. true geometry.** Fast and simple now; later boolean operations (`41`) must first bake the matrix in the worker. That is why `applyMatrix` and the worker input already carry the matrices (`generate('editor')` receives `{objects, matrices}` but ignores them in this change).

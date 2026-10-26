@@ -52,7 +52,7 @@ export function SilhouetteSection({ value: s, threshold, preview, heightFloor = 
     <Section title={t('keychain.silhouette.title')} summary={summary} modified={isChanged(s, defaultKeychain.silhouette)} onReset={() => onChange({ ...defaultKeychain.silhouette })}>
       {aiSource && !aiSource.svg && (
         <div className="flex flex-col gap-1 text-xs text-text-muted">{t('keychain.ai.from')}
-          <SegmentedControl<SilhouetteParams['source']> fill ariaLabel={t('keychain.ai.from')} value={isFrame ? 'frame' : isAi ? 'ai' : 'brightness'} onChange={(v) => onChange({ source: v })}
+          <SegmentedControl<SilhouetteParams['source']> fill ariaLabel={t('keychain.ai.from')} value={isFrame ? 'frame' : isAi ? 'ai' : 'brightness'} onChange={(v) => onChange(v === s.source ? { source: v } : { source: v, areas: {} })}
             options={[{ value: 'brightness', label: t('keychain.ai.brightness') }, { value: 'ai', label: t('keychain.ai.ai') }, { value: 'frame', label: t('keychain.ai.frame') }]} />
         </div>
       )}

@@ -154,4 +154,36 @@ describe('MaskPreview: мягкая маска (33, 4.2)', () => {
     expect(screen.getByTestId('mask-large-extra')).toContainElement(screen.getByTestId('crop-slot'))
     expect(dlg.querySelector('canvas')!.className).toMatch(/max-h-/)
   })
+
+  it('миниатюра достаточно широка для заголовка и трёх кнопок: заголовок в одну строку, ширина не меньше 208 px', async () => {
+    for (const lang of ['en', 'ru']) {
+      await i18n.changeLanguage(lang); document.body.innerHTML = ''
+      render(<MaskPreview preview={preview} matte={{ width: 2, height: 2, data: new Uint8Array(4) }} height={{ width: 2, height: 2, data: new Uint8Array(4) }} />)
+      const box = screen.getByTestId('mask-preview')
+      expect(box.className).toMatch(/\bw-52\b/); expect(box.className).toMatch(/md:w-60/) // 13 rem и 15 rem: 3 кнопки по 2 rem и место под заголовок
+      const title = screen.getByText(i18n.t('keychain.preview.title')); expect(title.className).toMatch(/whitespace-nowrap/)
+      expect(box.querySelectorAll('button').length).toBe(4) // раскрытие, мягкая маска, высота, увеличение
+    }
+    await i18n.changeLanguage('en')
+  })
+
+  it('в полном виде есть те же кнопки мягкой маски и высоты; они ведут то же состояние, что и в миниатюре', async () => {
+    render(<MaskPreview preview={preview} matte={{ width: 2, height: 2, data: new Uint8Array(4).fill(90) }} height={{ width: 2, height: 2, data: new Uint8Array(4).fill(200) }} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Enlarge mask' }))
+    const dlg = screen.getByRole('dialog'), soft = within(dlg).getByTestId('view-soft'), hgt = within(dlg).getByTestId('view-height')
+    expect(soft).toHaveAttribute('aria-pressed', 'false'); expect(hgt).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(hgt)
+    expect(within(dlg).getByTestId('view-height')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getAllByTestId('view-height').every((b) => b.getAttribute('aria-pressed') === 'true')).toBe(true) // миниатюра за диалогом тоже
+    await userEvent.click(soft)
+    expect(screen.getAllByTestId('view-soft').every((b) => b.getAttribute('aria-pressed') === 'true')).toBe(true); expect(screen.getAllByTestId('view-height').every((b) => b.getAttribute('aria-pressed') === 'false')).toBe(true)
+    await userEvent.click(soft)
+    expect(screen.getAllByTestId('view-soft').every((b) => b.getAttribute('aria-pressed') === 'false')).toBe(true)
+  })
+
+  it('без мягкой маски и высоты кнопок вида нет ни в малом, ни в полном виде', async () => {
+    render(<MaskPreview preview={preview} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Enlarge mask' }))
+    expect(screen.queryByTestId('view-soft')).toBeNull(); expect(screen.queryByTestId('view-height')).toBeNull()
+  })
 })

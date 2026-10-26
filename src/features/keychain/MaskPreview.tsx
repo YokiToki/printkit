@@ -69,7 +69,21 @@ function drawMask(c: HTMLCanvasElement, preview: Preview, scale: number, selecte
 }
 
 /** Большой вид маски: ~70 % окна, закрывается кнопкой, Esc и щелчком снаружи. Тот же preview, поэтому обновляется вживую. */
-function LargeMask({ preview, selected, onSelect, onClose, soft, extra }: { preview: Preview; selected: number | null; onSelect?: (id: number | null) => void; onClose: () => void; soft: Matte | null; extra: ReactNode }) {
+type View = 'mask' | 'soft' | 'height'
+
+/** Переключатели вида: мягкая маска сети и высота рельефа (по одному, повторное нажатие возвращает маску). Одни и те же в малом и в полном виде. */
+function ViewToggles({ view, onView, hasSoft, hasHeight }: { view: View; onView: (v: View) => void; hasSoft: boolean; hasHeight: boolean }) {
+  const { t } = useTranslation()
+  const button = (id: 'soft' | 'height', label: string, Icon: typeof IconContrast) => (
+    <button type="button" data-testid={`view-${id}`} aria-pressed={view === id} aria-label={label} title={label} onClick={() => onView(view === id ? 'mask' : id)}
+      className={`flex h-8 w-8 flex-none cursor-pointer items-center justify-center border-0 bg-transparent ${view === id ? 'text-accent-text' : 'text-text-muted hover:text-text'}`}>
+      <Icon size={14} stroke={1.75} />
+    </button>
+  )
+  return <>{hasSoft && button('soft', t('keychain.preview.soft'), IconContrast)}{hasHeight && button('height', t('keychain.photo.height'), IconMountain)}</>
+}
+
+function LargeMask({ preview, selected, onSelect, onClose, soft, extra, toggles }: { preview: Preview; selected: number | null; onSelect?: (id: number | null) => void; onClose: () => void; soft: Matte | null; extra: ReactNode; toggles: ReactNode }) {
   const { t } = useTranslation()
   const ref = useRef<HTMLCanvasElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -91,6 +105,8 @@ function LargeMask({ preview, selected, onSelect, onClose, soft, extra }: { prev
         className="relative flex max-h-[94vh] flex-col gap-2 overflow-auto rounded-card border border-border bg-surface-1 p-3 shadow-float [--mask-h:70vh] [--mask-w:70vw] max-md:[--mask-h:80vh] max-md:[--mask-w:92vw]">
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-medium text-text">{t('keychain.preview.title')}</span>
+          <span className="flex-1" />
+          {toggles}
           <button ref={closeRef} type="button" aria-label={t('keychain.preview.close')} onClick={onClose}
             className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-control border-0 bg-transparent text-text-muted hover:bg-surface-3 hover:text-text">
             <IconX size={16} stroke={1.75} />
@@ -117,9 +133,9 @@ export function MaskPreview({ preview, selected = null, onSelect, matte = null, 
   const enlargeRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(true)
   const [large, setLarge] = useState(false)
-  const [view, setView] = useState<'mask' | 'soft' | 'height'>('mask')
+  const [view, setView] = useState<View>('mask')
   const soft = view === 'soft' && matte ? matte : view === 'height' && height ? height : null
-  const softOn = view === 'soft', heightOn = view === 'height'
+  const viewToggles = <ViewToggles view={view} onView={setView} hasSoft={!!matte} hasHeight={!!height} />
 
   useEffect(() => {
     if (ref.current && preview && open) drawMask(ref.current, preview, 1, selected, soft)
@@ -128,24 +144,13 @@ export function MaskPreview({ preview, selected = null, onSelect, matte = null, 
   const closeLarge = () => { setLarge(false); setTimeout(() => enlargeRef.current?.focus(), 0) }
 
   return (
-    <div className="absolute top-4 left-4 z-[1] w-44 rounded-card border border-border bg-surface-1/90 shadow-float md:w-52" data-testid="mask-preview">
+    <div className="absolute top-4 left-4 z-[1] w-52 rounded-card border border-border bg-surface-1/90 shadow-float md:w-60" data-testid="mask-preview">
       <div className="flex items-center">
         <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}
           className="flex h-8 min-w-0 flex-1 cursor-pointer items-center justify-between gap-1 rounded-tl-card border-0 bg-transparent px-2.5 text-xs font-medium text-text-muted hover:text-text">
-          <span>{t('keychain.preview.title')}</span>{open ? <IconChevronUp size={14} stroke={1.75} /> : <IconChevronDown size={14} stroke={1.75} />}
+          <span className="truncate whitespace-nowrap">{t('keychain.preview.title')}</span>{open ? <IconChevronUp size={14} stroke={1.75} /> : <IconChevronDown size={14} stroke={1.75} />}
         </button>
-        {preview && matte && (
-          <button type="button" aria-pressed={softOn} aria-label={t('keychain.preview.soft')} title={t('keychain.preview.soft')} onClick={() => setView((v) => (v === 'soft' ? 'mask' : 'soft'))}
-            className={`flex h-8 w-8 flex-none cursor-pointer items-center justify-center border-0 bg-transparent ${softOn ? 'text-accent-text' : 'text-text-muted hover:text-text'}`}>
-            <IconContrast size={14} stroke={1.75} />
-          </button>
-        )}
-        {preview && height && (
-          <button type="button" aria-pressed={heightOn} aria-label={t('keychain.photo.height')} title={t('keychain.photo.height')} onClick={() => setView((v) => (v === 'height' ? 'mask' : 'height'))}
-            className={`flex h-8 w-8 flex-none cursor-pointer items-center justify-center border-0 bg-transparent ${heightOn ? 'text-accent-text' : 'text-text-muted hover:text-text'}`}>
-            <IconMountain size={14} stroke={1.75} />
-          </button>
-        )}
+        {preview && viewToggles}
         {preview && (
           <button ref={enlargeRef} type="button" aria-label={t('keychain.preview.enlarge')} title={t('keychain.preview.enlarge')} onClick={() => setLarge(true)}
             className="flex h-8 w-8 flex-none cursor-pointer items-center justify-center rounded-tr-card border-0 bg-transparent text-text-muted hover:text-text">
@@ -160,7 +165,7 @@ export function MaskPreview({ preview, selected = null, onSelect, matte = null, 
             : <span className="text-xs text-text-subtle">{t('keychain.preview.empty')}</span>}
         </div>
       )}
-      {large && preview && <LargeMask preview={preview} selected={selected} onSelect={onSelect} onClose={closeLarge} soft={soft} extra={extra} />}
+      {large && preview && <LargeMask preview={preview} selected={selected} onSelect={onSelect} onClose={closeLarge} soft={soft} extra={extra} toggles={viewToggles} />}
     </div>
   )
 }

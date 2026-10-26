@@ -54,6 +54,7 @@ Depth V2 Small gives a smooth depth map (the owner found it good as a form); on 
 
 ## Open Questions
 
+- Spike 1.1 (two pictures: `cat`, `cat_face`; the owner's portrait and plush are for 6.2): shares 25/45/30, radius 1.4 mm, amount 2, Engrave with dark threshold 0.25–0.3 make the face readable; Portrait 25/45/30 (2 mm range), Subtle 40/45/15 (1.2 mm, amount 1.5), Deep 20/45/35 (2.8 mm, amount 2.5). Depth on the face crop is smoother but the gain over the whole frame is moderate. Details in `poc/ai/FINDINGS.md`.
 - Defaults for the shares, radius, amount, levels and range (the spike picks them with the PoC combiner and real keychains).
 - Whether depth on the face crop is clearly better than on the whole frame (`cat_face` sample in the PoC); decides if the crop-linked recompute prompt is shown by default.
 - Whether to add a face detector for an automatic crop later.

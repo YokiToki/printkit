@@ -42,5 +42,6 @@ A keychain differs from a photo cutout in three ways that shape the design: the 
 
 ## Open Questions
 
+- Check on keychain pictures (1.1), four sample pictures only: ormbg is unusable (marks the bed); BiRefNet-lite is best on a whole animal but takes a close-up for one object; ISNet (general int8 / imgly) is the robust choice on both; every model finds line-art strokes, but Brightness is cleaner and quicker there. Defaults `threshold 0.5`, `smooth 0.3 mm` are kept from `32`; portraits, plush toys and transparent logos from the owner decide the rest in 6.2. Full table in `poc/ai/FINDINGS.md`.
 - Whether the default model for Keychain should differ from the Cutout default (photos of animals and people versus tools on paper); the PoC "whole image" mode and a few pet and portrait photos from the owner decide it.
 - Whether to offer a one-click "AI remove background" on import for images that look like photos (no transparency, busy border), or keep it manual. Starting manual.

@@ -2,7 +2,7 @@
 
 ## 1. Check on keychain pictures (spike)
 
-- [ ] 1.1 With `poc/ai/` in "whole image (Keychain)" mode, run the models of `32`'s shortlist on 6–10 pictures: a pet, a portrait, an object on a table, a plush toy, a logo with transparency, a two-tone logo, a wide landscape-format photo. Record per picture and model: subject found whole, stray fragments, edge quality at the threshold and smoothing that look best, time. Write the table and the per-model `maskDefaults` for keychain pictures into `design.md` (Open Questions) and `poc/ai/FINDINGS.md`. If a model cannot be used on keychain pictures say so and stop for `/opsx:update`.
+- [x] 1.1 (done in Node on the four sample pictures that exist, `scripts/eval-keychain-ai.ts`; the other pictures of the list are for the owner's check in 6.2) With `poc/ai/` in "whole image (Keychain)" mode, run the models of `32`'s shortlist on 6–10 pictures: a pet, a portrait, an object on a table, a plush toy, a logo with transparency, a two-tone logo, a wide landscape-format photo. Record per picture and model: subject found whole, stray fragments, edge quality at the threshold and smoothing that look best, time. Write the table and the per-model `maskDefaults` for keychain pictures into `design.md` (Open Questions) and `poc/ai/FINDINGS.md`. If a model cannot be used on keychain pictures say so and stop for `/opsx:update`.
 
 ## 2. Geometry (React-free)
 

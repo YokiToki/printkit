@@ -31,5 +31,5 @@
 
 ## 6. Verification
 
-- [ ] 6.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; with the Distance and Brightness sources the existing keychain tests and volumes are unchanged.
-- [ ] 6.2 In the browser, en and ru and at 390 px, with the cat photo and a portrait: AI silhouette, crop to the face, Compute depth, the Portrait preset, the eyes, nose and ears are visible in the 3D relief, the shares update live without a model run (network panel), Whole frame gives a plaque, reload restores crop, shares and depth without a run, deleting the model keeps the relief, the STL is one valid piece that prints face up, no request carries image data.
+- [x] 6.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; with the Distance and Brightness sources the existing keychain tests and volumes are unchanged.
+- [x] 6.2 In the browser, en and ru and at 390 px, with the cat photo and a portrait: AI silhouette, crop to the face, Compute depth, the Portrait preset, the eyes, nose and ears are visible in the 3D relief, the shares update live without a model run (network panel), Whole frame gives a plaque, reload restores crop, shares and depth without a run, deleting the model keeps the relief, the STL is one valid piece that prints face up, no request carries image data.

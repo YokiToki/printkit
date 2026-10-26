@@ -9,6 +9,7 @@ export type MlResponse =
   | { id: number; ok: true; alpha?: Float32Array }
   | { id: number; error: string }
   | { kind: 'phase'; phase: Phase; modelId: string }
+  | { kind: 'fatal'; message: string }
 
 export interface MlWorkerLike {
   postMessage(msg: MlRequest, transfer?: Transferable[]): void
@@ -86,7 +87,7 @@ export class MlClient {
   }
 
   private onMessage(r: MlResponse) {
-    if ('kind' in r) { this.onPhase?.(r.phase, r.modelId); return }
+    if ('kind' in r) { if (r.kind === 'fatal') this.fail(new Error(r.message)); else this.onPhase?.(r.phase, r.modelId); return }
     const p = this.pending.get(r.id)
     if (!p) return // запрос вытеснен или отменён
     this.pending.delete(r.id)

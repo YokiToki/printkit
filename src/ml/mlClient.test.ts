@@ -56,6 +56,13 @@ describe('MlClient', () => {
     await expect(p).rejects.toThrow('Failed to fetch module')
   })
 
+  it('сообщение fatal из воркера (необработанное исключение) отклоняет ждущие запросы', async () => {
+    const { c, workers } = setup()
+    const p = c.load(spec, new ArrayBuffer(4), 'webgpu')
+    workers[0].reply({ kind: 'fatal', message: 'init failed' })
+    await expect(p).rejects.toThrow('init failed')
+  })
+
   it('отмена закрывает воркер, ждущие запросы получают MlAbortError, следующий запрос создаёт новый воркер', async () => {
     const { c, workers } = setup()
     const p = c.matte(spec, new Uint8Array(12), 2, 2)

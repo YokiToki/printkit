@@ -17,7 +17,7 @@ import { CompareOverlay, CompareTable } from './CompareOverlay'
 import { EngineSwitch } from './EngineSwitch'
 import { PhotoTips } from './PhotoTips'
 import { RectifiedView } from './RectifiedView'
-import type { PhotoTrace } from './usePhotoTrace'
+import { PHOTO_CLEARANCE, PHOTO_DEPTH, type PhotoTrace } from './usePhotoTrace'
 
 type Step = 1 | 2 | 3
 
@@ -62,10 +62,10 @@ export function PhotoDialog({ trace, maxDepth, onClose, onCreate }: { trace: Pho
   }, [onClose, tipsOpen])
 
   const canNext = step === 1 ? !!photo : step === 2 ? quad === 'ok' && !!preview : false
-  const depth = Math.min(s.depth, maxDepth)
+  const depth = Math.min(PHOTO_DEPTH, maxDepth) // глубину и зазор здесь не видно, их настраивают у готовых вырезов
   const create = () => {
     if (!segmentation) return
-    onCreate(tracedCutouts(segmentation, selected, paper, { depth, clearance: s.clearance, name: (n) => t('cutout.photo.itemName', { n }) }))
+    onCreate(tracedCutouts(segmentation, selected, paper, { depth, clearance: PHOTO_CLEARANCE, name: (n) => t('cutout.photo.itemName', { n }) }))
   }
   // контуры другого движка для сравнения: ИИ, если активна классика, и наоборот
   const other = s.compare ? (s.engine === 'ai' && trace.aiSegmentation && !trace.ai.error ? trace.segmentation : trace.aiSegmentation && s.engine === 'classic' ? trace.aiSegmentation : null) : null
@@ -192,10 +192,6 @@ export function PhotoDialog({ trace, maxDepth, onClose, onCreate }: { trace: Pho
                     </li>
                   ))}
                 </ul>
-                <div className="grid grid-cols-2 gap-2">
-                  <LengthField label={t('cutout.props.depth')} value={depth} min={0.5} max={Math.max(1, maxDepth)} step={0.5} onChange={(v) => set({ depth: v })} />
-                  <LengthField label={t('cutout.props.clearance')} value={s.clearance} min={0} max={5} step={0.05} onChange={(v) => set({ clearance: v })} />
-                </div>
                 <span className="text-xs text-text-subtle">{t('cutout.photo.keepNote')}</span>
               </div>
             </div>

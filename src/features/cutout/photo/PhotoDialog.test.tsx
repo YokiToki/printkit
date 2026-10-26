@@ -352,13 +352,12 @@ describe('окно «Из фото»: силуэты (3.3) и создание (
     await waitFor(() => expect(screen.getByRole('button', { name: 'From photo' })).toHaveFocus())
   }, 30000)
 
-  it('глубина и зазор из окна попадают в вырезы; зазор по умолчанию 0.8 мм', async () => {
+  it('в окне нет полей глубины и зазора; вырезы создаются с глубиной 10 и зазором 0.8 мм и правятся уже в списке', async () => {
     await toStep3()
-    expect(screen.getByLabelText('Clearance')).toHaveValue('0.8')
-    const depth = screen.getByLabelText('Depth')
-    await userEvent.clear(depth); await userEvent.type(depth, '7'); await userEvent.tab()
+    expect(screen.queryByLabelText('Depth')).toBeNull()
+    expect(screen.queryByLabelText('Clearance')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Create 2 cutouts' }))
-    expect(latest.cutouts.every((c) => c.depth === 7 && c.clearance === 0.8)).toBe(true)
+    expect(latest.cutouts.every((c) => c.depth === 10 && c.clearance === 0.8)).toBe(true)
   }, 30000)
 
   it('прежние вырезы остаются, а при повторном создании цвета продолжаются', async () => {

@@ -26,8 +26,6 @@ export interface PhotoSettings {
   margin: number
   /** Номера силуэтов, снятых с выбора. */
   excluded: number[]
-  depth: number
-  clearance: number
   /** Движок силуэтов: классический (по умолчанию, работает без загрузок) или нейросеть. */
   engine: SegEngine
   /** Настройка маски сети; null — значения модели по умолчанию (`maskDefaults`), пока пользователь их не трогал. */
@@ -39,9 +37,13 @@ export interface PhotoSettings {
 }
 export type SegEngine = 'classic' | 'ai'
 
+/** Глубина и зазор вырезов, создаваемых из фото: изменений окно не показывает, поэтому они не настраиваются здесь, а правятся у готовых вырезов в списке. */
+export const PHOTO_DEPTH = 10
+export const PHOTO_CLEARANCE = 0.8
+
 export const defaultPhotoSettings: PhotoSettings = {
   preset: 'a4', orientation: 'landscape', custom: { width: 210, length: 297 }, corners: [],
-  sensitivity: null, margin: 3, excluded: [], depth: 10, clearance: 0.8,
+  sensitivity: null, margin: 3, excluded: [],
   engine: 'classic', ai: { threshold: null, smooth: null, secondPass: false }, aiRefine: true, compare: false,
 }
 

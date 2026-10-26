@@ -502,7 +502,7 @@
       "none": "No objects found. Try raising the sensitivity or reducing the edge margin.",
       "list": "Silhouettes",
       "silhouette": "Silhouette {{n}}",
-      "keepNote": "Existing cutouts are kept. The bin is resized to the smallest whole number of units.",
+      "keepNote": "Existing cutouts are kept. The bin is resized to the smallest whole number of units. Depth and clearance can be changed for each cutout in the list.",
       "back": "Back",
       "next": "Next",
       "create": "Create {{count}} cutouts",

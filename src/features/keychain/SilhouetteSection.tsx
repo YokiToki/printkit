@@ -40,7 +40,8 @@ export function SilhouetteSection({ value: s, threshold, preview, heightFloor = 
   const auto = s.threshold === 'auto'
   const areas = preview?.areas ?? []
   const settings = s.areas ?? {}
-  const get = (id: number): AreaSetting => settings[id] ?? { mode: 'follow', level: DEFAULT_AREA_LEVEL }
+  // показывается действующий режим области из расчёта (автоматически открытая ИИ-областью тоже «Открыта»), а не только сохранённая настройка
+  const get = (id: number): AreaSetting => settings[id] ?? (() => { const a = areas.find((x) => x.id === id); return { mode: a?.mode ?? 'follow', level: a?.level ?? DEFAULT_AREA_LEVEL } })()
   const setArea = (id: number, patch: Partial<AreaSetting>) => onChange({ areas: { ...settings, [id]: { ...get(id), ...patch } } })
   const [all, setAll] = useState<AreaSetting>({ mode: 'open', level: DEFAULT_AREA_LEVEL })
   const applyAll = () => onChange({ areas: Object.fromEntries(areas.map((a) => [a.id, { mode: all.mode, level: Math.max(all.level, heightFloor) }])) })
@@ -109,7 +110,7 @@ export function SilhouetteSection({ value: s, threshold, preview, heightFloor = 
             <Button onClick={applyAll}>{t('keychain.silhouette.all.apply')}</Button>
           </div>
         )}
-        {areas.some((a) => (s.areas?.[a.id]?.mode ?? 'follow') === 'level') && <span className="text-xs text-text-subtle">{t('keychain.silhouette.levelHint')}</span>}
+        {areas.some((a) => get(a.id).mode === 'level') && <span className="text-xs text-text-subtle">{t('keychain.silhouette.levelHint')}</span>}
       </div>
         </>
       )}

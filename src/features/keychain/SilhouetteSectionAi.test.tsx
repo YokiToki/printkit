@@ -186,4 +186,10 @@ describe('MaskPreview: мягкая маска (33, 4.2)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Enlarge mask' }))
     expect(screen.queryByTestId('view-soft')).toBeNull(); expect(screen.queryByTestId('view-height')).toBeNull()
   })
+
+  it('режим области в списке — действующий из расчёта: автоматически открытая ИИ область показана «Open», а не «Follow»', async () => {
+    const a = setup({ ...ai }, src(control()), { preview: { ...preview, areas: [{ id: 1, size: 300, cx: 2, cy: 2, open: true, mode: 'open', level: 0.6 }, { id: 2, size: 20, cx: 1, cy: 1, open: false, mode: 'follow', level: 0.6 }] } as Preview }); await a.open()
+    const mode = (id: number) => (screen.getByLabelText(`Mode of area ${id}`) as HTMLSelectElement).selectedOptions[0].textContent
+    expect(mode(1)).toBe('Open'); expect(mode(2)).toBe('Follow relief')
+  })
 })

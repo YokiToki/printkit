@@ -1349,7 +1349,8 @@
       "runDone": "{{name}}: done in {{seconds}} s",
       "runCancelled": "AI run cancelled",
       "runFailed": "{{name}} failed",
-      "firstPassImage": "Removing the background"
+      "firstPassImage": "Removing the background",
+      "depthPass": "Computing the depth map"
     }
   },
   "ml": {
@@ -1359,7 +1360,8 @@
     "intro": "Neural networks run in your browser: photos are never uploaded. A model is downloaded once, only after you confirm, and is kept in the browser.",
     "notPersistent": "This browser does not keep downloaded models between visits: they stay until the page is reloaded.",
     "kind": {
-      "matte": "Silhouette (mask)"
+      "matte": "Silhouette (mask)",
+      "depth": "Depth map"
     },
     "purpose": {
       "default": "Recommended",

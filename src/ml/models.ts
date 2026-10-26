@@ -3,7 +3,7 @@
  * ревизии (commit hash, не `main`) и проверяются по SHA-256. Размеры и суммы взяты у Hugging Face (LFS-метаданные файла), а для
  * ISNet general int8 сверены с файлом, скачанным скриптом оценки. Только разрешающие лицензии (MIT, Apache-2.0, BSD, CC0).
  */
-export type MlKind = 'matte'
+export type MlKind = 'matte' | 'depth'
 export type Backend = 'wasm' | 'webgpu'
 export type Purpose = 'default' | 'fast' | 'light' | 'accurate'
 
@@ -33,6 +33,8 @@ export interface ModelSpec {
   backends: Backend[]
   /** Веса fp16: нужен `shader-f16` у WebGPU. */
   fp16: boolean
+  /** Внешний файл данных ONNX (веса лежат отдельно от графа): путь, под которым его ждёт runtime, и закреплённый URL с суммой. */
+  data?: { path: string; url: string; bytes: number; sha256: string }
   /** Порог и сглаживание маски по умолчанию (подобраны на фикстурах; уточняются в браузере). */
   maskDefaults: { threshold: number; smooth: number }
 }
@@ -68,6 +70,31 @@ export const MODELS: ModelSpec[] = [
   },
 ]
 
+const DAV2 = '/resolve/c3b67641fd837b2368757101311e5d21e511441e/onnx/'
+const DAV2_REPO = 'onnx-community/depth-anything-v2-small-ONNX'
+const davUrl = (f: string) => `https://huggingface.co/${DAV2_REPO}${DAV2}${f}`
+
+// Карта глубины (kind 'depth') для источника «Фото» в Keychain: граф и веса — два файла, оба закреплены ревизией и суммой
+MODELS.push(
+  {
+    id: 'depth-v2-small-q4f16', kind: 'depth', name: 'Depth Anything V2 Small (q4f16)', purpose: 'default',
+    url: davUrl('model_q4f16.onnx'), source: `https://huggingface.co/${DAV2_REPO}`, revision: 'c3b67641fd837b2368757101311e5d21e511441e',
+    bytes: 212397, sha256: '383b7ecf28cc679bd84e691eab6a7cd604775edf3e91a66e2889d46ecb655c70', spdx: 'Apache-2.0',
+    data: { path: 'model_q4f16.onnx_data', url: davUrl('model_q4f16.onnx_data'), bytes: 20200448, sha256: 'a04a7637b21eb8aadeb791bc5b19e2c949b4b8a1bae7d400a5ec0e6a155a99b1' },
+    size: 518, ...IMNET, sigmoid: false, backends: ['wasm', 'webgpu'], fp16: true, maskDefaults: MASK,
+  },
+  {
+    id: 'depth-v2-small-fp16', kind: 'depth', name: 'Depth Anything V2 Small (fp16)', purpose: 'accurate',
+    url: davUrl('model_fp16.onnx'), source: `https://huggingface.co/${DAV2_REPO}`, revision: 'c3b67641fd837b2368757101311e5d21e511441e',
+    bytes: 180471, sha256: '3f220770bf259ef0cc1a8253f4f29419d4d15092902d78ded851669291d876e2', spdx: 'Apache-2.0',
+    data: { path: 'model_fp16.onnx_data', url: davUrl('model_fp16.onnx_data'), bytes: 50392064, sha256: '4c3b600a87aa247593ceaafb11cd1f40568dc391cd1305d6ad01075079297ddd' },
+    size: 518, ...IMNET, sigmoid: false, backends: ['webgpu', 'wasm'], fp16: true, maskDefaults: MASK,
+  },
+)
+
+/** Размер всех файлов модели: граф и данные. */
+export const totalBytes = (m: ModelSpec) => m.bytes + (m.data?.bytes ?? 0)
+
 export const modelById = (id: string) => MODELS.find((m) => m.id === id)
 export const modelHost = (m: ModelSpec) => new URL(m.url).host
 
@@ -81,6 +108,7 @@ export function registryIssues(models: readonly ModelSpec[] = MODELS): string[] 
     if (!/^[0-9a-f]{40}$/.test(m.revision) || !m.url.includes(`/resolve/${m.revision}/`)) issues.push(`${m.id}: ревизия не закреплена хешем коммита`)
     if (!/^[0-9a-f]{64}$/.test(m.sha256)) issues.push(`${m.id}: нет SHA-256`)
     if (!(m.bytes > 0)) issues.push(`${m.id}: нет размера`)
+    if (m.data && (!/^[0-9a-f]{64}$/.test(m.data.sha256) || !(m.data.bytes > 0) || !m.data.path || !m.data.url.includes(`/resolve/${m.revision}/`))) issues.push(`${m.id}: файл данных без суммы, размера, пути или закреплённой ревизии`)
     if (!m.backends.length) issues.push(`${m.id}: нет бэкендов`)
   }
   return issues

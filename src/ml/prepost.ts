@@ -37,3 +37,14 @@ export function fromOutput(raw: Float32Array, spec: Pick<ModelSpec, 'sigmoid'>, 
   const o = spec.sigmoid || lo < -0.001 || hi > 1.001 ? raw.map((x) => 1 / (1 + Math.exp(-x))) : raw
   return resampleOutput(o, Math.round(Math.sqrt(o.length)), w, h, 'cubic')
 }
+
+/**
+ * Выход модели глубины (квадрат s × s, относительная глубина: больше — ближе) → плоскость w × h со значениями 0…1 по минимуму и
+ * максимуму кадра (бикубически, поля вписывания отброшены). Окончательная нормировка по маске предмета — в сборке рельефа.
+ */
+export function fromDepth(raw: Float32Array, w: number, h: number): Float32Array {
+  let lo = Infinity, hi = -Infinity
+  for (const x of raw) { if (x < lo) lo = x; if (x > hi) hi = x }
+  const span = hi - lo || 1
+  return resampleOutput(Float32Array.from(raw, (v) => (v - lo) / span), Math.round(Math.sqrt(raw.length)), w, h, 'cubic')
+}

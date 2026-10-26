@@ -18,9 +18,12 @@ const runtime = createRuntime(async (backend) => {
 self.addEventListener('message', async (e: MessageEvent<MlRequest>) => {
   const m = e.data
   try {
-    if (m.kind === 'load') { await runtime.load(m.spec, m.bytes, m.backend); self.postMessage({ id: m.id, ok: true } satisfies MlResponse) }
+    if (m.kind === 'load') { await runtime.load(m.spec, m.bytes, m.backend, m.data); self.postMessage({ id: m.id, ok: true } satisfies MlResponse) }
     else if (m.kind === 'matte') {
       const alpha = await runtime.matte(m.spec, m.rgb, m.w, m.h)
+      self.postMessage({ id: m.id, ok: true, alpha } satisfies MlResponse, [alpha.buffer])
+    } else if (m.kind === 'depth') {
+      const alpha = await runtime.depth(m.spec, m.rgb, m.w, m.h)
       self.postMessage({ id: m.id, ok: true, alpha } satisfies MlResponse, [alpha.buffer])
     } else { await runtime.release(m.modelId); self.postMessage({ id: m.id, ok: true } satisfies MlResponse) }
   } catch (err) {

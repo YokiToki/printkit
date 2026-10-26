@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fromOutput, toInput } from './prepost'
+import { fromDepth, fromOutput, toInput } from './prepost'
 
 const spec = { size: 4, mean: [0.5, 0.5, 0.5] as [number, number, number], std: [0.5, 0.5, 0.5] as [number, number, number], sigmoid: false }
 
@@ -37,5 +37,13 @@ describe('подготовка входа и разбор выхода', () => {
     for (let j = 0; j < 4; j++) { out[j * 4 + 1] = 0.2 * (j + 1); out[j * 4 + 2] = 0.2 * (j + 1) } // содержимое в двух средних столбцах
     const a = fromOutput(out, spec, 1, 2)
     expect(a).toHaveLength(2); expect(a[0]).toBeLessThan(a[1]) // градиент по вертикали сохранился
+  })
+
+  it('глубина: значения приводятся к 0…1 по минимуму и максимуму, поля вписывания отбрасываются', () => {
+    const raw = Float32Array.from({ length: 16 }, (_, k) => 100 + 50 * (k % 4)) // 100…250 по столбцам
+    const d = fromDepth(raw, 4, 4)
+    expect(d).toHaveLength(16); expect(Math.min(...d)).toBeGreaterThanOrEqual(0); expect(Math.max(...d)).toBeLessThanOrEqual(1)
+    expect(d[3]).toBeGreaterThan(d[0]) // градиент слева направо сохранён
+    expect(Array.from(fromDepth(new Float32Array(16).fill(7), 2, 2)).every((v) => v === 0)).toBe(true) // ровная глубина — ноль, не NaN
   })
 })

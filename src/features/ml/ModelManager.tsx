@@ -14,7 +14,7 @@ import { Button } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { closeModelManager } from './managerState'
 
-const KINDS: MlKind[] = ['matte']
+const KINDS: MlKind[] = ['matte', 'depth']
 const mb = (n: number) => Math.round(n / 1048576)
 
 /**
@@ -50,7 +50,7 @@ export function ModelManager({ store: given, service, caps: givenCaps, models = 
 
   const download = (spec: ModelSpec) => { setConsent(null); void (service ?? getMlService()).downloadModel(spec) }
   const used = store.usedBytes()
-  const activeId = usableModel(store, caps, 'matte', models)?.id // выбранная пользователем, а пока выбора нет — первая готовая и доступная
+  const activeOf = (kind: MlKind) => usableModel(store, caps, kind, models)?.id // выбранная пользователем, а пока выбора нет — первая готовая и доступная
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 md:p-4" data-testid="models-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closeModelManager() }}>
@@ -63,12 +63,12 @@ export function ModelManager({ store: given, service, caps: givenCaps, models = 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
           <p className="m-0 text-xs text-text-muted">{t('ml.intro')}</p>
           {!store.persistent && <Banner kind="warn">{t('ml.notPersistent')}</Banner>}
-          {KINDS.map((kind) => (
+          {KINDS.filter((k) => models.some((m) => m.kind === k)).map((kind) => (
             <section key={kind} aria-label={t(`ml.kind.${kind}`)} className="flex flex-col gap-2">
               <h3 className="m-0 text-[13px] font-semibold">{t(`ml.kind.${kind}`)}</h3>
               <ul className="m-0 flex list-none flex-col gap-2 p-0">
                 {models.filter((m) => m.kind === kind).map((m) => (
-                  <ModelRow key={m.id} spec={m} store={store} caps={caps} activeId={activeId} onDownload={() => setConsent(m)} />
+                  <ModelRow key={m.id} spec={m} store={store} caps={caps} activeId={activeOf(kind)} onDownload={() => setConsent(m)} />
                 ))}
               </ul>
             </section>

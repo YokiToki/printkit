@@ -1,12 +1,12 @@
 // Запуск моделей: сессия onnxruntime-web создаётся лениво (динамический импорт), бэкенд WebGPU или WASM в одну нить.
-import { fromOutput, toInput } from './prepost'
+import { fromDepth, fromOutput, toInput } from './prepost'
 import type { Backend, ModelSpec } from './models'
 
 /** Нужная часть onnxruntime-web: так среду можно подменить в тестах и не тянуть библиотеку, пока ИИ не использован. */
 export interface OrtLike {
   Tensor: new (type: 'float32', data: Float32Array, dims: number[]) => unknown
   InferenceSession: {
-    create(bytes: Uint8Array, options: { executionProviders: string[]; graphOptimizationLevel?: string }): Promise<SessionLike>
+    create(bytes: Uint8Array, options: { executionProviders: string[]; graphOptimizationLevel?: string; externalData?: { path: string; data: Uint8Array }[] }): Promise<SessionLike>
   }
 }
 export interface SessionLike {
@@ -19,9 +19,12 @@ export interface SessionLike {
 export type Phase = 'session' | 'run'
 export interface MlRuntime {
   /** Создаёт сессию модели из байт весов на выбранном бэкенде. */
-  load(spec: ModelSpec, bytes: ArrayBuffer, backend: Backend): Promise<void>
+  /** `data` — внешний файл данных ONNX (у моделей глубины граф и веса лежат отдельно). */
+  load(spec: ModelSpec, bytes: ArrayBuffer, backend: Backend, data?: ArrayBuffer): Promise<void>
   /** Альфа 0…1 размера w × h для картинки RGB w × h. */
   matte(spec: ModelSpec, rgb: Uint8Array, w: number, h: number): Promise<Float32Array>
+  /** Карта глубины 0…1 размера w × h для картинки RGB w × h (модель вида depth). */
+  depth(spec: ModelSpec, rgb: Uint8Array, w: number, h: number): Promise<Float32Array>
   release(modelId: string): Promise<void>
   has(modelId: string): boolean
 }
@@ -31,13 +34,13 @@ export function createRuntime(loadOrt: (backend: Backend) => Promise<OrtLike>, o
   const libs = new Map<Backend, OrtLike>()
   const sessionLib = new Map<string, OrtLike>()
   return {
-    async load(spec, bytes, backend) {
+    async load(spec, bytes, backend, data) {
       onPhase?.('session', spec.id)
       // WebGPU-сборка библиотеки ломается без WebGPU даже для WASM-сессии, поэтому у каждого бэкенда своя сборка
       let ort = libs.get(backend)
       if (!ort) { ort = await loadOrt(backend); libs.set(backend, ort) }
       // буфер весов сессии не переиспользуется: ORT может его передать (transfer), поэтому ей отдаём копию
-      const session = await ort.InferenceSession.create(new Uint8Array(bytes.slice(0)), { executionProviders: [backend], graphOptimizationLevel: 'all' })
+      const session = await ort.InferenceSession.create(new Uint8Array(bytes.slice(0)), { executionProviders: [backend], graphOptimizationLevel: 'all', ...(spec.data && data ? { externalData: [{ path: spec.data.path, data: new Uint8Array(data.slice(0)) }] } : {}) })
       await sessions.get(spec.id)?.release?.()
       sessions.set(spec.id, session); sessionLib.set(spec.id, ort)
     },
@@ -49,6 +52,14 @@ export function createRuntime(loadOrt: (backend: Backend) => Promise<OrtLike>, o
       const input = new ort.Tensor('float32', toInput(rgb, w, h, spec), [1, 3, spec.size, spec.size])
       const out = await session.run({ [session.inputNames[0]]: input })
       return fromOutput(out[session.outputNames[0]].data as Float32Array, spec, w, h)
+    },
+    async depth(spec, rgb, w, h) {
+      const session = sessions.get(spec.id), ort = sessionLib.get(spec.id)
+      if (!session || !ort) throw new Error(`session ${spec.id} not loaded`)
+      onPhase?.('run', spec.id)
+      const input = new ort.Tensor('float32', toInput(rgb, w, h, spec), [1, 3, spec.size, spec.size])
+      const out = await session.run({ [session.inputNames[0]]: input })
+      return fromDepth(out[session.outputNames[0]].data as Float32Array, w, h)
     },
     async release(modelId) { await sessions.get(modelId)?.release?.(); sessions.delete(modelId) },
     has: (modelId) => sessions.has(modelId),

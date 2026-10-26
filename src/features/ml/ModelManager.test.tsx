@@ -100,4 +100,15 @@ describe('ModelManager (32, 5.2)', () => {
     expect(screen.getByTestId('status-a')).toHaveTextContent('Not downloaded')
     expect(screen.getByRole('button', { name: 'Open the log' })).toBeInTheDocument()
   })
+
+  it('модели глубины в своём разделе, у каждого вида свой выбор рабочей', async () => {
+    const m = await spec('m', 1048576, 1), dp = await spec('dp', 1048576, 4, { kind: 'depth', name: 'Depth model' })
+    const store = createModelStore({ fetch: (async () => stream(content(1048576, 1))) as unknown as typeof fetch, caches: undefined, digest: hexOf, registry: [m, dp], storage: undefined })
+    const service = createMlService({ client: { load: vi.fn(), matte: vi.fn(), cancel: vi.fn() }, store, caps: async () => caps })
+    render(<I18nextProvider i18n={i18n}><ModelManager store={store} service={service} caps={caps} models={[m, dp]} /></I18nextProvider>)
+    expect(screen.getByRole('region', { name: 'Silhouette (mask)' })).toBeInTheDocument()
+    const depthSection = screen.getByRole('region', { name: 'Depth map' })
+    expect(within(depthSection).getByTestId('model-dp')).toBeInTheDocument(); expect(within(depthSection).queryByTestId('model-m')).toBeNull()
+    expect(depthSection.querySelector('input[type=radio]')!.getAttribute('name')).toBe('active-depth')
+  })
 })

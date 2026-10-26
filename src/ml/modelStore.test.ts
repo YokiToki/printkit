@@ -95,3 +95,45 @@ describe('modelStore', () => {
     expect(createModelStore({ caches: undefined, storage: st }).activeFor('matte')).toBe('isnet-general-int8')
   })
 })
+
+describe('modelStore: модель из двух файлов (34, 3.1)', () => {
+  async function twoFiles(id: string, main: Uint8Array, data: Uint8Array): Promise<ModelSpec> {
+    return { ...(await specFor(id, main)), data: { path: `${id}.onnx_data`, url: `https://huggingface.co/x/${id}/resolve/${MODELS[0].revision}/m.onnx_data`, bytes: data.length, sha256: await hexOf(data.buffer.slice(0) as ArrayBuffer) } }
+  }
+  const byUrl = (main: Uint8Array, data: Uint8Array) => (async (u: string) => stream([u.endsWith('_data') ? data : main])) as unknown as typeof fetch
+
+  it('скачивает оба файла с общим прогрессом, проверяет оба, читает граф и данные', async () => {
+    const main = bytes(10, 1), data = bytes(30, 2), spec = await twoFiles('d', main, data), { caches, store } = make(), progress: [number, number][] = []
+    const s = store([spec], byUrl(main, data))
+    await s.download(spec, (l, t) => progress.push([l, t]))
+    expect(s.status('d')).toEqual({ state: 'ready' }); expect(progress.at(-1)).toEqual([40, 40]); expect(caches.m.size).toBe(2)
+    expect(new Uint8Array((await s.read(spec))!)).toEqual(main); expect(new Uint8Array((await s.readData(spec))!)).toEqual(data); expect(s.usedBytes()).toBe(40)
+  })
+
+  it('неверный файл данных: сбой, в кэше нет ни одного файла (граф тоже не сохраняется)', async () => {
+    const main = bytes(10, 1), data = bytes(30, 2), spec = await twoFiles('d', main, data), { caches, store } = make()
+    const s = store([spec], byUrl(main, bytes(30, 9)))
+    await s.download(spec)
+    expect(s.status('d')).toMatchObject({ state: 'failed', error: 'checksum' }); expect(caches.m.size).toBe(0); expect(await s.read(spec)).toBeNull()
+    const short = store([spec], byUrl(main, bytes(5, 2))); await short.download(spec)
+    expect(short.status('d')).toMatchObject({ state: 'failed', error: 'size' })
+  })
+
+  it('отмена посреди второго файла ничего не оставляет; удаление убирает оба файла; refresh видит модель только при обоих файлах', async () => {
+    const main = bytes(10, 1), data = bytes(30, 2), spec = await twoFiles('d', main, data), { caches, store } = make()
+    let release!: () => void
+    const gate = new Promise<void>((r) => { release = r })
+    const slow = store([spec], (async (u: string, init?: RequestInit) => (u.endsWith('_data') ? new Response(new ReadableStream({ async start(c) { c.enqueue(data.slice(0, 5)); await gate; if (init?.signal?.aborted) c.error(new DOMException('aborted', 'AbortError')); else { c.enqueue(data.slice(5)); c.close() } } })) : stream([main]))) as unknown as typeof fetch)
+    const p = slow.download(spec)
+    await vi.waitFor(() => expect(slow.status('d').state).toBe('downloading'))
+    await vi.waitFor(() => expect((slow.status('d') as { loaded: number }).loaded).toBeGreaterThan(10))
+    slow.cancel('d'); release(); await p
+    expect(slow.status('d')).toEqual({ state: 'absent' }); expect(caches.m.size).toBe(0)
+    const ok = store([spec], byUrl(main, data)); await ok.download(spec)
+    expect(caches.m.size).toBe(2)
+    caches.m.delete(spec.data!.url) // потерян файл данных
+    const again = store([spec], byUrl(main, data)); await again.refresh()
+    expect(again.status('d')).toEqual({ state: 'absent' })
+    await ok.remove('d'); expect(caches.m.size).toBe(0)
+  })
+})

@@ -47,6 +47,21 @@ describe('runtime', () => {
     await expect(rt.matte({ ...spec, id: 'g' }, new Uint8Array(12), 2, 2)).resolves.toHaveLength(4)
   })
 
+  it('глубина: модель с внешним файлом данных получает его при создании сессии; depth возвращает плоскость размера картинки', async () => {
+    const created: { externalData?: { path: string }[] }[] = []
+    const ort = fakeOrt([])
+    const orig = ort.InferenceSession.create
+    ort.InferenceSession.create = async (bytes, o) => { created.push(o); return orig(bytes, o) }
+    const rt = createRuntime(async () => ort)
+    const dspec = { ...spec, id: 'dd', kind: 'depth' as const, data: { path: 'dd.onnx_data', url: 'u', bytes: 3, sha256: 'x'.repeat(64) } }
+    await rt.load(dspec, new ArrayBuffer(4), 'wasm', new ArrayBuffer(3))
+    expect(created[0].externalData?.[0].path).toBe('dd.onnx_data')
+    const d = await rt.depth(dspec, new Uint8Array(12), 2, 2)
+    expect(d).toHaveLength(4)
+    await rt.load({ ...dspec, id: 'plain', data: undefined }, new ArrayBuffer(4), 'wasm')
+    expect(created[1].externalData).toBeUndefined()
+  })
+
   it('без загруженной сессии matte падает с понятной ошибкой; release убирает сессию', async () => {
     const log: string[] = []
     const rt = createRuntime(async () => fakeOrt(log))

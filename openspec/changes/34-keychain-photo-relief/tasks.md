@@ -17,7 +17,7 @@
 
 ## 3. ML and image side
 
-- [ ] 3.1 `src/ml/` registry gets `kind: 'depth'` and external-data support (path, bytes and SHA-256 of the data file passed to the runtime as external data); the manager shows the kind and the picker filters by it. Tests: registry validation of the data file, download of both files with progress and cancel, a missing or mismatched data file fails the model, depth models are listed separately.
+- [x] 3.1 `src/ml/` registry gets `kind: 'depth'` and external-data support (path, bytes and SHA-256 of the data file passed to the runtime as external data); the manager shows the kind and the picker filters by it. Tests: registry validation of the data file, download of both files with progress and cancel, a missing or mismatched data file fails the model, depth models are listed separately.
 - [ ] 3.2 `features/keychain/depth.ts` and `useDepth`: run through the client on the crop (aspect kept, multiple of 14, inference cap 2048, resample back, normalise), store in `imageStore` as a `depth` record keyed by image, model, revision and crop, restore on load, mark "for another crop" when the crop differs, register in the worker. Tests with a mocked client: input geometry for wide and tall crops, output mapped back, cancel and latest-wins, restore does not call the client, a changed crop keeps the record and marks it, replacing the image drops it, deleting the model keeps it.
 
 ## 4. UI

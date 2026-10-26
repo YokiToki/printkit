@@ -21,23 +21,30 @@ export interface SilhouetteRunOptions {
  * источника `ai` (строки — ключи перевода, прогресс на месте) и отдаёт готовую альфу выпрямленного листа. Скачивание весов здесь
  * не запускается никогда: нет модели — `MlUnavailableError('noModel')`, скачать её можно только из менеджера моделей.
  */
-export function createMlService(deps: { client: Pick<MlClient, 'load' | 'matte' | 'cancel'> & { onPhase?: MlClient['onPhase'] }; store: ModelStore; caps: () => Promise<Capabilities> }) {
+export function createMlService(deps: { client: Pick<MlClient, 'load' | 'matte' | 'cancel'> & Partial<Pick<MlClient, 'depth'>> & { onPhase?: MlClient['onPhase'] }; store: ModelStore; caps: () => Promise<Capabilities> }) {
   const { client, store } = deps
   let loadedId: string | null = null
   let capsCache: Promise<Capabilities> | null = null
   const caps = () => (capsCache ??= deps.caps())
 
   /** Один запуск сети: доступность, веса, сессия (если ещё не поднята), первый проход и сообщение в журнал. */
-  async function matte(spec: ModelSpec, rgb: Uint8Array, w: number, h: number, job: Job, line = 'log.ai.firstPass'): Promise<Float32Array> {
+  /** Поднимает сессию модели в воркере, если ещё не поднята: доступность, веса (граф и файл данных), бэкенд. */
+  async function session(spec: ModelSpec, job: Job): Promise<void> {
     const av = availability(spec, await caps())
     if (!av.ok) throw new MlUnavailableError('unavailable')
     const bytes = await store.read(spec)
     if (!bytes) throw new MlUnavailableError('noModel')
-    if (loadedId !== spec.id) {
-      job.update({ key: 'log.ai.session', params: { backend: av.backend.toUpperCase() } })
-      await client.load(spec, bytes, av.backend)
-      loadedId = spec.id
-    }
+    const data = spec.data ? await store.readData(spec) : null
+    if (spec.data && !data) throw new MlUnavailableError('noModel')
+    if (loadedId === spec.id) return
+    job.update({ key: 'log.ai.session', params: { backend: av.backend.toUpperCase() } })
+    await client.load(spec, bytes, av.backend, data ?? undefined)
+    loadedId = spec.id
+  }
+
+  /** Один запуск сети: сессия, первый проход и сообщение в журнал. */
+  async function matte(spec: ModelSpec, rgb: Uint8Array, w: number, h: number, job: Job, line = 'log.ai.firstPass'): Promise<Float32Array> {
+    await session(spec, job)
     job.update({ key: line })
     const alpha = await client.matte(spec, rgb, w, h)
     if (!alpha) throw new MlUnavailableError('superseded')
@@ -100,6 +107,17 @@ export function createMlService(deps: { client: Pick<MlClient, 'load' | 'matte' 
      */
     async matteAlpha(spec: ModelSpec, rgb: Uint8Array, w: number, h: number): Promise<Float32Array> {
       return run(spec, (job) => matte(spec, rgb, w, h, job, 'log.ai.firstPassImage'))
+    },
+
+    /** Карта глубины 0…1 размера w × h (модель вида depth); картинка RGB подряд, пропорции сохраняются. */
+    async depthMap(spec: ModelSpec, rgb: Uint8Array, w: number, h: number): Promise<Float32Array> {
+      return run(spec, async (job) => {
+        await session(spec, job)
+        job.update({ key: 'log.ai.depthPass' })
+        const d = await client.depth!(spec, rgb, w, h)
+        if (!d) throw new MlUnavailableError('superseded')
+        return d
+      })
     },
   }
 }

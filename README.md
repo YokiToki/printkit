@@ -127,6 +127,7 @@ The photo-to-cutout flow can use a neural network to find the tools on the sheet
 - [ISNet general (fp16)](https://huggingface.co/imgly/isnet-general-onnx) (MIT): fast, needs WebGPU
 - [ISNet general (int8)](https://huggingface.co/Ko033/isnet-general-use-onnx) (Apache-2.0): light
 - [InSPyReNet SwinB (fp16)](https://huggingface.co/OS-Software/InSPyReNet-SwinB-Plus-Ultra-ONNX) (MIT): accurate, needs WebGPU
+- [Depth Anything V2 Small](https://huggingface.co/onnx-community/depth-anything-v2-small-ONNX) (Apache-2.0): the depth map for the keychain photo relief, two files (graph and weights)
 
 ## License
 

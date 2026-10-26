@@ -63,6 +63,20 @@ describe('MlClient', () => {
     await expect(p).rejects.toThrow('init failed')
   })
 
+  it('глубина идёт своей полосой: запрос глубины не вытесняет matte и наоборот; старый ответ глубины — null', async () => {
+    const { c, workers } = setup()
+    const m = c.matte(spec, new Uint8Array(12), 2, 2), d1 = c.depth(spec, new Uint8Array(12), 2, 2), d2 = c.depth(spec, new Uint8Array(12), 2, 2)
+    const [rm, , r2] = workers[0].sent
+    workers[0].reply({ id: r2.id, ok: true, alpha: new Float32Array([2]) }); workers[0].reply({ id: rm.id, ok: true, alpha: new Float32Array([1]) })
+    expect(await d1).toBeNull(); expect(Array.from((await d2)!)).toEqual([2]); expect(Array.from((await m)!)).toEqual([1])
+  })
+
+  it('load передаёт файл данных воркеру', async () => {
+    const { c, workers } = setup()
+    void c.load(spec, new ArrayBuffer(4), 'wasm', new ArrayBuffer(8)).catch(() => {})
+    expect((workers[0].sent[0] as { data?: ArrayBuffer }).data?.byteLength).toBe(8)
+  })
+
   it('отмена закрывает воркер, ждущие запросы получают MlAbortError, следующий запрос создаёт новый воркер', async () => {
     const { c, workers } = setup()
     const p = c.matte(spec, new Uint8Array(12), 2, 2)

@@ -2,8 +2,9 @@ import type { Backend, ModelSpec } from './models'
 import type { Phase } from './runtime'
 
 export type MlRequest =
-  | { kind: 'load'; id: number; spec: ModelSpec; bytes: ArrayBuffer; backend: Backend }
+  | { kind: 'load'; id: number; spec: ModelSpec; bytes: ArrayBuffer; backend: Backend; data?: ArrayBuffer }
   | { kind: 'matte'; id: number; spec: ModelSpec; rgb: Uint8Array; w: number; h: number }
+  | { kind: 'depth'; id: number; spec: ModelSpec; rgb: Uint8Array; w: number; h: number }
   | { kind: 'release'; id: number; modelId: string }
 export type MlResponse =
   | { id: number; ok: true; alpha?: Float32Array }
@@ -33,6 +34,7 @@ export class MlClient {
   private worker: MlWorkerLike | null = null
   private nextId = 1
   private latestMatte = 0
+  private latestDepth = 0
   private pending = new Map<number, Pending>()
   onPhase?: (phase: Phase, modelId: string) => void
 
@@ -57,9 +59,9 @@ export class MlClient {
   }
 
   /** Создаёт сессию модели в воркере (байты копируются и передаются). */
-  async load(spec: ModelSpec, bytes: ArrayBuffer, backend: Backend): Promise<void> {
-    const copy = bytes.slice(0)
-    await this.send<void>({ kind: 'load', spec, bytes: copy, backend }, [copy])
+  async load(spec: ModelSpec, bytes: ArrayBuffer, backend: Backend, data?: ArrayBuffer): Promise<void> {
+    const copy = bytes.slice(0), dataCopy = data?.slice(0)
+    await this.send<void>({ kind: 'load', spec, bytes: copy, backend, ...(dataCopy ? { data: dataCopy } : {}) }, dataCopy ? [copy, dataCopy] : [copy])
   }
 
   /** Альфа 0…1 размера w × h; null — запрос вытеснен более новым. */
@@ -69,6 +71,15 @@ export class MlClient {
     this.latestMatte = id
     for (const [oldId, p] of this.pending) if (oldId < id && p.kind === 'matte') { p.resolve(null); this.pending.delete(oldId) }
     return this.send<Float32Array | null>({ kind: 'matte', spec, rgb: copy, w, h }, [copy.buffer])
+  }
+
+  /** Карта глубины 0…1 размера w × h; null — запрос вытеснен более новым (своя полоса, как у matte). */
+  depth(spec: ModelSpec, rgb: Uint8Array, w: number, h: number): Promise<Float32Array | null> {
+    const copy = rgb.slice()
+    const id = this.nextId
+    this.latestDepth = id
+    for (const [oldId, p] of this.pending) if (oldId < id && p.kind === 'depth') { p.resolve(null); this.pending.delete(oldId) }
+    return this.send<Float32Array | null>({ kind: 'depth', spec, rgb: copy, w, h }, [copy.buffer])
   }
 
   release(modelId: string): Promise<void> { return this.send<void>({ kind: 'release', modelId }) }
@@ -93,6 +104,7 @@ export class MlClient {
     this.pending.delete(r.id)
     if ('error' in r) return p.reject(new Error(r.error))
     if (p.kind === 'matte' && r.id !== this.latestMatte) return p.resolve(null)
+    if (p.kind === 'depth' && r.id !== this.latestDepth) return p.resolve(null)
     p.resolve(r.alpha)
   }
 

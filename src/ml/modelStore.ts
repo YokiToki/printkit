@@ -1,4 +1,4 @@
-import { MODELS, type MlKind, type ModelSpec } from './models'
+import { MODELS, totalBytes, type MlKind, type ModelSpec } from './models'
 
 export type DownloadError = 'network' | 'http' | 'size' | 'checksum' | 'storage'
 export type ModelStatus =
@@ -50,13 +50,16 @@ export function createModelStore(given?: Partial<StoreDeps>) {
 
   const openCache = async () => { try { return deps.caches ? await deps.caches.open(CACHE) : null } catch { persistent = false; return null } }
 
-  async function put(spec: ModelSpec, buf: ArrayBuffer): Promise<void> {
+  /** Кладёт файл в кэш под его URL (ревизия внутри); не вышло — в память под ключом `key`. */
+  async function put(url: string, key: string, buf: ArrayBuffer): Promise<void> {
     const cache = await openCache()
     if (cache) {
-      try { await cache.put(spec.url, new Response(buf.slice(0))); return } catch { persistent = false }
+      try { await cache.put(url, new Response(buf.slice(0))); return } catch { persistent = false }
     }
-    memory.set(spec.id, buf)
+    memory.set(key, buf)
   }
+  const dataKey = (id: string) => `${id}:data`
+  const hasFile = async (url: string, key: string) => { if (memory.has(key)) return true; const c = await openCache(); return c ? !!(await c.match(url)) : false }
 
   return {
     subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l) } },
@@ -76,45 +79,56 @@ export function createModelStore(given?: Partial<StoreDeps>) {
       const cache = await openCache()
       for (const m of registry) {
         if (status.get(m.id)?.state === 'downloading') continue
-        const inCache = cache ? !!(await cache.match(m.url)) : false
-        if (inCache || memory.has(m.id)) status.set(m.id, { state: 'ready' })
+        const complete = (await hasFile(m.url, m.id)) && (!m.data || (await hasFile(m.data.url, dataKey(m.id))))
+        void cache
+        if (complete) status.set(m.id, { state: 'ready' })
         else if (status.get(m.id)?.state !== 'failed') status.delete(m.id)
       }
       emit()
     },
 
-    /** Скачивает модель. Вызывать только после явного подтверждения пользователя в менеджере моделей. Успех — состояние ready. */
+    /** Скачивает модель (граф и, если есть, файл данных). Вызывать только после явного подтверждения пользователя в менеджере моделей. Успех — состояние ready. */
     async download(spec: ModelSpec, onProgress?: (loaded: number, total: number) => void): Promise<void> {
       if (status.get(spec.id)?.state === 'downloading') return
-      const ctl = new AbortController()
+      const ctl = new AbortController(), total = totalBytes(spec)
       aborts.set(spec.id, ctl)
-      set(spec.id, { state: 'downloading', loaded: 0, total: spec.bytes })
-      try {
+      set(spec.id, { state: 'downloading', loaded: 0, total })
+      /** Один файл: потоком, с прогрессом, проверкой размера и суммы; null — ошибка уже записана в состояние. */
+      const fetchFile = async (url: string, bytes: number, sha256: string, done: number): Promise<ArrayBuffer | null> => {
         let res: Response
-        try { res = await deps.fetch(spec.url, { signal: ctl.signal }) } catch (e) {
+        try { res = await deps.fetch(url, { signal: ctl.signal }) } catch (e) {
           if (ctl.signal.aborted) throw e
-          return set(spec.id, { state: 'failed', error: 'network', detail: e instanceof Error ? e.message : String(e) })
+          set(spec.id, { state: 'failed', error: 'network', detail: e instanceof Error ? e.message : String(e) }); return null
         }
-        if (!res.ok) return set(spec.id, { state: 'failed', error: 'http', detail: String(res.status) })
+        if (!res.ok) { set(spec.id, { state: 'failed', error: 'http', detail: String(res.status) }); return null }
         const chunks: Uint8Array[] = []
         let loaded = 0
         const reader = res.body?.getReader()
         if (reader) {
           for (;;) {
-            const { done, value } = await reader.read()
-            if (done) break
+            const { done: end, value } = await reader.read()
+            if (end) break
             chunks.push(value); loaded += value.length
-            set(spec.id, { state: 'downloading', loaded, total: spec.bytes })
-            onProgress?.(loaded, spec.bytes)
+            set(spec.id, { state: 'downloading', loaded: done + loaded, total })
+            onProgress?.(done + loaded, total)
           }
         } else { const b = new Uint8Array(await res.arrayBuffer()); chunks.push(b); loaded = b.length }
         if (ctl.signal.aborted) throw new DOMException('aborted', 'AbortError') // отмена, пока поток дочитывался
-        if (loaded !== spec.bytes) return set(spec.id, { state: 'failed', error: 'size', detail: `${loaded} ≠ ${spec.bytes}` })
+        if (loaded !== bytes) { set(spec.id, { state: 'failed', error: 'size', detail: `${loaded} ≠ ${bytes}` }); return null }
         const buf = new Uint8Array(loaded)
         let at = 0
         for (const c of chunks) { buf.set(c, at); at += c.length }
-        if ((await deps.digest(buf.buffer)) !== spec.sha256) return set(spec.id, { state: 'failed', error: 'checksum' })
-        await put(spec, buf.buffer)
+        if ((await deps.digest(buf.buffer)) !== sha256) { set(spec.id, { state: 'failed', error: 'checksum' }); return null }
+        return buf.buffer
+      }
+      try {
+        const main = await fetchFile(spec.url, spec.bytes, spec.sha256, 0)
+        if (!main) return
+        const data = spec.data ? await fetchFile(spec.data.url, spec.data.bytes, spec.data.sha256, spec.bytes) : null
+        if (spec.data && !data) return
+        // в кэш — только когда проверены оба файла: прерванная или повреждённая загрузка ничего не оставляет
+        await put(spec.url, spec.id, main)
+        if (spec.data && data) await put(spec.data.url, dataKey(spec.id), data)
         set(spec.id, { state: 'ready' })
       } catch (e) {
         // отмена или обрыв: ничего не сохранено, состояние возвращается к «нет»
@@ -124,7 +138,7 @@ export function createModelStore(given?: Partial<StoreDeps>) {
 
     cancel(id: string) { aborts.get(id)?.abort() },
 
-    /** Байты весов из кэша или памяти; null — модели нет. */
+    /** Байты графа (весов) из кэша или памяти; null — модели нет. */
     async read(spec: ModelSpec): Promise<ArrayBuffer | null> {
       const mem = memory.get(spec.id)
       if (mem) return mem
@@ -132,17 +146,26 @@ export function createModelStore(given?: Partial<StoreDeps>) {
       const hit = cache ? await cache.match(spec.url) : undefined
       return hit ? hit.arrayBuffer() : null
     },
+    /** Байты файла данных (модели глубины); null — файла нет или он не нужен. */
+    async readData(spec: ModelSpec): Promise<ArrayBuffer | null> {
+      if (!spec.data) return null
+      const mem = memory.get(dataKey(spec.id))
+      if (mem) return mem
+      const cache = await openCache()
+      const hit = cache ? await cache.match(spec.data.url) : undefined
+      return hit ? hit.arrayBuffer() : null
+    },
 
     async remove(id: string) {
       const spec = registry.find((m) => m.id === id)
-      memory.delete(id)
-      if (spec) { try { await (await openCache())?.delete(spec.url) } catch { /* ignore */ } }
+      memory.delete(id); memory.delete(dataKey(id))
+      if (spec) { try { const c = await openCache(); await c?.delete(spec.url); if (spec.data) await c?.delete(spec.data.url) } catch { /* ignore */ } }
       status.delete(id); emit()
     },
     async removeAll() { for (const m of registry) await this.remove(m.id) },
 
     /** Занятое место, байт (по готовым моделям реестра). */
-    usedBytes: () => registry.reduce((n, m) => n + (status.get(m.id)?.state === 'ready' ? m.bytes : 0), 0),
+    usedBytes: () => registry.reduce((n, m) => n + (status.get(m.id)?.state === 'ready' ? totalBytes(m) : 0), 0),
   }
 }
 

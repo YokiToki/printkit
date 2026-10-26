@@ -555,7 +555,9 @@
           "noColour": "AI needs a colour photo.",
           "failed": "The AI run failed."
         },
-        "privacy": "AI runs in your browser: the photo is not uploaded. A model is downloaded once, only after you confirm."
+        "privacy": "AI runs in your browser: the photo is not uploaded. A model is downloaded once, only after you confirm.",
+        "sliderSuffix": "slider",
+        "tuneHint": "The effect shows after the AI run. Changing these values does not run the network again."
       }
     }
   },
@@ -1288,7 +1290,8 @@
       "sheetNotFound": "The sheet was not found on the photo, set the corners by hand",
       "straightened": "Photo straightened ({{width}} × {{height}} px)",
       "silhouettes": "Silhouettes found: {{count}}",
-      "cutouts": "Cutouts created: {{count}}"
+      "cutouts": "Cutouts created: {{count}}",
+      "workerFailed": "Finding silhouettes failed"
     },
     "export": {
       "built": "Export: {{count}} file(s), {{format}}, {{plates}} plate(s)",
@@ -1343,7 +1346,8 @@
       "absent": "Not downloaded",
       "ready": "Ready",
       "downloading": "Downloading {{pct}} %",
-      "failed": "Failed: {{reason}}"
+      "failed": "Failed: {{reason}}",
+      "inUse": "In use"
     },
     "unavailable": {
       "noWebgpu": "Needs WebGPU, which this device does not have",

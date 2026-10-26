@@ -4,7 +4,8 @@ import { detectPaper } from '../../../geometry/photo/detect'
 import { guessPaper } from '../../../geometry/photo/aspect'
 import { checkQuad, rectify, type Pt, type QuadCheck, type Rectified } from '../../../geometry/photo/homography'
 import { paperSize, type Paper, type PaperOrientation, type PaperPreset } from '../../../geometry/photo/paper'
-import { aiSegmentation } from '../../../geometry/photo/ai'
+import { PhotoSupersededError } from '../../../geometry/photo/photoClient'
+import { getPhotoClient } from './photoWorker'
 import { segment, type Segmentation } from '../../../geometry/photo/segment'
 import type { GrayImage } from '../../../geometry/raster/threshold'
 import { useCapabilities, useModelStore } from '../../../ml/useMl'
@@ -57,14 +58,43 @@ export interface PhotoImage { name: string; image: GrayImage; color: ColorImage;
 /** Как заданы углы: найдены автоматически, поиск не удался (стартовые углы) или ещё нет снимка. */
 export type Detection = { status: 'auto'; confidence: number; preset: PaperPreset | null; orientation: PaperOrientation } | { status: 'failed' } | { status: 'none' }
 
-function useDebounced<T>(value: T, ms: number): T {
+const shallowEqual = (a: object, b: object) => {
+  const ka = Object.keys(a), kb = Object.keys(b)
+  return ka.length === kb.length && ka.every((k) => Object.is((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+}
+
+/**
+ * Значение, устоявшееся после паузы в изменениях. Объект сравнивается по полям, а не по ссылке: вызывающий собирает его заново
+ * на каждом рендере, и сравнение по ссылке запускало бы цикл «таймер → setState → рендер» каждые `ms` вместе со всеми тяжёлыми
+ * пересчётами, зависящими от него.
+ */
+function useDebounced<T extends object>(value: T, ms: number): T {
   const [v, setV] = useState(value)
+  // ссылка меняется только при изменении полей: от неё зависят эффекты, и новая ссылка на каждом рендере запускала бы их по кругу
+  const same = useRef(value)
+  if (!shallowEqual(same.current, value)) same.current = value
   useEffect(() => {
-    if (ms <= 0) return // без задержки значение отдаётся напрямую (ниже), состояние не нужно
+    if (ms <= 0 || shallowEqual(v, value)) return // без задержки значение отдаётся напрямую (ниже); равное по полям не меняет состояние
     const id = window.setTimeout(() => setV(value), ms)
     return () => window.clearTimeout(id)
-  }, [value, ms])
-  return ms <= 0 ? value : v
+  }, [value, v, ms])
+  return ms <= 0 ? same.current : v
+}
+
+/**
+ * Результат тяжёлого шага из воркера. Старый результат остаётся на экране, пока считается новый (настройка не мигает пустотой),
+ * но результат другого листа не показывается никогда. `run` возвращает null, когда считать нечего.
+ */
+function useWorkerSegmentation(sheet: Rectified | null, run: (() => Promise<Segmentation>) | null, deps: unknown[]): Segmentation | null {
+  const [state, setState] = useState<{ sheet: Rectified; seg: Segmentation } | null>(null)
+  useEffect(() => {
+    if (!sheet || !run) return
+    let live = true
+    run().then((seg) => { if (live) setState({ sheet, seg }) }, (e) => { if (!(e instanceof PhotoSupersededError) && live) log.error('photo', 'log.photo.workerFailed', undefined, e instanceof Error ? e.message : String(e)) })
+    return () => { live = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheet, ...deps])
+  return state && state.sheet === sheet && run ? state.seg : null
 }
 
 export interface PhotoTrace {
@@ -156,10 +186,7 @@ export function usePhotoTrace(debounceMs = 120): PhotoTrace {
   const preview = quad !== 'ok' ? null : settled && sharp ? sharp : fast
   // полный растр и силуэты — тяжёлые (доли секунды на листе A4): только на шаге силуэтов и после паузы в изменениях
   const rectified = useMemo(() => (needSeg && photo ? rectify(photo.image, stable.corners, stable.paper, photo.color.rgb) : null), [needSeg, photo, stable.corners, stable.paper])
-  const segmentation = useMemo(
-    () => (rectified ? segment(rectified, { margin: stable.margin, ...(stable.sensitivity === null ? {} : { sensitivity: stable.sensitivity }) }) : null),
-    [rectified, stable.margin, stable.sensitivity],
-  )
+  const segmentation = useWorkerSegmentation(rectified, rectified ? () => getPhotoClient().segment(rectified, { margin: stable.margin, ...(stable.sensitivity === null ? {} : { sensitivity: stable.sensitivity }) }) : null, [stable.margin, stable.sensitivity])
   const rectifiedLogged = useRef<Rectified | null>(null)
   useEffect(() => {
     if (!rectified || rectifiedLogged.current === rectified) return
@@ -194,10 +221,10 @@ export function usePhotoTrace(debounceMs = 120): PhotoTrace {
   }, [rectified, model, aiRunning, settings.ai.secondPass, settings.ai.threshold, settings.ai.smooth])
   const aiParams = useDebounced({ threshold: settings.ai.threshold ?? model?.maskDefaults.threshold ?? 0.5, smooth: settings.ai.smooth ?? model?.maskDefaults.smooth ?? 0.3, refine: settings.aiRefine, margin: stable.margin }, debounceMs)
   const wantAi = settings.engine === 'ai' || settings.compare
-  const aiSeg = useMemo(() => (wantAi && rectified && alphaOf ? aiSegmentation(rectified, alphaOf.alpha, aiParams) : null), [wantAi, rectified, alphaOf, aiParams])
+  const aiSeg = useWorkerSegmentation(rectified, wantAi && rectified && alphaOf ? () => getPhotoClient().ai(rectified, alphaOf.alpha, aiParams) : null, [wantAi, alphaOf, aiParams])
   const tuned = settings.ai.threshold !== null || settings.ai.smooth !== null
-  const aiBase = useMemo(() => (wantAi && tuned && rectified && alphaOf && model
-    ? aiSegmentation(rectified, alphaOf.alpha, { threshold: model.maskDefaults.threshold, smooth: model.maskDefaults.smooth, refine: aiParams.refine, margin: aiParams.margin }) : null), [wantAi, tuned, rectified, alphaOf, model, aiParams.refine, aiParams.margin])
+  const aiBase = useWorkerSegmentation(rectified, wantAi && tuned && rectified && alphaOf && model
+    ? () => getPhotoClient().ai(rectified, alphaOf.alpha, { threshold: model.maskDefaults.threshold, smooth: model.maskDefaults.smooth, refine: aiParams.refine, margin: aiParams.margin }, 'base') : null, [wantAi, tuned, alphaOf, model, aiParams.refine, aiParams.margin])
   const active = settings.engine === 'ai' && aiSeg && !aiError ? aiSeg : segmentation
   const computing = (needSeg && !!photo && quad === 'ok' && !segmentation) || aiRunning
   const selected = useMemo(() => (active?.silhouettes ?? []).map((s) => s.id).filter((id) => !settings.excluded.includes(id)), [segmentation, settings.excluded])

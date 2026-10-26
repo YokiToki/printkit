@@ -13,8 +13,18 @@ const UNINFORMATIVE = 0.05
 /** Уходящий за полосу классический «предмет» считается недобором сети, только если в окне он занимает такую долю полосы. */
 const LEAKY_F = 0.6
 
+/** Классическая маска зависит только от снимка листа, а не от альфы сети: порог и сглаживание её не меняют, поэтому она считается один раз на растр. */
+const classicCache = new WeakMap<Rectified, Uint8Array | null>()
+
 /** Классическая маска предметов (цвет, тени) после тех же склейки, чистки и заливки, что в `segment`, но без фильтра по размеру. */
 function classicObjects(r: Rectified, edge: Uint8Array): Uint8Array | null {
+  if (classicCache.has(r)) return classicCache.get(r)!
+  const m = classicObjectsUncached(r, edge)
+  classicCache.set(r, m)
+  return m
+}
+
+function classicObjectsUncached(r: Rectified, edge: Uint8Array): Uint8Array | null {
   if (!r.rgb) return null
   const { width: w, height: h, gray } = r.image, s = r.scale, p = defaultSegmentParams
   const surface = paperSurface(gray, w, h, edge)

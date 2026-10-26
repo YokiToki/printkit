@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { openModelManager } from '../../ml/managerState'
+import { MODELS } from '../../../ml/models'
 import { Banner } from '../../../ui/Banner'
 import { Button } from '../../../ui/Button'
 import { AiStatus } from './AiStatus'
@@ -29,10 +30,8 @@ export function AiControls({ trace }: { trace: PhotoTrace }) {
       </label>
       <AiStatus />
       {ai.error && <Banner kind="error">{errorKey ? t(errorKey) : t('cutout.photo.ai.error.failed')} {t('cutout.photo.ai.fallback')}</Banner>}
-      {ai.model && ai.hasResult && (
-        <MaskTuning model={ai.model} ai={s.ai} onChange={(patch) => set({ ai: { ...s.ai, ...patch } })} alpha={ai.alpha}
-          size={rectified ? { width: rectified.image.width, height: rectified.image.height } : null} active={trace.active} baseline={ai.baseline} />
-      )}
+      <MaskTuning model={ai.model ?? MODELS[0]} ai={s.ai} onChange={(patch) => set({ ai: { ...s.ai, ...patch } })} alpha={ai.alpha}
+        size={rectified ? { width: rectified.image.width, height: rectified.image.height } : null} active={ai.hasResult ? trace.active : null} baseline={ai.baseline} />
     </div>
   )
 }

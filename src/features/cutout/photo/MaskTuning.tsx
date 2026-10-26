@@ -54,11 +54,16 @@ export function MaskTuning({ model, ai, onChange, alpha, size, active, baseline 
 
   return (
     <div className="flex flex-col gap-2" data-testid="mask-tuning">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
         <NumberField label={t('cutout.photo.ai.reach')} value={reach} min={5} max={95} step={5} unit="%" digits={0} onChange={(v) => onChange({ threshold: 1 - v / 100 })} />
         <LengthField label={t('cutout.photo.ai.smoothness')} value={smooth} min={0} max={3} step={0.1} onChange={(v) => onChange({ smooth: v })} />
+        <input type="range" min={5} max={95} step={1} value={reach} aria-label={`${t('cutout.photo.ai.reach')} (${t('cutout.photo.ai.sliderSuffix')})`}
+          onChange={(e) => onChange({ threshold: 1 - Number(e.target.value) / 100 })} className="w-full cursor-pointer accent-accent" />
+        <input type="range" min={0} max={3} step={0.05} value={smooth} aria-label={`${t('cutout.photo.ai.smoothness')} (${t('cutout.photo.ai.sliderSuffix')})`}
+          onChange={(e) => onChange({ smooth: Number(e.target.value) })} className="w-full cursor-pointer accent-accent" />
       </div>
       <p className="m-0 text-[11px] leading-snug text-text-subtle">{t('cutout.photo.ai.reachHint')} {t('cutout.photo.ai.smoothnessHint')}</p>
+      {!alpha && <p className="m-0 text-[11px] leading-snug text-text-subtle">{t('cutout.photo.ai.tuneHint')}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => onChange({ threshold: null, smooth: null })} disabled={!touched}>{t('cutout.photo.ai.reset')}</Button>
         <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted"><input type="checkbox" checked={showAlpha} onChange={(e) => setShowAlpha(e.target.checked)} disabled={!alpha} />{t('cutout.photo.ai.showMask')}</label>

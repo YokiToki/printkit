@@ -90,6 +90,15 @@ describe('окно «Из фото»: движок ИИ (32, 5.2 и 5.3)', () =>
     expect(silhouetteAlpha).not.toHaveBeenCalled() // переключение само модель не запускает
   }, 30000)
 
+  it('порог и сглаживание видны сразу под ИИ, до запуска: два числа и два ползунка', async () => {
+    await toStep3()
+    await userEvent.click(screen.getByRole('button', { name: 'AI' }))
+    expect(screen.getByTestId('mask-tuning')).toBeInTheDocument()
+    expect(screen.getByLabelText('Edge reach')).toBeInTheDocument(); expect(screen.getByLabelText('Outline smoothness')).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Edge reach (slider)' })).toBeInTheDocument(); expect(screen.getByRole('slider', { name: 'Outline smoothness (slider)' })).toBeInTheDocument()
+    expect(screen.getByText(/The effect shows after the AI run/)).toBeInTheDocument()
+  }, 30000)
+
   it('без готовой модели кнопка запуска выключена с подсказкой и ссылкой на менеджер; она сама включается, когда модель скачана, и снова выключается после удаления', async () => {
     await toStep3()
     await userEvent.click(screen.getByRole('button', { name: 'AI' }))

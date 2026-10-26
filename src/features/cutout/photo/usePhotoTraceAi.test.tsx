@@ -63,7 +63,7 @@ describe('usePhotoTrace: движок ИИ (32, 5.1)', () => {
   it('переключение на ИИ само модель не запускает; запуск идёт по кнопке, дальше порог и сглаживание не вызывают модель', async () => {
     const { result } = await ready()
     silhouetteAlpha.mockImplementation(async (_m: unknown, r: Rectified) => alphaFor(r, 1))
-    act(() => result.current.set({ engine: 'ai' }))
+    act(() => result.current.set({ engine: 'ai', aiRefine: false })) // без уточнения края размеры зависят от маски сети (с ним край берётся у классики)
     expect(silhouetteAlpha).not.toHaveBeenCalled()
     expect(result.current.active).toBe(result.current.segmentation) // результата ИИ ещё нет
     await act(async () => { await result.current.ai.run() })
@@ -72,7 +72,7 @@ describe('usePhotoTrace: движок ИИ (32, 5.1)', () => {
     expect(result.current.active).toBe(result.current.aiSegmentation)
     const before = result.current.active!.silhouettes[0].areaMm2
     act(() => result.current.set({ ai: { ...result.current.settings.ai, smooth: 2 } }))
-    await waitFor(() => expect(result.current.active!.silhouettes[0].areaMm2).not.toBe(before))
+    await waitFor(() => expect(result.current.active!.silhouettes[0].areaMm2).not.toBe(before), { timeout: 10000 })
     expect(silhouetteAlpha).toHaveBeenCalledTimes(1) // кэшированная альфа, модель не перезапущена
   })
 
@@ -88,6 +88,21 @@ describe('usePhotoTrace: движок ИИ (32, 5.1)', () => {
     expect(result.current.ai.error).toBeNull()
     await waitFor(() => expect(result.current.active).toBe(result.current.aiSegmentation))
   })
+
+  it('при ненулевой задержке покой не вызывает пересчётов: силуэты ИИ не считаются заново сами по себе', async () => {
+    decode.mockResolvedValue(decoded())
+    const { result } = renderHook(() => usePhotoTrace(40))
+    await act(async () => { await result.current.load(new File(['x'], 't.jpg')) })
+    act(() => result.current.needSilhouettes(true))
+    await waitFor(() => expect(result.current.segmentation).not.toBeNull(), { timeout: 15000 })
+    silhouetteAlpha.mockImplementation(async (_m: unknown, r: Rectified) => alphaFor(r))
+    act(() => result.current.set({ engine: 'ai' }))
+    await act(async () => { await result.current.ai.run() })
+    await waitFor(() => expect(result.current.aiSegmentation).not.toBeNull())
+    const settled = result.current.aiSegmentation
+    await act(async () => { await new Promise((r) => setTimeout(r, 600)) }) // 15 периодов задержки
+    expect(result.current.aiSegmentation).toBe(settled) // тот же объект: цикл «таймер → рендер → пересчёт» не работает
+  }, 30000)
 
   it('движок сохраняется, пока жив хук (закрытие и повторное открытие окна), и сбрасывает выбор при смене', async () => {
     const { result, rerender } = await ready()

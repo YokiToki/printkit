@@ -117,7 +117,7 @@ describe('тяжёлый пересчёт только по требованию
     expect(result.current.computing).toBe(false)
     act(() => result.current.needSilhouettes(true))
     expect(result.current.rectified!.scale).toBe(4)
-    expect(result.current.segmentation).not.toBeNull()
+    await waitFor(() => expect(result.current.segmentation).not.toBeNull()) // силуэты считает воркер (в тестах — тут же, но асинхронно)
     expect(segmentSpy).toHaveBeenCalledTimes(1)
     act(() => result.current.needSilhouettes(false))
     expect(result.current.rectified).toBeNull()

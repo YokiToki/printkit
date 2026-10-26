@@ -47,7 +47,7 @@ describe('ModelManager (32, 5.2)', () => {
     const { fetchMock, user } = await setup()
     await user.click(within(row('a')).getByRole('button', { name: 'Download' }))
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Download' }))
-    await waitFor(() => expect(screen.getByTestId('status-a')).toHaveTextContent('Ready'))
+    await waitFor(() => expect(screen.getByTestId('status-a')).toHaveTextContent(/Ready|In use/))
     expect(fetchMock).toHaveBeenCalledTimes(1)
     await user.click(within(row('a')).getByRole('button', { name: 'Delete' }))
     expect(screen.getByTestId('status-a')).toHaveTextContent('Not downloaded')
@@ -81,7 +81,7 @@ describe('ModelManager (32, 5.2)', () => {
     for (const id of ['a', 'b']) {
       await user.click(within(row(id)).getByRole('button', { name: 'Download' }))
       await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Download' }))
-      await waitFor(() => expect(screen.getByTestId(`status-${id}`)).toHaveTextContent('Ready'))
+      await waitFor(() => expect(screen.getByTestId(`status-${id}`)).toHaveTextContent(/Ready|In use/))
     }
     expect(screen.getByTestId('models-used')).toHaveTextContent('3 MB')
     await user.click(within(row('b')).getByRole('radio'))
@@ -94,7 +94,7 @@ describe('ModelManager (32, 5.2)', () => {
     const { user } = await setup()
     await user.click(within(row('a')).getByRole('button', { name: 'Download' }))
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Download' }))
-    await waitFor(() => expect(screen.getByTestId('status-a')).toHaveTextContent('Ready'))
+    await waitFor(() => expect(screen.getByTestId('status-a')).toHaveTextContent(/Ready|In use/))
     await user.click(screen.getByRole('button', { name: 'Delete all' }))
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete all' }))
     expect(screen.getByTestId('status-a')).toHaveTextContent('Not downloaded')

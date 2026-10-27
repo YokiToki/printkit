@@ -1,5 +1,6 @@
 import { addCutout, outlineCutout, type Cutout, type CutoutParams } from '../../../geometry/cutout'
 import { fitFootprintUnits } from '../../../geometry/cutout-placement'
+import { fitOutline, type FitParams } from '../../../geometry/outlineFit'
 import { traceSilhouette } from '../../../geometry/photo/outline'
 import type { Segmentation } from '../../../geometry/photo/segment'
 
@@ -9,6 +10,8 @@ export interface CreateOptions {
   clearance: number
   /** Имя по номеру силуэта (1, 2, …) среди созданных. */
   name: (n: number) => string
+  /** Параметры подгонки контура: не задано — подгонка с умолчаниями; usePolyline=true — исходная полилиния без подгонки. */
+  fit?: Partial<FitParams>
 }
 
 /** Выбранные силуэты → вырезы-контуры на своих местах листа (центр листа — нуль), без цветов: цвет назначает addCutout. */
@@ -17,9 +20,10 @@ export function tracedCutouts(seg: Segmentation, ids: readonly number[], paper: 
   for (const id of ids) {
     const t = traceSilhouette(seg, id, paper)
     if (!t) continue
+    const points = o.fit?.usePolyline ? t.points : fitOutline(t.points, o.fit)
     out.push(outlineCutout({
       name: o.name(out.length + 1), x: t.center[0], y: t.center[1], depth: o.depth, clearance: o.clearance,
-      source: { kind: 'outline', points: t.points, size: { w: t.size.w, l: t.size.l } },
+      source: { kind: 'outline', points, size: { w: t.size.w, l: t.size.l } },
     }))
   }
   return out

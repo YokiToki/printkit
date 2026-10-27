@@ -2,6 +2,7 @@ import { gaussianBlur } from './raster/blur'
 import { traceAlpha } from './textOutline'
 import { simplifyLoop } from './textOutline'
 import { CORNER_DEG, resampleLoop, smoothOutline } from './photo/outlineSmooth'
+import { fitOutline } from './outlineFit'
 import type { Pt } from './photo/homography'
 
 /** Контур брелка из изображения: гладкий, без ступеней пикселей, ячеек сетки и разрешения маски. */
@@ -12,8 +13,12 @@ export interface OutlineParams {
   cornerDeg: number
   /** Шаг вершин итогового многоугольника, мм: длинные прямые участки делятся не реже, чем этот шаг. */
   step: number
+  /** Допуск подгонки кубическими кривыми Безье, мм. */
+  fitTolerance: number
+  /** Использовать исходную полилинию вместо подгонки кривыми. */
+  usePolyline: boolean
 }
-export const defaultOutline: OutlineParams = { smooth: 0.25, cornerDeg: CORNER_DEG, step: 1 }
+export const defaultOutline: OutlineParams = { smooth: 0.25, cornerDeg: CORNER_DEG, step: 1, fitTolerance: 0.25, usePolyline: false }
 /** Допуск упрощения итогового контура, мм: заметно меньше ячейки сетки и допуска печати. */
 export const OUTLINE_SIMPLIFY_MM = 0.03
 
@@ -39,9 +44,14 @@ export function traceImageOutline(mask: Uint8Array, w: number, h: number, win: [
     // пиксели окна → мм: центр окна — начало координат, y вверх
     const mm = loop.map(([px, py]) => [(x0 + px - wx0) * sx - wMm / 2, hMm / 2 - (y0 + py - wy0) * sy] as Pt)
     if (area(mm) < 0.05 || mm.length < 4) continue
-    let l = smoothOutline(resampleLoop(mm, 0.175), Math.max(0, o.smooth * 0.6), o.cornerDeg)
-    l = simplifyLoop(l, OUTLINE_SIMPLIFY_MM)
-    if (o.step > 0) l = capStep(l, o.step)
+    let l: Pt[]
+    if (o.usePolyline) {
+      l = smoothOutline(resampleLoop(mm, 0.175), Math.max(0, o.smooth * 0.6), o.cornerDeg)
+      l = simplifyLoop(l, OUTLINE_SIMPLIFY_MM)
+      if (o.step > 0) l = capStep(l, o.step)
+    } else {
+      l = fitOutline(mm, { smooth: Math.max(0, o.smooth * 0.6), fitTolerance: o.fitTolerance, cornerDeg: o.cornerDeg, step: o.step })
+    }
     if (l.length >= 3) out.push(l)
   }
   return out

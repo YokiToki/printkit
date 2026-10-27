@@ -24,10 +24,12 @@ const dev = (loops: [number, number][][]) => {
   return worst
 }
 
+const polylineOutline = { ...defaultOutline, usePolyline: true }
+
 describe('контур изображения без ступеней (34, 2.3a)', () => {
   it('диск: отклонение от настоящего круга около 0.1 ячейки (0.25 мм → 0.03 мм при пикселе маски 0.05 мм), стена не ступенчатая', () => {
     // маска с шагом 0.05 мм: сама двоичная маска не может быть точнее своего пикселя, поэтому проверяется контур, а не растр
-    const { m, w, h, px } = scene(4), loops = traceImageOutline(m, w, h, [0, 0, w, h], w * px, h * px, defaultOutline)
+    const { m, w, h, px } = scene(4), loops = traceImageOutline(m, w, h, [0, 0, w, h], w * px, h * px, polylineOutline)
     expect(loops.length).toBe(1)
     // координаты в мм от центра окна; переводим к центру диска
     const shifted = loops.map((l) => l.map(([x, y]) => [x + SHIFT, y] as [number, number]))
@@ -36,14 +38,14 @@ describe('контур изображения без ступеней (34, 2.3a)
   })
 
   it('шип: острие не короче настоящего больше чем на ячейку, острый угол сохраняется', () => {
-    const { m, w, h, px } = scene(), loops = traceImageOutline(m, w, h, [0, 0, w, h], w * px, h * px, defaultOutline)
+    const { m, w, h, px } = scene(), loops = traceImageOutline(m, w, h, [0, 0, w, h], w * px, h * px, polylineOutline)
     const tipX = Math.max(...loops[0].map(([x]) => x + SHIFT))
     expect(tipX).toBeGreaterThan(45 - 0.25); expect(tipX).toBeLessThanOrEqual(45.3)
   })
 
   it('результат не зависит от разрешения маски: двукратное разрешение даёт то же острие и то же отклонение', () => {
     const a = scene(1), b = scene(2)
-    const la = traceImageOutline(a.m, a.w, a.h, [0, 0, a.w, a.h], a.w * a.px, a.h * a.px, defaultOutline), lb = traceImageOutline(b.m, b.w, b.h, [0, 0, b.w, b.h], b.w * b.px, b.h * b.px, defaultOutline)
+    const la = traceImageOutline(a.m, a.w, a.h, [0, 0, a.w, a.h], a.w * a.px, a.h * a.px, polylineOutline), lb = traceImageOutline(b.m, b.w, b.h, [0, 0, b.w, b.h], b.w * b.px, b.h * b.px, polylineOutline)
     const tip = (l: [number, number][][]) => Math.max(...l[0].map(([x]) => x))
     expect(Math.abs(tip(la) - tip(lb))).toBeLessThan(0.15)
   })
@@ -52,13 +54,26 @@ describe('контур изображения без ступеней (34, 2.3a)
     const { m, w, h, px } = scene()
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (Math.hypot((i + 0.5) * px - w * px / 2 + SHIFT, h * px / 2 - (j + 0.5) * px) < 10) m[j * w + i] = 0
     m[10 * w + 10] = 1 // осколок в 1 пиксель
-    expect(traceImageOutline(m, w, h, [0, 0, w, h], w * px, h * px, defaultOutline)).toHaveLength(2)
+    expect(traceImageOutline(m, w, h, [0, 0, w, h], w * px, h * px, polylineOutline)).toHaveLength(2)
   })
 
   it('шаг вершин ограничивает длину стороны', () => {
     const { m, w, h, px } = scene()
-    const loops = traceImageOutline(m, w, h, [0, 0, w, h], w * px, h * px, { ...defaultOutline, step: 0.5 })
+    const loops = traceImageOutline(m, w, h, [0, 0, w, h], w * px, h * px, { ...polylineOutline, step: 0.5 })
     for (const l of loops) for (let i = 0; i < l.length; i++) { const a = l[i], b = l[(i + 1) % l.length]; expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeLessThanOrEqual(0.5 + 1e-6) }
+  })
+
+  it('подгонка контура: шумный диск даёт гладкую окружность и меньше вершин', () => {
+    // шумный контур: много мелких зубчиков, которые полилиния сохраняет
+    const k = 4, { m, w, h, px } = scene(k)
+    const poly = traceImageOutline(m, w, h, [0, 0, w, h], w * px, h * px, polylineOutline)
+    const fit = traceImageOutline(m, w, h, [0, 0, w, h], w * px, h * px, defaultOutline)
+    expect(fit.length).toBe(1)
+    // подогнанный контур значительно глаже: меньше вершин
+    expect(fit[0].length).toBeLessThan(poly[0].length)
+    // отклонение от истинного круга в пределах допуска подгонки
+    const shifted = fit.map((l) => l.map(([x, y]) => [x + SHIFT, y] as [number, number]))
+    expect(dev(shifted)).toBeLessThan(0.3)
   })
 })
 
@@ -77,8 +92,18 @@ describe('стена модели следует контуру, а не сет�
 
   it('диск 40 мм: полуось по X и Y — 20 мм с точностью лучше 0.1 ячейки при двух шагах', async () => {
     for (const cell of [0.3, 0.9]) {
-      const r = await run(cell), bb = r.solid!.boundingBox()
+      const r = await run(cell, { outline: polylineOutline }), bb = r.solid!.boundingBox()
       expect(Math.abs((bb.max[0] - bb.min[0]) - 40)).toBeLessThan(0.1); expect(Math.abs((bb.max[1] - bb.min[1]) - 40)).toBeLessThan(0.1)
+      r.solid!.delete()
+    }
+  })
+
+  it('диск 40 мм с подгонкой: валидное тело, габарит в пределах допуска подгонки', async () => {
+    for (const cell of [0.3, 0.9]) {
+      const r = await run(cell), bb = r.solid!.boundingBox()
+      expectValidSolid(r.solid!)
+      expect(Math.abs((bb.max[0] - bb.min[0]) - 40)).toBeLessThan(0.5) // допуск подгонки 0.25 мм + сетка
+      expect(Math.abs((bb.max[1] - bb.min[1]) - 40)).toBeLessThan(0.5)
       r.solid!.delete()
     }
   })

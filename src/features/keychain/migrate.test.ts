@@ -134,7 +134,8 @@ describe('силуэт по ИИ в сохранённом (33, 2.3)', () => {
 describe('кадр, контур и источник «Фото» в сохранённом (34, 2.4)', () => {
   it('старая запись: весь кадр, гладкий контур по умолчанию, источник прежний, поля «Фото» с умолчаниями', () => {
     const m = migrateKeychain({ source: { kind: 'brightness', contrast: 1.5, gamma: 1, invert: false } }) as Record<string, any>
-    expect(m.crop).toEqual({ x: 0, y: 0, w: 1, h: 1 }); expect(m.outline).toEqual({ smooth: 0.25, cornerDeg: 50, step: 1 })
+    // старые записи без полей подгонки остаются на полилинии (35: usePolyline без поля → true)
+    expect(m.crop).toEqual({ x: 0, y: 0, w: 1, h: 1 }); expect(m.outline).toEqual({ smooth: 0.25, cornerDeg: 50, step: 1, fitTolerance: 0.25, usePolyline: true })
     expect(m.source.kind).toBe('brightness'); expect(m.source.contrast).toBe(1.5)
     expect(m.source.mix).toEqual({ contour: 25, depth: 45, detail: 30 }); expect(m.source.detailMode).toBe('engrave'); expect(m.source.levels).toBe(0)
   })
@@ -147,7 +148,7 @@ describe('кадр, контур и источник «Фото» в сохра�
 
   it('частичные и испорченные значения возвращаются к умолчаниям или пределам, ничего не падает', () => {
     const m = migrateKeychain({ crop: { x: 'a', y: 0, w: 1, h: 1 }, outline: 'oops', source: { kind: 'photo', mix: { contour: -5, depth: 500 }, boost: NaN, levels: 1, detailMode: 'weird', snap: 999, maxSlope: -3 } }) as Record<string, any>
-    expect(m.crop).toEqual({ x: 0, y: 0, w: 1, h: 1 }); expect(m.outline).toEqual({ smooth: 0.25, cornerDeg: 50, step: 1 })
+    expect(m.crop).toEqual({ x: 0, y: 0, w: 1, h: 1 }); expect(m.outline).toEqual({ smooth: 0.25, cornerDeg: 50, step: 1, fitTolerance: 0.25, usePolyline: true })
     expect(m.source).toMatchObject({ mix: { contour: 0, depth: 100, detail: 30 }, boost: 2, levels: 0, detailMode: 'engrave', snap: 100, maxSlope: 0 })
     expect((migrateKeychain({ crop: { x: 0.9, y: 0.9, w: 0.5, h: 0.01 } }) as Record<string, any>).crop).toEqual({ x: 0.5, y: 0.9, w: 0.5, h: 0.05 })
     expect((migrateKeychain({ source: { kind: 'weird' } }) as Record<string, any>).source.kind).toBe('distance')

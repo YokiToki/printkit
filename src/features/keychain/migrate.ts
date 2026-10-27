@@ -47,10 +47,14 @@ export function normalizeCrop(raw: unknown): Crop {
   return { x: clampNum(r.x, 0, 0, 1 - w), y: clampNum(r.y, 0, 0, 1 - h), w, h }
 }
 
-/** Контур из сохранённого: старые записи без поля получают гладкий контур по умолчанию. */
+/** Контур из сохранённого: старые записи без полей подгонки остаются на полилинии для обратной совместимости. */
 export function normalizeOutline(raw: unknown): OutlineParams {
   const r = obj(raw), d = defaultOutline
-  return { smooth: clampNum(r.smooth, d.smooth, 0, 3), cornerDeg: clampNum(r.cornerDeg, d.cornerDeg, 10, 170), step: clampNum(r.step, d.step, 0.1, 5) }
+  return {
+    smooth: clampNum(r.smooth, d.smooth, 0, 3), cornerDeg: clampNum(r.cornerDeg, d.cornerDeg, 10, 170), step: clampNum(r.step, d.step, 0.1, 5),
+    fitTolerance: clampNum(r.fitTolerance, d.fitTolerance, 0.05, 2),
+    usePolyline: typeof r.usePolyline === 'boolean' ? r.usePolyline : true,
+  }
 }
 
 /** Поля источника «Фото» из сохранённого (у остальных источников не используются, но заполняются, чтобы переключение не теряло значения). */

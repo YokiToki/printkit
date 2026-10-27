@@ -895,6 +895,8 @@ export interface KeychainInfo {
   mountInfo?: MountInfo
   /** Надпись: размер коробки растра, мм; clipped — часть надписи вне материала (не строится). */
   text?: { w: number; h: number; clipped: boolean }
+  /** Число вершин точного контура силуэта (по настройкам сглаживания контура). */
+  outlineVertices?: number
 }
 
 /** Изображения, доступные воркеру по id. */
@@ -1172,13 +1174,16 @@ function buildKeychainCore(w: ManifoldToplevel, p: KeychainParams, registry: Ima
     for (let k = 0; k < z.length; k++) if (g.solid[k] && hi > 0) z[k] = Math.round(255 * Math.min(1, g.top[k] / hi))
     heightPreview = { width: g.nx, height: g.ny, data: z }
   }
-  const info: KeychainInfo = { ...base, ...(heightPreview ? { height: heightPreview } : {}), size: [wMm, hMm], cell, reduced, minCell: min, triangles: mesh.triangles, ...(traster ? { text: { ...textBoxMm(traster), clipped: region.clipped } } : {}) }
+  let info: KeychainInfo = { ...base, ...(heightPreview ? { height: heightPreview } : {}), size: [wMm, hMm], cell, reduced, minCell: min, triangles: mesh.triangles, ...(traster ? { text: { ...textBoxMm(traster), clipped: region.clipped } } : {}) }
   if (relief.status() !== 'NoError' || relief.isEmpty()) return { parts: [], info: { ...info, error: 'keychain.error.mesh' } }
   // точный контур фигуры (null у изображения): по нему обрезается рельеф и строится подложка по контуру
   let exact: CrossSection | null = shape ? shapeCrossSection(w, shape) : null
   if (!shape && rel.shift > 0 && p.outline) {
     const loops = traceImageOutline(mask, img.width, img.height, [rel.bounds[0], rel.bounds[1], rel.bounds[2] + 1, rel.bounds[3] + 1], rel.wMm, rel.hMm, p.outline)
-    if (loops.length) exact = w.CrossSection.ofPolygons(loops, 'EvenOdd')
+    if (loops.length) {
+      exact = w.CrossSection.ofPolygons(loops, 'EvenOdd')
+      info = { ...info, outlineVertices: loops.reduce((n, l) => n + l.length, 0) }
+    }
   }
   if (exact && rel.shift > 0) {
     const prism = w.Manifold.extrude(exact, relief.boundingBox().max[2] + 1)

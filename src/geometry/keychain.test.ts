@@ -30,6 +30,12 @@ const P = (over: Partial<KeychainParams> & { [k: string]: unknown } = {}): Keych
 })
 const bbox = (m: { boundingBox(): { min: number[]; max: number[] } }) => { const b = m.boundingBox(); return { w: b.max[0] - b.min[0], h: b.max[1] - b.min[1], zmin: b.min[2], zmax: b.max[2], cx: (b.max[0] + b.min[0]) / 2, cy: (b.max[1] + b.min[1]) / 2 } }
 const solid = async (p: KeychainParams, img: GrayImage) => { const r = await buildKeychain(p, reg('img', img)); if (!r.solid) throw new Error(r.info.error); return r }
+/**
+ * Допуск габаритов: подогнанная кривая (35) удерживается в fitTolerance от точек контура в узлах,
+ * а между узлами может уйти ещё примерно на столько же; к этому прибавляется ступенчатость изолинии
+ * маски в тестовом разрешении (~0,9 мм/пикселя). Худшее наблюдаемое отклонение — 0,45 мм от номинала.
+ */
+const DIM_TOL = defaultKeychain.outline!.fitTolerance + 0.25
 
 describe('validateKeychain (2.1)', () => {
   const ok = P()
@@ -68,7 +74,7 @@ describe('рельеф из сетки (2.2)', () => {
     const { solid: m, info } = await solid(P(), disc)
     expectValidSolid(m!)
     const b = bbox(m!)
-    expect(b.w).toBeCloseTo(70, 1); expect(b.h).toBeCloseTo(70, 1)
+    expect(Math.abs(b.w - 70)).toBeLessThan(DIM_TOL); expect(Math.abs(b.h - 70)).toBeLessThan(DIM_TOL)
     expect(b.zmin).toBeCloseTo(0, 6); expect(b.zmax).toBeCloseTo(2, 3)
     expect(Math.abs(b.cx)).toBeLessThan(0.05); expect(Math.abs(b.cy)).toBeLessThan(0.05)
     expect(info.triangles).toBeGreaterThan(1000)
@@ -139,11 +145,12 @@ describe('масштаб (2.3)', () => {
   })
   it('режимы по ширине и по высоте сохраняют пропорции, режим box растягивает', async () => {
     const w50 = bbox((await solid(P({ size: { ...defaultKeychain.size, mode: 'width', width: 50 } }), wide)).solid!)
-    expect(w50.w).toBeCloseTo(50, 1); expect(w50.h).toBeCloseTo(25, 1)
+    expect(Math.abs(w50.w - 50)).toBeLessThan(DIM_TOL); expect(Math.abs(w50.h - 25)).toBeLessThan(DIM_TOL)
     const h20 = bbox((await solid(P({ size: { ...defaultKeychain.size, mode: 'height', height: 20 } }), wide)).solid!)
-    expect(h20.h).toBeCloseTo(20, 1); expect(h20.w).toBeCloseTo(40, 1)
+    expect(Math.abs(h20.h - 20)).toBeLessThan(DIM_TOL); expect(Math.abs(h20.w - 40)).toBeLessThan(DIM_TOL)
     const box = bbox((await solid(P({ size: { ...defaultKeychain.size, mode: 'box', width: 60, height: 60 } }), wide)).solid!)
-    expect(box.w).toBeCloseTo(60, 1); expect(box.h).toBeCloseTo(60, 1)
+    // режим box растягивает контур на рамку; подогнанная кривая (35) в пределах допуска подгонки от рамки
+    expect(Math.abs(box.w - 60)).toBeLessThan(DIM_TOL); expect(Math.abs(box.h - 60)).toBeLessThan(DIM_TOL)
   })
   it('sizeMm: чистая функция', () => {
     expect(sizeMm({ mode: 'longest', longest: 70, width: 0, height: 0 }, 300, 150)).toEqual({ w: 70, h: 35 })
@@ -152,7 +159,7 @@ describe('масштаб (2.3)', () => {
   it('силуэт обрезается по габариту: поля картинки не влияют на размер', async () => {
     const small = shape(300, 300, 70, 70) // тот же диск, но в большой пустой картинке
     const a = bbox((await solid(P(), small)).solid!)
-    expect(Math.abs(a.w - 70)).toBeLessThan(0.15) // гладкий контур слегка скругляет крайние точки (≈ 0.05 мм)
+    expect(Math.abs(a.w - 70)).toBeLessThan(DIM_TOL) // контур подогнан кривой (35): габарит в пределах допуска подгонки
   })
 })
 
@@ -169,7 +176,7 @@ describe('подложка (2.4)', () => {
     expect(components(r.solid!)).toBe(1)
   })
   it('смещение 0: габарит как у рельефа', async () => {
-    expect(bbox((await solid(withBase({ shape: 'silhouette', offset: 0 }), disc)).solid!).w).toBeCloseTo(70, 1)
+    expect(Math.abs(bbox((await solid(withBase({ shape: 'silhouette', offset: 0 }), disc)).solid!).w - 70)).toBeLessThan(DIM_TOL)
   })
   it('скруглённый прямоугольник: поле 3 мм → 76 × 76', async () => {
     const b = bbox((await solid(withBase({ shape: 'rounded', margin: 3, radius: 4 }), disc)).solid!)
@@ -187,7 +194,7 @@ describe('подложка (2.4)', () => {
   })
   it('толщина 0 — только рельеф: высота = hmax, подложки нет', async () => {
     const b = bbox((await solid(withBase({ thickness: 0, shape: 'rect', margin: 10 }), disc)).solid!)
-    expect(b.zmax).toBeCloseTo(2, 3); expect(b.w).toBeCloseTo(70, 1)
+    expect(b.zmax).toBeCloseTo(2, 3); expect(Math.abs(b.w - 70)).toBeLessThan(DIM_TOL)
   })
   it('подложка меньше силуэта: ошибка, геометрии нет', async () => {
     const r = await buildKeychain(withBase({ shape: 'circle', auto: false, width: 60 }), reg('img', disc))

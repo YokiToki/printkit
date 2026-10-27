@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getWasm } from './wasm'
 import {
-  addCutout, baseOutline, buildCutout, MIN_OUTLINE_AREA, outlineCutout, polygonArea, validOutline, buildCutoutTools, circleCutout, CUTOUT_COLORS, cutoutBounds, fillCutoutColors, nextCutoutColor, cutoutLayout, cutoutNotices, defaultCutout, duplicateCutout, effectiveDepth, moveCutout, rectCutout,
+  addCutout, pocketSolid, baseOutline, buildCutout, MIN_OUTLINE_AREA, outlineCutout, polygonArea, validOutline, buildCutoutTools, circleCutout, CUTOUT_COLORS, cutoutBounds, fillCutoutColors, nextCutoutColor, cutoutLayout, cutoutNotices, defaultCutout, duplicateCutout, effectiveDepth, moveCutout, rectCutout,
   removeCutout, renameCutout, toggleCutout, updateCutout, validateCutout, MIN_MARGIN, type Cutout, type CutoutParams, type MeshRegistry, type MeshSource,
 } from './cutout'
 import { alignEdge, centerCutout, distribute, fitFootprint, fitFootprintUnits, snapAxis, snapMove, snapTargets } from './cutout-placement'
@@ -629,6 +629,17 @@ describe('вырез по контуру с фото (25)', () => {
     const wide: Cutout = { ...c, rotation: 45, source: { kind: 'outline', points: [[-30, -5], [30, -5], [30, 5], [-30, 5]], size: { w: 60, l: 10 } } }
     const bw = cutoutBounds({ ...wide, x: 0, y: 0, clearance: 0 })
     expect(bw.maxX).toBeCloseTo((30 + 5) * Math.SQRT1_2, 6)
+  })
+
+  it('зазор по кривой даёт тот же карман, что и смещение ядра (в пределах 1 %)', async () => {
+    const w = await getWasm()
+    const circle: [number, number][] = Array.from({ length: 120 }, (_, i) => [15 * Math.cos((i / 120) * 2 * Math.PI), 15 * Math.sin((i / 120) * 2 * Math.PI)])
+    const c = outlineCutout({ id: 'c', depth: 10, clearance: 0.8, source: { kind: 'outline', points: circle, size: { w: 30, l: 30 } } })
+    const l = cutoutLayout(params({ cutouts: [c] }))
+    const m = pocketSolid(w, c, l, new Map())!
+    const ref = w.CrossSection.ofPolygons([circle]).offset(0.8, 'Round', 2, 24).area()
+    expect(m.volume() / (10 + 1)).toBeGreaterThan(ref * 0.99)
+    expect(m.volume() / (10 + 1)).toBeLessThan(ref * 1.01)
   })
 
   it('центровка, привязка к краю и распределение работают с контуром как с другими вырезами', () => {

@@ -3,6 +3,7 @@ import { getWasm } from './wasm'
 import { axisMm, type AxisSize } from './baseplate'
 import { binLayout, bottomFasteners, buildBinBody, FOOT_HEIGHT, lipOpening, roundedRectCS, type BinHeight, type BinLayout, type BinParams, type BinThickness } from './bin'
 import { defaultFasteners } from './fasteners'
+import { offsetCurve } from './outlineFit'
 import type { LipStyle } from './profiles'
 import { DEFAULT_PITCH } from './spec'
 import { cachedProfile, profileOfSlices } from './cutout-profile'
@@ -278,7 +279,11 @@ export function pocketSolid(w: ManifoldToplevel, c: Cutout, l: CutoutLayout, reg
     return extrude(placeCS(grow(cs, c.clearance), c))
   }
   if (c.source.kind === 'circle') return extrude(placeCS(grow(circleCS(w, c.source.diameter), c.clearance), c))
-  if (c.source.kind === 'outline') return extrude(placeCS(grow(w.CrossSection.ofPolygons([c.source.points]), c.clearance), c))
+  if (c.source.kind === 'outline') {
+    // зазор по кривой (скругление выпуклых углов, митра вогнутых); при самопересечении — смещение ядра
+    const grown = c.clearance > 0 ? offsetCurve(c.source.points, c.clearance) : null
+    return extrude(placeCS(grown ? w.CrossSection.ofPolygons([grown]) : grow(w.CrossSection.ofPolygons([c.source.points]), c.clearance), c))
+  }
   const mesh = registry.get(c.source.meshId)
   if (!mesh) return null
   const src = c.source

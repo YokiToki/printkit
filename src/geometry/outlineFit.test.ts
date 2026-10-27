@@ -171,6 +171,18 @@ describe('fitLoop: подгонка кубических Безье', () => {
   })
 })
 
+describe('sampleCurves: мелкий радиус', () => {
+  it('на круге радиуса 3 мм хорда и подгонка вместе отходят от дуги не больше 0,08 мм при шаге 1 мм', () => {
+    const r = 3, out = fitOutline(circlePts(r, 200), { smooth: 0, fitTolerance: 0.05, step: 1 })
+    let worst = 0
+    for (let i = 0; i < out.length; i++) {
+      const a = out[i], b = out[(i + 1) % out.length]
+      worst = Math.max(worst, r - Math.hypot((a[0] + b[0]) / 2, (a[1] + b[1]) / 2))
+    }
+    expect(worst).toBeLessThan(0.08)
+  })
+})
+
 describe('fittedVertexCount: счётчик вершин', () => {
   it('usePolyline возвращает длину исходного контура', () => {
     const pts = circlePts(20, 100)
@@ -216,6 +228,24 @@ describe('offsetCurve: смещение контура', () => {
       for (let i = 0; i < off!.length; i++) best = Math.min(best, distToSeg(p, off![i], off![(i + 1) % off!.length]))
       expect(best).toBeLessThanOrEqual(0.8 + 0.15)
     }
+    // и ни одна вершина смещённого контура не ближе зазора к исходному (иначе карман тесен)
+    for (const q of off!) {
+      let best = Infinity
+      for (let i = 0; i < pts.length; i++) best = Math.min(best, distToSeg(q, pts[i], pts[(i + 1) % pts.length]))
+      expect(best).toBeGreaterThanOrEqual(0.8 - 0.02)
+    }
+  })
+
+  it('острый выпуклый угол: все точки дуги на расстоянии зазора от вершины', () => {
+    const sq: Pt[] = [[0, 0], [10, 0], [10, 10], [0, 10]]
+    const off = offsetCurve(sq, 1)!
+    const arc = off.filter((q) => q[0] > 10 && q[1] < 0)
+    expect(arc.length).toBeGreaterThan(2)
+    for (const q of arc) expect(Math.hypot(q[0] - 10, q[1] - 0)).toBeCloseTo(1, 6)
+  })
+
+  it('контур по часовой стрелке: null (смещение отдаётся ядру)', () => {
+    expect(offsetCurve([[0, 0], [0, 10], [10, 10], [10, 0]], 1)).toBeNull()
   })
 
   it('тесный вогнутый вырез: возвращает null (fallback)', () => {

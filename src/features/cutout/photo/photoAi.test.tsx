@@ -94,8 +94,10 @@ describe('окно «Из фото»: движок ИИ (32, 5.2 и 5.3)', () =>
     await toStep3()
     await userEvent.click(screen.getByRole('button', { name: 'AI' }))
     expect(screen.getByTestId('mask-tuning')).toBeInTheDocument()
-    expect(screen.getByLabelText('Edge reach')).toBeInTheDocument(); expect(screen.getByLabelText('Outline smoothness')).toBeInTheDocument()
-    expect(screen.getByRole('slider', { name: 'Edge reach (slider)' })).toBeInTheDocument(); expect(screen.getByRole('slider', { name: 'Outline smoothness (slider)' })).toBeInTheDocument()
+    // «Outline smoothness» есть и в настройках контура (35): берём поле блока подгонки маски
+    const tuning = screen.getByTestId('mask-tuning')
+    expect(screen.getByLabelText('Edge reach')).toBeInTheDocument(); expect(within(tuning).getByLabelText('Outline smoothness')).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Edge reach (slider)' })).toBeInTheDocument(); expect(within(tuning).getByRole('slider', { name: 'Outline smoothness (slider)' })).toBeInTheDocument()
     expect(screen.getByText(/The effect shows after the AI run/)).toBeInTheDocument()
   }, 30000)
 
@@ -122,7 +124,8 @@ describe('окно «Из фото»: движок ИИ (32, 5.2 и 5.3)', () =>
     expect(silhouetteAlpha).toHaveBeenCalledTimes(1)
     const first = sizes()
     // охват края: мягкая зона не настроена, поэтому сглаживание 3 мм заметно меняет угловой прямоугольник
-    const smooth = screen.getByLabelText('Outline smoothness') as HTMLInputElement
+    // поле подгонки маски, не «Outline smoothness» из настроек контура (35)
+    const smooth = within(screen.getByTestId('mask-tuning')).getByLabelText('Outline smoothness') as HTMLInputElement
     await userEvent.clear(smooth); await userEvent.type(smooth, '3'); await userEvent.tab()
     await waitFor(() => expect(sizes()).not.toEqual(first), { timeout: 5000 })
     expect(silhouetteAlpha).toHaveBeenCalledTimes(1)

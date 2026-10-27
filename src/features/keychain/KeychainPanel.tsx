@@ -63,7 +63,7 @@ export function KeychainPanel({ params: p, onChange, imageName, hasImage, info, 
         {hasImage && image && (
           <>
             <CropEditor image={image} crop={p.crop} subjectBox={subjectBox} onChange={(c) => onChange((o) => ({ ...o, crop: c }))} />
-            <OutlineControls value={p.outline ?? defaultOutline} onChange={(v) => onChange((o) => ({ ...o, outline: { ...(o.outline ?? defaultOutline), ...v } }))} />
+            <OutlineControls value={p.outline ?? defaultOutline} onChange={(v) => onChange((o) => ({ ...o, outline: { ...(o.outline ?? defaultOutline), ...v } }))} count={info?.outlineVertices} />
           </>
         )}
       </ImageSection>

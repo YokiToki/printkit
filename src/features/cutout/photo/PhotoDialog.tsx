@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { IconBulb, IconPhoto, IconX } from '@tabler/icons-react'
@@ -11,6 +11,9 @@ import { NumberField } from '../../../ui/NumberField'
 import { SegmentedControl } from '../../../ui/SegmentedControl'
 import { formatLength, useUnit } from '../../../ui/units'
 import { tracedCutouts } from './createCutouts'
+import { fittedVertexCount } from '../../../geometry/outlineFit'
+import { traceSilhouette } from '../../../geometry/photo/outline'
+import { OutlineControls } from '../../keychain/OutlineControls'
 import { CornerEditor } from './CornerEditor'
 import { AiControls } from './AiControls'
 import { CompareOverlay, CompareTable } from './CompareOverlay'
@@ -63,9 +66,19 @@ export function PhotoDialog({ trace, maxDepth, onClose, onCreate }: { trace: Pho
 
   const canNext = step === 1 ? !!photo : step === 2 ? quad === 'ok' && !!preview : false
   const depth = Math.min(PHOTO_DEPTH, maxDepth) // глубину и зазор здесь не видно, их настраивают у готовых вырезов
+  // число вершин подогнанного контура по выбранным силуэтам: показывает, как сглаживание и шаг меняют результат
+  const vertices = useMemo(() => {
+    if (!segmentation) return undefined
+    let n = 0
+    for (const id of selected) {
+      const t = traceSilhouette(segmentation, id, paper)
+      if (t) n += fittedVertexCount(t.points, s.outline)
+    }
+    return n
+  }, [segmentation, selected, s.outline, paper])
   const create = () => {
     if (!segmentation) return
-    onCreate(tracedCutouts(segmentation, selected, paper, { depth, clearance: PHOTO_CLEARANCE, name: (n) => t('cutout.photo.itemName', { n }) }))
+    onCreate(tracedCutouts(segmentation, selected, paper, { depth, clearance: PHOTO_CLEARANCE, fit: s.outline, name: (n) => t('cutout.photo.itemName', { n }) }))
   }
   // контуры другого движка для сравнения: ИИ, если активна классика, и наоборот
   const other = s.compare ? (s.engine === 'ai' && trace.aiSegmentation && !trace.ai.error ? trace.segmentation : trace.aiSegmentation && s.engine === 'classic' ? trace.aiSegmentation : null) : null
@@ -192,6 +205,7 @@ export function PhotoDialog({ trace, maxDepth, onClose, onCreate }: { trace: Pho
                     </li>
                   ))}
                 </ul>
+                <OutlineControls value={s.outline} onChange={(v) => set({ outline: { ...s.outline, ...v } })} count={vertices} />
                 <span className="text-xs text-text-subtle">{t('cutout.photo.keepNote')}</span>
               </div>
             </div>

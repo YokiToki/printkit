@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../../i18n'
-import { defaultCutout, type CutoutParams } from '../../../geometry/cutout'
+import { defaultCutout, type CutoutParams, type OutlineSource } from '../../../geometry/cutout'
+import { defaultOutline } from '../../../geometry/imageOutline'
+import { fitOutline, fittedVertexCount } from '../../../geometry/outlineFit'
 import { paperSize } from '../../../geometry/photo/paper'
 import { rectObject, discObject, grayOfRgb, syntheticColorPhoto } from '../../../geometry/photo/synthetic'
 import { UnitContext } from '../../../ui/units'
@@ -17,6 +19,12 @@ const detect = vi.hoisted(() => vi.fn())
 vi.mock('../../keychain/decodeImage', async (orig) => ({ ...(await orig<typeof import('../../keychain/decodeImage')>()), decodeColorImage: decode }))
 // автоопределение листа в этих тестах отключено (стартовые углы по умолчанию): поведение окна не зависит от него; само определение проверяют usePhotoTrace.test и detect.test
 vi.mock('../../../geometry/photo/detect', async (orig) => ({ ...(await orig<typeof import('../../../geometry/photo/detect')>()), detectPaper: (c: unknown) => detect(c) }))
+// в тестах подгонки (35) подменяется, чтобы сверить созданные точки с исходной полилинией; по умолчанию — настоящая обводка
+const fakeTrace = vi.hoisted(() => ({ fake: null as null | ((id: number) => { points: [number, number][]; size: { w: number; l: number }; center: [number, number]; areaMm2: number }) }))
+vi.mock('../../../geometry/photo/outline', async (orig) => {
+  const real = await orig<typeof import('../../../geometry/photo/outline')>()
+  return { ...real, traceSilhouette: (seg: Parameters<typeof real.traceSilhouette>[0], id: number, paper: Parameters<typeof real.traceSilhouette>[2]) => fakeTrace.fake?.(id) ?? real.traceSilhouette(seg, id, paper) }
+})
 
 const A4 = paperSize('a4', 'landscape')
 const W = 800, H = 600
@@ -370,5 +378,44 @@ describe('окно «Из фото»: силуэты (3.3) и создание (
     await userEvent.click(await screen.findByRole('button', { name: 'Create 2 cutouts' }, { timeout: 4000 }))
     expect(latest.cutouts).toHaveLength(4)
     expect(latest.cutouts.map((c) => c.color)).toEqual([0, 1, 2, 3])
+  }, 40000)
+
+  it('шаг силуэтов: настройки контура по умолчанию, «Дополнительно» свёрнуто, число вершин посчитано (35)', async () => {
+    await toStep3()
+    const controls = screen.getByTestId('outline-controls')
+    expect(within(controls).getByLabelText('Outline smoothness')).toHaveValue('0.25')
+    expect(within(controls).getByLabelText('Fit tolerance')).toHaveValue('0.25')
+    expect(within(controls).getByRole('checkbox', { name: 'Use the original polyline' })).not.toBeChecked()
+    expect(within(controls).getByText('Advanced').closest('details')).not.toHaveAttribute('open')
+    expect(screen.getByTestId('outline-vertices')).toHaveTextContent(/\d+ vertices/)
+  }, 20000)
+
+  it('созданные контуры: подгонка с умолчаниями; «исходная полилиния» возвращает контур как есть (35)', async () => {
+    // два силуэта с разными контурами, чтобы подгонка поменяла точки; подмена действует до расчёта шага 3
+    const oval: [number, number][] = Array.from({ length: 24 }, (_, i) => { const a = (i / 24) * Math.PI * 2; return [Math.cos(a) * 6, Math.sin(a) * 4] })
+    const round: [number, number][] = Array.from({ length: 36 }, (_, i) => { const a = (i / 36) * Math.PI * 2; return [Math.cos(a) * 15, Math.sin(a) * 15] })
+    fakeTrace.fake = (id) => (id === 1 ? { points: oval, size: { w: 12, l: 8 }, center: [-30, 20], areaMm2: 300 } : { points: round, size: { w: 30, l: 30 }, center: [40, -10], areaMm2: 700 })
+    try {
+      await toStep3()
+      const shown = () => Number((screen.getByTestId('outline-vertices').textContent ?? '').match(/\d+/)?.[0])
+      expect(shown()).toBe(fittedVertexCount(oval, defaultOutline) + fittedVertexCount(round, defaultOutline))
+      await userEvent.click(screen.getByRole('button', { name: 'Create 2 cutouts' }))
+      expect(latest.cutouts).toHaveLength(2)
+      expect((latest.cutouts[0].source as OutlineSource).points).toEqual(fitOutline(oval, defaultOutline))
+      expect((latest.cutouts[1].source as OutlineSource).points).toEqual(fitOutline(round, defaultOutline))
+      // повторное открытие и «исходная полилиния»: подгонка не применяется
+      await userEvent.click(screen.getByRole('button', { name: 'From photo' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled(), { timeout: 4000 })
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+      const create2 = await screen.findByRole('button', { name: 'Create 2 cutouts' }, { timeout: 4000 })
+      expect(shown()).toBe(fittedVertexCount(oval, defaultOutline) + fittedVertexCount(round, defaultOutline))
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Use the original polyline' }))
+      expect(shown()).toBe(oval.length + round.length)
+      await userEvent.click(create2)
+      expect(latest.cutouts).toHaveLength(4)
+      expect(latest.cutouts[2].source).toMatchObject({ kind: 'outline', points: oval })
+      expect(latest.cutouts[3].source).toMatchObject({ kind: 'outline', points: round })
+    } finally { fakeTrace.fake = null }
   }, 40000)
 })

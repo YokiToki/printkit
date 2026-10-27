@@ -9,7 +9,7 @@
 
 ## 2. UI
 
-- [ ] 2.1 Extend `OutlineControls` (introduced for Keychain in `34`) and use it under the silhouette step of the photo dialog: outline smoothness and fit tolerance (lengths, so `LengthField`), the vertex count, the option "original polyline", and a collapsed Advanced group with corner angle (degrees) and sampling step (`LengthField`) and a reset; strings in `en.json` and `ru.json`. No artboard exists: built from `ui/` components and `theme.css` tokens, said in the commit; compare in en and ru and at 390 px. Component tests: controls update the outline and the count, the Advanced group is collapsed by default and its reset restores 50° and 1 mm, a finer step raises the vertex count, the polyline option restores the previous result, steppers on every numeric input, key parity.
+- [x] 2.1 Extend `OutlineControls` (introduced for Keychain in `34`) and use it under the silhouette step of the photo dialog: outline smoothness and fit tolerance (lengths, so `LengthField`), the vertex count, the option "original polyline", and a collapsed Advanced group with corner angle (degrees) and sampling step (`LengthField`) and a reset; strings in `en.json` and `ru.json`. No artboard exists: built from `ui/` components and `theme.css` tokens, said in the commit; compare in en and ru and at 390 px. Component tests: controls update the outline and the count, the Advanced group is collapsed by default and its reset restores 50° and 1 mm, a finer step raises the vertex count, the polyline option restores the previous result, steppers on every numeric input, key parity.
 
 ## 3. Version
 

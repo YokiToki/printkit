@@ -7,6 +7,7 @@ import { paperSize, type Paper, type PaperOrientation, type PaperPreset } from '
 import { PhotoSupersededError } from '../../../geometry/photo/photoClient'
 import { getPhotoClient } from './photoWorker'
 import { segment, type Segmentation } from '../../../geometry/photo/segment'
+import { defaultOutline, type OutlineParams } from '../../../geometry/imageOutline'
 import type { GrayImage } from '../../../geometry/raster/threshold'
 import { useCapabilities, useModelStore } from '../../../ml/useMl'
 import { usableModel } from '../../../ml/choice'
@@ -34,6 +35,8 @@ export interface PhotoSettings {
   aiRefine: boolean
   /** Показывать на выпрямленном листе контуры другого движка и таблицу размеров. */
   compare: boolean
+  /** Сглаживание и подгонка контуров силуэтов при создании вырезов. */
+  outline: OutlineParams
 }
 export type SegEngine = 'classic' | 'ai'
 
@@ -45,6 +48,7 @@ export const defaultPhotoSettings: PhotoSettings = {
   preset: 'a4', orientation: 'landscape', custom: { width: 210, length: 297 }, corners: [],
   sensitivity: null, margin: 3, excluded: [],
   engine: 'classic', ai: { threshold: null, smooth: null, secondPass: false }, aiRefine: true, compare: false,
+  outline: defaultOutline,
 }
 
 /** Начальные углы: прямоугольник, отступивший от краёв снимка на 15 %. */

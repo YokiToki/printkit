@@ -13,9 +13,9 @@
 
 ## 3. Version
 
-- [ ] 3.1 Bump to 1.7.0: `package.json` and a `CHANGELOG.md` entry `1.7.0 — 35-smooth-outline`. Test: the existing version test passes with the new number.
+- [x] 3.1 Bump to 1.7.0: `package.json` and a `CHANGELOG.md` entry `1.7.0 — 35-smooth-outline`. Test: the existing version test passes with the new number.
 
 ## 4. Verification
 
-- [ ] 4.1 `npm test` and `npm run build` are green, no console errors; the classic detection output on both fixtures is unchanged.
+- [x] 4.1 `npm test` and `npm run build` are green, no console errors; the classic detection output on both fixtures is unchanged.
 - [ ] 4.2 In the browser, en and ru and at 390 px, with the owner's two photos and both engines: pockets show smooth walls at a grazing view in the 3D preview, the vertex count is several times lower, tips stay pointed, the clearance gives rounded convex corners, the exported STL of the bin is one valid solid, saved old sessions load unchanged.

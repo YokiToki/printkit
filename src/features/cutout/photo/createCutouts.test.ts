@@ -136,4 +136,13 @@ describe('подгонка контура в tracedCutouts (35)', () => {
     }
     expect(max).toBeLessThan(0.3)
   })
+
+  it('на обоих снимках подогнанный контур: вершин не больше 1,3 от полилинии', () => {
+    for (const name of ['flash', 'noflash'] as const) {
+      const f = loadFixture(name)
+      const seg = segment(rectify(f.gray, f.corners, A4Portrait, f.color.rgb)!)
+      const count = (o: typeof optsFit | typeof optsPolyline) => tracedCutouts(seg, [1, 2, 3], A4Portrait, o).reduce((a, c) => a + (c.source as { points: unknown[] }).points.length, 0)
+      expect(count(optsFit)).toBeLessThanOrEqual(count(optsPolyline) * 1.3)
+    }
+  })
 })

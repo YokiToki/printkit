@@ -172,14 +172,14 @@ describe('fitLoop: подгонка кубических Безье', () => {
 })
 
 describe('sampleCurves: мелкий радиус', () => {
-  it('на круге радиуса 3 мм хорда и подгонка вместе отходят от дуги не больше 0,08 мм при шаге 1 мм', () => {
+  it('на круге радиуса 3 мм хорда и подгонка вместе отходят от дуги не больше 0,15 мм (ε = 0,1 и допуск подгонки 0,05) при шаге 1 мм', () => {
     const r = 3, out = fitOutline(circlePts(r, 200), { smooth: 0, fitTolerance: 0.05, step: 1 })
     let worst = 0
     for (let i = 0; i < out.length; i++) {
       const a = out[i], b = out[(i + 1) % out.length]
       worst = Math.max(worst, r - Math.hypot((a[0] + b[0]) / 2, (a[1] + b[1]) / 2))
     }
-    expect(worst).toBeLessThan(0.08)
+    expect(worst).toBeLessThan(0.15)
   })
 })
 
@@ -254,5 +254,21 @@ describe('offsetCurve: смещение контура', () => {
     const pts: Pt[] = [[0, 0], [5, 5], [0, 5], [5, 0]]
     const off = offsetCurve(pts, 1)
     expect(off).toBeNull()
+  })
+})
+
+describe('sampleCurves: шаг по ошибке хорды (35, 1.5)', () => {
+  it('пологая дуга и прямой участок: вершины дальше шага; острая кривая не реже шага', () => {
+    const gentle = fitOutline(circlePts(60, 400), { smooth: 0, fitTolerance: 0.05, step: 1 })
+    const tight = fitOutline(circlePts(1, 200), { smooth: 0, fitTolerance: 0.05, step: 1 })
+    const gap = (p: [number, number][]) => Math.hypot(p[1][0] - p[0][0], p[1][1] - p[0][1])
+    expect(gap(gentle as [number, number][])).toBeGreaterThan(1)
+    expect(gap(tight as [number, number][])).toBeLessThanOrEqual(1)
+  })
+  it('мельче шаг — больше вершин, крайние точки круга в выборке', () => {
+    const pts = circlePts(10, 300)
+    const coarse = fitOutline(pts, { smooth: 0, fitTolerance: 0.05, step: 1 }), fine = fitOutline(pts, { smooth: 0, fitTolerance: 0.05, step: 0.3 })
+    expect(fine.length).toBeGreaterThan(coarse.length)
+    expect(Math.max(...coarse.map((p) => p[0]))).toBeCloseTo(10, 2)
   })
 })

@@ -9,9 +9,9 @@ In the PoC (`poc/ai/`) a pocket built from fitted curves instead of the raw poly
 ## What Changes
 
 - **One shared outline stage for every source of silhouette.** After the silhouette is found (classic detection, AI mask, or a keychain mask), the outline is traced, smoothed along the curve (sharp corners kept) and **fitted with cubic Bézier curves** (Schneider's algorithm) to a tolerance (default 0.25 mm), corners detected by the turning angle (default 50°) staying real corners with G1-continuous curves in between.
-- **Compact and smooth geometry.** The fitted curves are sampled into a polygon with a chord error well below the tolerance (a step of about 1 mm along the curve), so the model gets a few hundred vertices instead of thousands and walls without ripple. Clearance offsets are made on the curve (round joins at convex corners, mitre at concave ones).
+- **Compact and smooth geometry.** The fitted curves are sampled into a polygon with a chord error below the tolerance, the step along each curve following from that error (at most the sampling step on tight curves, longer on gentle ones, so a gentle run gets few vertices), so the model gets a few hundred vertices instead of thousands and walls without ripple. Clearance offsets are made on the curve (round joins at convex corners, mitre at concave ones).
 - **Applies to both engines.** The classic detection (the baseline) is not changed: only the stage after it, so the baseline silhouettes stay identical and its outline gets smoother. The AI engine of `32` uses the same stage.
-- **Controls.** "Outline smoothness" (σ, default 0.25 mm) and "Fit tolerance" (default 0.25 mm) and "Sampling step" (default 1 mm) under the silhouette step, with the vertex count shown; "Use the original polyline" as an option that restores the previous behaviour.
+- **Controls.** "Outline smoothness" (σ, default 0.25 mm) and "Fit tolerance" (default 0.25 mm) and "Sampling step" (default 1 mm: the finest step, it also scales the chord error) under the silhouette step, with the vertex count shown; "Use the original polyline" as an option that restores the previous behaviour.
 - **Keychain.** The image and shape silhouettes of Keychain use the same stage for their outline (see `34`).
 
 ## Capabilities

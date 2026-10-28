@@ -121,12 +121,30 @@ export function fitLoop(pts: Pt[], corner: boolean[], tol: number): FittedOutlin
 
 // ---------- дискретизация кривых ----------
 
-/** Допустимая стрела прогиба хорды при дискретизации, мм. */
-const SAMPLE_CHORD_ERR = 0.03
+/** Параметры t в (0,1), где производная кубика по x или по y обращается в ноль (крайние точки). */
+function bezExtrema(c: Bez): number[] {
+  const r: number[] = []
+  for (const k of [0, 1]) {
+    // B'(t)/3 = a t² + b t + d
+    const p0 = c[0][k], p1 = c[1][k], p2 = c[2][k], p3 = c[3][k]
+    const a = -p0 + 3 * p1 - 3 * p2 + p3, b = 2 * (p0 - 2 * p1 + p2), d = p1 - p0
+    if (Math.abs(a) < 1e-12) { if (Math.abs(b) > 1e-12) r.push(-d / b) } else {
+      const D = b * b - 4 * a * d
+      if (D >= 0) { const q = Math.sqrt(D); r.push((-b + q) / (2 * a), (-b - q) / (2 * a)) }
+    }
+  }
+  return r.filter((t) => t > 1e-3 && t < 1 - 1e-3)
+}
+
+/** Допустимая стрела прогиба хорды на 1 мм шага: ε = SAMPLE_CHORD_ERR × step, мм. */
+const SAMPLE_CHORD_ERR = 0.1
+/** Пределы шага вдоль кривой, мм: снизу, чтобы не плодить точки на остриях, сверху для прямых участков. */
+const MIN_SAMPLE_STEP = 0.05, MAX_SAMPLE_STEP = 10
 
 /**
- * Выборка кривых Безье в многоугольник с шагом ≈ step мм.
- * Оценивает длину дуги 16-ю подинтервалами, затем делит равномерно по t.
+ * Выборка кривых Безье в многоугольник: шаг по ошибке хорды, ε = SAMPLE_CHORD_ERR × step.
+ * Шаг на кубике = √(8·R·ε) по радиусу R, ограничен MIN/MAX_SAMPLE_STEP; на острых кривых он мельче step,
+ * на пологих и прямых крупнее. Длина дуги по 16 подинтервалам, деление равномерно по t.
  * Угол > 3° между сегментами отмечается как угол (для offset).
  */
 export function sampleCurves(fitted: FittedOutline, step: number): Pt[] {
@@ -136,12 +154,18 @@ export function sampleCurves(fitted: FittedOutline, step: number): Pt[] {
     const c = segs[si]
     let L = 0, prev = c[0]
     for (let i = 1; i <= 16; i++) { const q = bezAt(c, i / 16); L += vlen(vsub(q, prev)); prev = q }
-    // где радиус мал, шаг мельче: хорда не отходит от дуги больше SAMPLE_CHORD_ERR (шаг ≤ √(8·R·err))
+    // хорда не отходит от дуги больше ε (шаг ≤ √(8·R·ε))
     let turn = 0, ta = bezTan(c, 0)
     for (let i = 1; i <= 16; i++) { const tb = bezTan(c, i / 16); turn += Math.abs(Math.atan2(ta[0] * tb[1] - ta[1] * tb[0], vdot(ta, tb))); ta = tb }
-    const fine = turn > 1e-6 ? Math.sqrt(8 * (L / turn) * SAMPLE_CHORD_ERR) : Infinity
-    const n = Math.max(2, Math.ceil(L / Math.min(step, Math.max(fine, 0.05))))
-    for (let i = 0; i < n; i++) out.push(bezAt(c, i / n))
+    const eps = SAMPLE_CHORD_ERR * step
+    const byError = turn > 1e-6 ? Math.sqrt(8 * (L / turn) * eps) : MAX_SAMPLE_STEP
+    const n = Math.max(2, Math.ceil(L / Math.min(MAX_SAMPLE_STEP, Math.max(byError, MIN_SAMPLE_STEP))))
+    // хорды лежат внутри дуги: крайние точки по x и y входят в выборку, габарит остаётся точным
+    const ts = new Set<number>()
+    for (let i = 0; i < n; i++) ts.add(i / n)
+    for (const t of bezExtrema(c)) ts.add(t)
+    const sorted = [...ts].sort((a, b) => a - b).filter((t, i, a) => i === 0 || t - a[i - 1] > 1e-3)
+    for (const t of sorted) out.push(bezAt(c, t))
   }
   return out
 }

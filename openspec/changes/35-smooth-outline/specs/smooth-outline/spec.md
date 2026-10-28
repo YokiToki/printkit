@@ -14,7 +14,7 @@ The outline made from a silhouette, whether found by the classic detection, by t
 
 #### Scenario: Fewer points
 - **WHEN** the outline of a tool is made with the default tolerance
-- **THEN** its polygon has at least five times fewer vertices than the original polyline, and no point of it is farther than the tolerance from the original polyline
+- **THEN** its polygon has fewer vertices than the original polyline (at least five times fewer for a polyline of thousands of vertices; a polyline that is already sparse, spaced 3 to 4 mm at the 0.15 mm tolerance, is matched within about a quarter), and no point of it is farther than the tolerance from the original polyline
 
 #### Scenario: Sharp tips
 - **WHEN** a tool has a pointed tip
@@ -38,6 +38,10 @@ Besides the smoothness and the fit tolerance, the user SHALL be able to set the 
 #### Scenario: Finer step
 - **WHEN** the sampling step is made smaller
 - **THEN** the polygon has more vertices and follows the curve more closely
+
+#### Scenario: Gentle runs are sampled coarsely
+- **WHEN** a curve is gentle or straight
+- **THEN** its vertices are farther apart than the sampling step, so that the chord error stays within the allowed error, and a tight curve (radius of about a millimetre) has vertices at most the sampling step apart
 
 #### Scenario: Corner angle
 - **WHEN** the corner angle is raised above the turning angle of a tip

@@ -1,9 +1,9 @@
-# Spec Delta
+# smooth-outline Specification
 
 ## Purpose
 Defines the shared stage that turns a detected silhouette into a smooth outline with few points, used by Cutout with either detection engine and by Keychain.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Smooth outline from any silhouette
 The outline made from a silhouette, whether found by the classic detection, by the AI engine or from a keychain image or shape, SHALL be smooth: it SHALL be fitted with smooth curves instead of following every pixel and every wobble of the detected edge, and SHALL be turned into a polygon with a small number of vertices. Sharp corners of the subject, such as the tip of a tool, SHALL stay sharp, and the curves between corners SHALL be continuous in direction. The user SHALL be able to set the smoothness and the fit tolerance and to choose to keep the original polyline.
@@ -14,7 +14,7 @@ The outline made from a silhouette, whether found by the classic detection, by t
 
 #### Scenario: Fewer points
 - **WHEN** the outline of a tool is made with the default tolerance
-- **THEN** its polygon has at least five times fewer vertices than the original polyline, and no point of it is farther than the tolerance from the original polyline
+- **THEN** its polygon has fewer vertices than the original polyline (at least five times fewer for a polyline of thousands of vertices; a polyline that is already sparse, spaced 3 to 4 mm at the 0.15 mm tolerance, is matched within about a quarter), and no point of it is farther than the tolerance from the original polyline
 
 #### Scenario: Sharp tips
 - **WHEN** a tool has a pointed tip
@@ -38,6 +38,10 @@ Besides the smoothness and the fit tolerance, the user SHALL be able to set the 
 #### Scenario: Finer step
 - **WHEN** the sampling step is made smaller
 - **THEN** the polygon has more vertices and follows the curve more closely
+
+#### Scenario: Gentle runs are sampled coarsely
+- **WHEN** a curve is gentle or straight
+- **THEN** its vertices are farther apart than the sampling step, so that the chord error stays within the allowed error, and a tight curve (radius of about a millimetre) has vertices at most the sampling step apart
 
 #### Scenario: Corner angle
 - **WHEN** the corner angle is raised above the turning angle of a tip

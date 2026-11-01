@@ -59,10 +59,10 @@ Open the URL Vite prints, tweak, export.
 
 ## Deploy (GitHub Pages)
 
-The app is a static site, so it deploys as plain files. `.github/workflows/pages.yml` does the work:
+The app is a static site, so it deploys as plain files. Two workflows handle verification and publishing:
 
-- **Every push and pull request:** the `verify` job runs `npm ci`, `npm test` and `npm run build`.
-- **`main` only:** if `verify` passes, the `deploy` job publishes `dist/` to GitHub Pages. If tests or the build fail, nothing is published.
+- **Pull requests:** `.github/workflows/ci.yml` runs `npm ci`, `npm test` and `npm run build` once per PR update.
+- **Push to `main` or manual run:** `.github/workflows/pages.yml` runs the same checks, then publishes `dist/` to GitHub Pages from `main`. If tests or the build fail, nothing is published.
 
 One-time setup: in the repository open **Settings → Pages** and set **Source** to **GitHub Actions**. After the first successful run on `main` the URL appears in the run summary and under Settings → Pages. A custom domain can be set on the same page.
 

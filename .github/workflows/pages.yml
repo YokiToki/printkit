@@ -1,10 +1,10 @@
-# Тесты и сборка на каждый push/PR; публикация на GitHub Pages только из main.
+# Тесты, сборка и публикация на GitHub Pages из main.
 # Сайт статический: base './' в vite.config.ts и hash-роутинг, поэтому билд работает под любым подпутём.
-name: CI and Pages
+name: Pages
 
 on:
   push:
-  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -33,7 +33,7 @@ jobs:
 
   deploy:
     needs: verify
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       pages: write

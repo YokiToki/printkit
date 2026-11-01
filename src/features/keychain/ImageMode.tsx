@@ -40,16 +40,18 @@ export function ImageMode() {
   const [notice, setNotice] = useState<ImageNotice | null>(null)
   const [selectedArea, setSelectedArea] = useState<number | null>(null)
   const store = useRef<ImageStore | null>(null)
+  const storePromise = useRef<Promise<ImageStore> | null>(null)
   const [imageStore, setImageStore] = useState<ImageStore | null>(null)
+  const getStore = useCallback(() => (storePromise.current ??= openImageStore().then((s) => { store.current = s; return s })), [])
 
   // при открытии: хранилище и сохранённое изображение
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      store.current = await openImageStore()
-      if (!cancelled) setImageStore(store.current)
+      const s = await getStore()
+      if (!cancelled) setImageStore(s)
       if (!params.imageId) return
-      const saved = await store.current.load(params.imageId)
+      const saved = await s.load(params.imageId)
       if (cancelled) return
       if (saved) setImage(saved)
       else { setNotice({ kind: 'warn', text: t('keychain.image.lost') }); setState((o) => ({ ...o, imageId: '', imageName: '' })) }
@@ -62,28 +64,28 @@ export function ImageMode() {
   const onFile = useCallback(async (file: File) => {
     setNotice({ kind: 'info', text: t('keychain.image.loading', { name: file.name }) })
     try {
-      const decoded = await decodeColorImage(file)
+      const [decoded, s] = await Promise.all([decodeColorImage(file), getStore()])
       log.info('image', 'log.image.imported', { name: file.name, size: fmtSize(file.size), width: decoded.image.width, height: decoded.image.height })
       if (decoded.downscaled) log.info('image', 'log.image.downscaled', { name: file.name, width: decoded.image.width, height: decoded.image.height })
       const id = newImageId()
       const old = params.imageId
-      await store.current?.save(id, decoded.image)
+      await s.save(id, decoded.image)
       // цветная копия нужна нейросети, потом исходный файл уже не доступен; для SVG и без неё силуэт по ИИ не предлагается
-      await store.current?.saveColor(id, downscaleColor(decoded.color.rgb, decoded.color.width, decoded.color.height))
-      if (old) void store.current?.remove(old)
+      await s.saveColor(id, downscaleColor(decoded.color.rgb, decoded.color.width, decoded.color.height))
+      if (old) void s.remove(old)
       setImage(decoded.image)
       // новое изображение: прежняя альфа ИИ к нему не относится (она ушла вместе со старым изображением), силуэт снова по яркости
       setState((o) => ({ ...o, imageId: id, imageName: file.name, crop: { x: 0, y: 0, w: 1, h: 1 }, subjectAuto: true, source: { ...o.source, depthId: '', depthModel: '' }, silhouette: { ...o.silhouette, areas: {}, source: 'brightness', ai: { ...o.silhouette.ai, model: '', matteId: '' } } }))
       const warns: string[] = []
       if (decoded.downscaled) warns.push(t('keychain.image.downscaled', { w: decoded.original.width, h: decoded.original.height, nw: decoded.image.width, nh: decoded.image.height }))
-      if (store.current && !store.current.persistent) warns.push(t('keychain.image.notPersisted'))
+      if (!s.persistent) warns.push(t('keychain.image.notPersisted'))
       setNotice(warns.length ? { kind: 'warn', text: warns.join(' ') } : null)
     } catch (e) {
       const code = e instanceof ImageError ? e.code : 'decode'
       log.error('image', 'log.image.importFailed', { name: file.name }, `${code}${e instanceof Error && e.message ? `: ${e.message}` : ''}`)
       setNotice({ kind: 'error', text: t(`keychain.image.${code}`) })
     }
-  }, [params.imageId, setState, t])
+  }, [getStore, params.imageId, setState, t])
 
   // «Начать заново»: параметры по умолчанию, изображение убирается из модели (сам файл остаётся в хранилище)
   const startOver = () => { setState(defaults); setImage(null); setNotice(null); setSelectedArea(null) }

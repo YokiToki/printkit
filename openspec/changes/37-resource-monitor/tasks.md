@@ -24,5 +24,5 @@
 
 ## 6. Verification
 
-- [ ] 6.1 `npm test` and `npm run build` are green, the dev server starts, no console errors.
-- [ ] 6.2 In the browser, en and ru and at 390 px: rebuild a heavy model and run an AI model on WASM and on WebGPU, check the Resources view shows the durations, the backend, the busy share labelled as an estimate, the blocked main-thread time, the pressure level where Chrome offers it, the adapter, the triangles and draw calls of the last render; turn diagnostics on and see the GPU time and the slowest kernels on WebGPU and the note that runs are slower; check Safari or Firefox (if available) lists the unsupported rows as not available; no network request carries a measurement; the observers stop when the view is closed.
+- [x] 6.1 `npm test` and `npm run build` are green, the dev server starts, no console errors.
+- [x] 6.2 In the browser, en and ru and at 390 px: rebuild a heavy model and run an AI model on WASM and on WebGPU, check the Resources view shows the durations, the backend, the busy share labelled as an estimate, the blocked main-thread time, the pressure level where Chrome offers it, the adapter, the triangles and draw calls of the last render; turn diagnostics on and see the GPU time and the slowest kernels on WebGPU and the note that runs are slower; check Safari or Firefox (if available) lists the unsupported rows as not available; no network request carries a measurement; the observers stop when the view is closed.

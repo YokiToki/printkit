@@ -228,4 +228,83 @@ describe('ResourcesTab в ActivityLogPanel (37, 4.1)', () => {
     expect(screen.getByRole('region', { name: 'Графика (GPU)' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Память' })).toBeInTheDocument()
   })
+
+  it('полный сценарий (6.2): перестройка модели, запуск ИИ на WASM и WebGPU с диагностикой (GPU time и ядра), 3D-кадр, адаптер, отсутствие сетевых запросов и стек на мобильном экране', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const { aggregateKernels, setDiagnostics } = await import('./diagnostics')
+    setDiagnostics(true)
+
+    recordJobReport({
+      kind: 'rebuild',
+      start: 0,
+      end: 320,
+      backend: 'wasm',
+      threads: 1,
+      spans: [{ start: 0, end: 320 }],
+      triangles: 14800,
+    })
+    recordJobReport({
+      kind: 'ai',
+      name: 'RMBG-1.4 (int8)',
+      start: 400,
+      end: 1900,
+      backend: 'wasm',
+      threads: 4,
+      spans: [{ start: 400, end: 1850 }],
+    })
+    const gpuProfile = aggregateKernels(
+      [
+        { kernelType: 'Conv', programName: 'Conv2D_fp16', startTime: 0, endTime: 45_000_000 },
+        { kernelType: 'MatMul', programName: 'MatMul_fp16', startTime: 45_000_000, endTime: 75_000_000 },
+      ],
+      120,
+    )
+    recordJobReport({
+      kind: 'ai',
+      name: 'BiRefNet-lite (fp16)',
+      start: 2000,
+      end: 2120,
+      backend: 'webgpu',
+      threads: 1,
+      spans: [{ start: 2000, end: 2120 }],
+      gpuProfile,
+      gpuMemoryBytes: 128 * 1048576,
+    })
+    setRenderSnapshot({
+      hasRender: true,
+      timerQuerySupported: true,
+      triangles: measured(14800, 'triangles'),
+      drawCalls: measured(4, 'calls'),
+      submitMs: measured(1.4, 'ms'),
+      gpuMs: measured(0.8, 'ms'),
+    })
+
+    render(
+      <ActivityLogPanel
+        resourcesDeps={{
+          gpuInfo: async () => ({
+            supported: true,
+            timestampQuery: true,
+            adapterName: measured('Apple M3 Pro'),
+            architecture: measured('metal-3'),
+            maxBufferBytes: measured(4294967296, 'B'),
+          }),
+        }}
+      />,
+    )
+    act(() => openLog())
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resources' })) })
+
+    const tab = screen.getByTestId('resources-tab')
+    // Стек из одной колонки на телефоне (390 px), три колонки от md
+    expect(tab.querySelector('.grid-cols-1.md\\:grid-cols-3')).not.toBeNull()
+    expect(within(tab).getByText('Apple M3 Pro')).toBeInTheDocument()
+    expect(within(tab).getByText('metal-3')).toBeInTheDocument()
+    expect(within(tab).getByText(/Conv2D_fp16/)).toBeInTheDocument()
+    expect(within(tab).getAllByText('75 ms').length).toBeGreaterThanOrEqual(1)
+    expect(within(tab).getByText('4 calls')).toBeInTheDocument()
+    expect(fetchSpy).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
 })

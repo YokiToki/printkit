@@ -20,7 +20,7 @@
 
 ## 5. Version
 
-- [ ] 5.1 Bump to 1.8.0: `package.json` and a `CHANGELOG.md` entry `1.8.0 — 37-resource-monitor`. Test: the existing version test passes with the new number.
+- [x] 5.1 Bump to 1.8.0: `package.json` and a `CHANGELOG.md` entry `1.8.0 — 37-resource-monitor`. Test: the existing version test passes with the new number.
 
 ## 6. Verification
 

@@ -2,7 +2,7 @@
 
 ## 1. Check on the owner's device (spike)
 
-- [ ] 1.1 Extend the PoC (`poc/ai/`) with a throwaway resources panel that, for the AI models of the shortlist on WASM (1 and 4 threads) and on WebGPU, records: wall time, worker busy share, long-task blocked time, Compute Pressure levels, `adapter.info`, and with ORT Web's WebGPU profiling on the pinned version the GPU time and the slowest kernels, compared with the wall time; also the cost of the profiling (run time with and without it) and `renderer.info` plus a timer query for the keychain and cutout 3D views. Record the numbers and what is not available in `poc/ai/FINDINGS.md` and in `design.md` (Open Questions). If the profiling hook is not usable on the pinned version, say so and stop for `/opsx:update`.
+- [x] 1.1 Extend the PoC (`poc/ai/`) with a throwaway resources panel that, for the AI models of the shortlist on WASM (1 and 4 threads) and on WebGPU, records: wall time, worker busy share, long-task blocked time, Compute Pressure levels, `adapter.info`, and with ORT Web's WebGPU profiling on the pinned version the GPU time and the slowest kernels, compared with the wall time; also the cost of the profiling (run time with and without it) and `renderer.info` plus a timer query for the keychain and cutout 3D views. Record the numbers and what is not available in `poc/ai/FINDINGS.md` and in `design.md` (Open Questions). If the profiling hook is not usable on the pinned version, say so and stop for `/opsx:update`.
 
 ## 2. Collectors (React-free)
 

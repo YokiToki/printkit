@@ -15,6 +15,7 @@ import { gaussianBlur, MIN_SIGMA } from '../../src/geometry/raster/blur'
 import { fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
 import { backendsOf, CANDIDATES } from './models'
 import { infer } from './engine'
+import { mountResourcesPanel, selectedThreads } from './resources'
 import { bezTan, findCorners, fitLoop, signedDistance, tessellate, vectorOutline, type Bez, type Pt } from './outline'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -217,7 +218,8 @@ const group = new THREE.Group(); scene.add(group)
 function setLight() { const a = (num('lightang') * Math.PI) / 180; sun.position.set(Math.cos(a) * 120, Math.sin(a) * 120, 100) }
 function resize() { const w = view.clientWidth, h = view.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix() }
 new ResizeObserver(resize).observe(view); resize(); setLight()
-renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera) })
+const resMon = mountResourcesPanel(renderer)
+renderer.setAnimationLoop(() => { controls.update(); const t0 = resMon.beforeRender(); renderer.render(scene, camera); resMon.afterRender(t0) })
 let fitted = ''
 function frame(size: number, preset: 'top' | 'iso') {
   const d = size * 1.7
@@ -329,7 +331,7 @@ async function refine(c: (typeof CANDIDATES)[number], ep: string, base: Float32A
   for (const s of seg0.sils) {
     const x0 = Math.max(0, s.bbox[0] - pad), y0 = Math.max(0, s.bbox[1] - pad), x1 = Math.min(W - 1, s.bbox[2] + pad), y1 = Math.min(H - 1, s.bbox[3] + pad), cw = x1 - x0 + 1, ch = y1 - y0 + 1
     const crop = new Uint8Array(cw * ch * 3); for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) { const q = ((y0 + j) * W + x0 + i) * 3; crop.set(r.rgb!.subarray(q, q + 3), (j * cw + i) * 3) }
-    const res = await infer(c, ep, 1, crop, cw, ch, () => {})
+    const res = await infer(c, ep, selectedThreads(), crop, cw, ch, () => {})
     log(`  уточнение объекта №${s.id}: ${cw}×${ch} px, ${res.ms.toFixed(0)} мс`)
     for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) { // внутри рамки без самого края (край рамки остаётся от общего прохода)
       const edge = Math.min(i, j, cw - 1 - i, ch - 1 - j), w2 = Math.min(1, edge / (pad * 0.5)) // плавный переход к общему проходу на краю рамки
@@ -344,7 +346,7 @@ $('runai').addEventListener('click', async () => {
   const c = CANDIDATES.find((x) => x.id === $<HTMLSelectElement>('modelsel').value)!, ep = $<HTMLSelectElement>('ep').value, btn = $<HTMLButtonElement>('runai'); btn.disabled = true
   try {
     log(`силуэты: ${c.id}, ${ep}, лицензия ${c.license}`)
-    const r = await infer(c, ep, 1, rect.rgb!, rect.image.width, rect.image.height, log)
+    const r = await infer(c, ep, selectedThreads(), rect.rgb!, rect.image.width, rect.image.height, log)
     log(`общий проход за ${r.ms.toFixed(0)} мс`); matte = r.plane
     if (chk('refine')) { const t = performance.now(); matte = await refine(c, ep, matte, rect); log(`второй проход по объектам за ${((performance.now() - t) / 1000).toFixed(1)} с`) }
     $<HTMLSelectElement>('eng').value = 'ai'; schedule()

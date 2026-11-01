@@ -41,5 +41,5 @@ Checked in Chrome 152 on Apple Silicon (the owner's device): `PressureObserver` 
 
 ## Open Questions
 
-- Whether to also offer a "benchmark" button that runs a fixed small inference on each backend and recommends one; left out of this change.
-- Whether the AI status line should show GPU time live (needs profiling on); proposed only in the diagnostics mode.
+- Resolved in 1.1: no "benchmark" button in this change.
+- Resolved in 1.1: `env.webgpu.profiling` (`mode: 'default'`, `ondata`) in `onnxruntime-web@1.30.0` works inside `ml.worker.ts` without recreating the session (`setQueryType()` runs on each `onRunStart()`), reports `startTime`/`endTime` in nanoseconds, and adds ~10–25 % overhead in `at-passes` mode because compute passes end after each kernel. GPU time and the five slowest kernels are reported when the run finishes (in the job report and the Resources tab), not live in the status bar while the run is in progress.

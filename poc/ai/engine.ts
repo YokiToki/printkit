@@ -1,9 +1,14 @@
 /** Запуск моделей PoC: загрузка (Cache API), сессии ORT Web, подготовка входа и разворот выхода. Не зависит от страницы. */
 import * as ort from 'onnxruntime-web'
+import * as ortWebgpu from 'onnxruntime-web/webgpu'
 import type { Candidate } from './models'
+import { isProfilingEnabled, readLongTasks, readPressureSummary, recordRun, resetPressureWindow, selectedThreads, summarizeKernels, type KernelSample } from './resources'
 
-ort.env.wasm.proxy = true // вывод в воркере ORT: страница не замирает
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@' + (ort.env.versions?.web ?? 'latest') + '/dist/'
+const wasmBase = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@' + (ort.env.versions?.web ?? 'latest') + '/dist/'
+ort.env.wasm.proxy = true // вывод WASM в воркере ORT: страница не замирает
+ort.env.wasm.wasmPaths = wasmBase
+ortWebgpu.env.wasm.proxy = false // WebGPU исполняет ядра на GPU и отдаёт `env.webgpu.profiling.ondata` колбэком в том же потоке
+ortWebgpu.env.wasm.wasmPaths = wasmBase
 
 const sessions = new Map<string, ort.InferenceSession>()
 export type Log = (s: string) => void
@@ -24,15 +29,17 @@ async function fetchUrl(url: string, bytes: number, log: Log): Promise<ArrayBuff
 }
 
 async function session(c: Candidate, ep: string, threads: number, log: Log): Promise<ort.InferenceSession> {
-  const key = `${c.id}|${ep}|${threads}`
+  const actualThreads = ep === 'wasm' ? (self.crossOriginIsolated ? threads : 1) : 1
+  const key = `${c.id}|${ep}|${actualThreads}`
   let s = sessions.get(key)
   if (s) return s
   const buf = await fetchUrl(c.url, c.bytes, log)
   const externalData = c.data ? [{ path: c.data.path, data: new Uint8Array(await fetchUrl(c.data.url, c.data.bytes, log)) }] : undefined
-  ort.env.wasm.numThreads = threads
+  const lib = ep === 'webgpu' ? ortWebgpu : ort
+  lib.env.wasm.numThreads = actualThreads
   const t = performance.now()
-  s = await ort.InferenceSession.create(buf, { executionProviders: [ep], graphOptimizationLevel: 'all', ...(externalData ? { externalData } : {}) })
-  log(`сессия ${c.id} (${ep}) за ${(performance.now() - t).toFixed(0)} мс`)
+  s = await lib.InferenceSession.create(buf.slice(0), { executionProviders: [ep], graphOptimizationLevel: 'all', ...(externalData ? { externalData } : {}) })
+  log(`сессия ${c.id} (${ep}${ep === 'wasm' ? `×${actualThreads}` : ''}) за ${(performance.now() - t).toFixed(0)} мс`)
   sessions.set(key, s)
   return s
 }
@@ -75,11 +82,32 @@ function fromOutput(v: Float32Array, s: number, w: number, h: number): Float32Ar
 
 /** Прогон модели на картинке rgb (w × h). matte → альфа 0…1, depth → глубина 0…1 по 2–98 перцентилям (ближе = больше). */
 export async function infer(c: Candidate, ep: string, threads: number, rgb: Uint8Array, w: number, h: number, log: Log): Promise<{ plane: Float32Array; ms: number }> {
-  const sess = await session(c, ep, threads, log)
+  const reqThreads = threads || selectedThreads()
+  const actualThreads = ep === 'wasm' ? (self.crossOriginIsolated ? reqThreads : 1) : 1
+  if (ep === 'wasm' && reqThreads > 1 && !self.crossOriginIsolated) log('ВНИМАНИЕ: crossOriginIsolated=false, WASM идёт в 1 поток (запустите с POC_COI=1 для 4 потоков)')
+  const sess = await session(c, ep, actualThreads, log)
   const s = c.size, data = toInput(rgb, w, h, c, s)
+  const prof = ep === 'webgpu' && isProfilingEnabled()
+  const samples: KernelSample[] = []
+  if (ep === 'webgpu') {
+    ortWebgpu.env.webgpu.profiling = prof
+      ? { mode: 'default', ondata: (d) => samples.push({ kernelType: d.kernelType, kernelName: d.kernelName, programName: d.programName, startTime: d.startTime, endTime: d.endTime }) }
+      : { mode: 'off' }
+  }
+  resetPressureWindow()
+  const lib = ep === 'webgpu' ? ortWebgpu : ort
   const t = performance.now()
-  const out = await sess.run({ [sess.inputNames[0]]: new ort.Tensor('float32', data, [1, 3, s, s]) })
+  const out = await sess.run({ [sess.inputNames[0]]: new lib.Tensor('float32', data, [1, 3, s, s]) })
   const ms = performance.now() - t
+  if (prof) await new Promise((r) => setTimeout(r, 10)) // дождаться mapAsync буфера timestamp-query
+  const kernels = prof && samples.length > 0 ? summarizeKernels(samples) : null
+  const lt = readLongTasks(Math.max(2000, ms))
+  recordRun({
+    model: c.id, ep, threads: actualThreads, profiling: prof, wallMs: ms, busyMs: ms,
+    gpuMs: kernels ? kernels.gpuMs : null, kernels,
+    pressure: readPressureSummary(), blockedPct: lt.blockedPct, longestBlockMs: lt.longestMs,
+  })
+  if (kernels) log(`  GPU (timestamp-query): ${kernels.gpuMs.toFixed(1)} мс (${((kernels.gpuMs / ms) * 100).toFixed(0)}% wall), ядер: ${kernels.count}`)
   let o = out[sess.outputNames[0]].data as Float32Array
   if (c.kind === 'depth') {
     const sorted = Float32Array.from(o).sort(), lo = sorted[Math.floor(sorted.length * 0.02)], hi = sorted[Math.floor(sorted.length * 0.98)]

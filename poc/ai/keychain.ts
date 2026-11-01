@@ -11,6 +11,7 @@ import { close } from '../../src/geometry/raster/morphology'
 import { findHoles, fillHoles, labelComponents, removeSpecks } from '../../src/geometry/raster/components'
 import { backendsOf, CANDIDATES, type Candidate } from './models'
 import { infer } from './engine'
+import { mountResourcesPanel, selectedThreads } from './resources'
 import { findCorners, fitLoop, signedDistance, tessellate, vectorOutline, type Pt } from './outline'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -270,7 +271,8 @@ const group = new THREE.Group(); scene.add(group)
 function setLight() { const a = (num('lightang') * Math.PI) / 180; sun.position.set(Math.cos(a) * 80, Math.sin(a) * 80, 70) }
 function resize() { const w = view.clientWidth, h = view.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix() }
 new ResizeObserver(resize).observe(view); resize(); setLight()
-renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera) })
+const resMon = mountResourcesPanel(renderer)
+renderer.setAnimationLoop(() => { controls.update(); const t0 = resMon.beforeRender(); renderer.render(scene, camera); resMon.afterRender(t0) })
 let fitted = ''
 function frame(partW: number, partH: number, preset: 'top' | 'iso' | null) {
   const d = Math.max(partW, partH) * 1.9
@@ -393,7 +395,7 @@ async function runModel(kind: 'sil' | 'depth') {
       crop = cropNow(); const p = cropPx(crop, img); w = p.pw; h = p.ph; rgb = new Uint8Array(w * h * 3)
       for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = ((p.y0 + j) * img.w + p.x0 + i) * 3; rgb.set(img.rgb.subarray(q, q + 3), (j * w + i) * 3) }
     }
-    const r = await infer(c, ep, 1, rgb, w, h, log)
+    const r = await infer(c, ep, selectedThreads(), rgb, w, h, log)
     log(`готово за ${r.ms.toFixed(0)} мс`)
     if (kind === 'sil') matte = r.plane; else depthRec = { plane: r.plane, w, h, crop: crop! }
     work = null; schedule()

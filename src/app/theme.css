@@ -54,21 +54,21 @@
   --color-art-5: #7a90ba;
   --color-art-6: #9fb2d6;
   --color-art-edge: #0b0d11;
-  /* лестницы тонов иллюстраций по продукту: те же шаги светлоты, что у синей; Keychain — зелёный, Rack — тёплый жёлтый (не оранжевый Okabe–Ito) */
-  --color-art-keychain-0: #1b2a22;
-  --color-art-keychain-1: #25402f;
-  --color-art-keychain-2: #345a43;
-  --color-art-keychain-3: #437557;
-  --color-art-keychain-4: #58926d;
-  --color-art-keychain-5: #78b08a;
-  --color-art-keychain-6: #a1cfb0;
-  --color-art-rack-0: #2a2814;
-  --color-art-rack-1: #45401a;
-  --color-art-rack-2: #625b21;
-  --color-art-rack-3: #827927;
-  --color-art-rack-4: #a39a33;
-  --color-art-rack-5: #c5bb52;
-  --color-art-rack-6: #e3dc86;
+  /* лестницы тонов иллюстраций по продукту: те же шаги светлоты, что у синей; Keychain — чистый зелёный, Rack — янтарно-оранжевый */
+  --color-art-keychain-0: #14281b;
+  --color-art-keychain-1: #1d4028;
+  --color-art-keychain-2: #2b5c38;
+  --color-art-keychain-3: #3d7a4b;
+  --color-art-keychain-4: #539a60;
+  --color-art-keychain-5: #75bd7d;
+  --color-art-keychain-6: #a6dcaa;
+  --color-art-rack-0: #2a2010;
+  --color-art-rack-1: #45331a;
+  --color-art-rack-2: #644a20;
+  --color-art-rack-3: #856327;
+  --color-art-rack-4: #a87f31;
+  --color-art-rack-5: #cca24b;
+  --color-art-rack-6: #e8ca85;
   /* грани логотипа по продукту (умолчание — синий, как на корневой странице) */
   --color-logo-top: #7c9cff;
   --color-logo-left: #4a63b8;
@@ -94,8 +94,8 @@ body { background: var(--color-bg); color: var(--color-text); font: 13px/1.4 var
 /* Оттенок по продукту (data-hue на обёртке ModeArt и на логотипе): меняются только тона иллюстраций и грани логотипа;
    акцент, фокус, кнопки и остальной интерфейс от оттенка не зависят. */
 .logo-top { fill: var(--color-logo-top); } .logo-left { fill: var(--color-logo-left); } .logo-right { fill: var(--color-logo-right); }
-[data-hue='keychain'] { --color-logo-top: #7edc9d; --color-logo-left: #3f9a5e; --color-logo-right: #2e7547; }
-[data-hue='rack'] { --color-logo-top: #f0d95c; --color-logo-left: #b89e2a; --color-logo-right: #8a7620; }
+[data-hue='keychain'] { --color-logo-top: #67e294; --color-logo-left: #35a45c; --color-logo-right: #267a45; }
+[data-hue='rack'] { --color-logo-top: #f2b64a; --color-logo-left: #c08a24; --color-logo-right: #8f6519; }
 [data-hue='keychain'] .art-t0 { fill: var(--color-art-keychain-0); } [data-hue='keychain'] .art-t1 { fill: var(--color-art-keychain-1); }
 [data-hue='keychain'] .art-t2 { fill: var(--color-art-keychain-2); } [data-hue='keychain'] .art-t3 { fill: var(--color-art-keychain-3); }
 [data-hue='keychain'] .art-t4 { fill: var(--color-art-keychain-4); } [data-hue='keychain'] .art-t5 { fill: var(--color-art-keychain-5); }

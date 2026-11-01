@@ -22,5 +22,5 @@
 
 ## 5. Verification
 
-- [ ] 5.1 `npm test` and `npm run build` are green, the dev server starts, no console errors.
-- [ ] 5.2 In the browser, en and ru and at 390 px: the root page and the three product start pages show the new texts and tags, no placeholder, the Keychain Image card shows the ring emblem with its hole open and the Rack cards show 1 U parts, the card rows look level and have the same air, the pictures and the logo are blue, green and yellow for Gridfinity, Keychain and Rack while buttons, accents and focus rings keep their colours, the README reads correctly on GitHub.
+- [x] 5.1 `npm test` and `npm run build` are green, the dev server starts, no console errors.
+- [x] 5.2 In the browser, en and ru and at 390 px: the root page and the three product start pages show the new texts and tags, no placeholder, the Keychain Image card shows the ring emblem with its hole open and the Rack cards show 1 U parts, the card rows look level and have the same air, the pictures and the logo are blue, green and yellow for Gridfinity, Keychain and Rack while buttons, accents and focus rings keep their colours, the README reads correctly on GitHub.

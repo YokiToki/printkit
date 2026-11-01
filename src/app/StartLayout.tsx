@@ -25,7 +25,7 @@ export function ChoiceCard({ to, testId, index, art, name, desc, tags }: { to: s
   const { t } = useTranslation()
   const tag = 'inline-flex h-[22px] items-center rounded-full bg-surface-3 px-2 font-mono text-xs text-text-muted'
   return (
-    <Link to={to} data-testid={testId} aria-label={t('start.open', { name })} className="group relative flex h-[470px] w-[360px] max-w-full flex-col gap-3.5 rounded-2xl border border-border bg-gradient-to-b from-[#1a1f26] to-[#14181d] p-5 text-text no-underline transition-all hover:-translate-y-1 hover:border-accent hover:shadow-[0_0_0_1px_var(--color-accent),0_24px_60px_-20px_rgba(124,156,255,.5)] focus-visible:-translate-y-1 focus-visible:border-accent">
+    <Link to={to} data-testid={testId} aria-label={t('start.open', { name })} className="group relative flex h-[470px] w-[380px] max-w-full flex-col gap-3.5 rounded-2xl border border-border bg-gradient-to-b from-[#1a1f26] to-[#14181d] p-5 text-text no-underline transition-all hover:-translate-y-1 hover:border-accent hover:shadow-[0_0_0_1px_var(--color-accent),0_24px_60px_-20px_rgba(124,156,255,.5)] focus-visible:-translate-y-1 focus-visible:border-accent">
       <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-card border border-border bg-[radial-gradient(ellipse_at_50%_60%,#222a36_0%,#0e1115_75%)]">
         <span className="absolute top-2.5 left-3 font-mono text-xs text-text-subtle">{String(index).padStart(2, '0')}</span>
         <kbd aria-hidden className="absolute top-2.5 right-3 inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-xs border border-b-2 border-border-strong bg-surface-1 px-1.5 font-mono text-xs text-text-muted">{index}</kbd>

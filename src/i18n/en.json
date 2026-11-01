@@ -1500,5 +1500,102 @@
       "confirm": "Download",
       "cancel": "Cancel"
     }
+  },
+  "resources": {
+    "tabLog": "Log",
+    "tabResources": "Resources",
+    "viewSwitcher": "Log panel view",
+    "diagnostics": {
+      "label": "Diagnostics mode (slows AI runs down a little)"
+    },
+    "support": {
+      "available": "available",
+      "unavailable": "not available in this browser",
+      "pressure": "Compute Pressure",
+      "longTasks": "Long Tasks",
+      "webgpu": "WebGPU",
+      "timerQuery": "WebGL timer query"
+    },
+    "source": {
+      "measured": "measured",
+      "estimated": "estimated",
+      "unavailable": "not available"
+    },
+    "note": {
+      "busyShare": "worker request time over job wall time (one request at a time)",
+      "coreEquivalent": "worker busy share multiplied by configured threads",
+      "wholeSystem": "whole-computer processor pressure, not this tab alone",
+      "gpuMemory": "weights plus largest input and output buffers"
+    },
+    "unavailable": {
+      "noJob": "no job has run yet in this session",
+      "noWorker": "runs on the main thread, not in a worker",
+      "backend": "backend is unknown",
+      "longTasks": "Long Tasks API is not available in this browser",
+      "pressure": "Compute Pressure API is not available in this browser",
+      "webgpu": "WebGPU is not available in this browser",
+      "timestampQuery": "WebGPU timestamp queries are not available in this browser",
+      "diagnosticsOff": "turn on diagnostics mode to measure GPU time",
+      "noRender": "the 3D view has not rendered a model yet",
+      "timerQuery": "WebGL timer query is not available in this browser",
+      "timerDisjoint": "GPU timer was interrupted (disjoint), discarded",
+      "storageEstimate": "Storage Estimate API is not available in this browser",
+      "jsHeap": "JS heap size is not exposed in this browser",
+      "wasmMemory": "WebAssembly memory size is not exposed by the runtime"
+    },
+    "unit": {
+      "cores": "cores",
+      "triangles": "triangles",
+      "calls": "calls"
+    },
+    "group": {
+      "cpu": "Processor (CPU)",
+      "gpu": "Graphics (GPU)",
+      "memory": "Memory"
+    },
+    "cpu": {
+      "busyShare": "Worker busy share (last job)",
+      "coreEquivalent": "Worker core-equivalent (last job)",
+      "mainBlocked": "Main thread blocked (last 10 s)",
+      "longestBlock": "Longest main-thread block",
+      "pressureLevel": "System CPU pressure (whole computer)",
+      "pressureTimes": "Time by pressure level",
+      "level": {
+        "nominal": "Nominal",
+        "fair": "Fair",
+        "serious": "Serious",
+        "critical": "Critical"
+      }
+    },
+    "gpu": {
+      "adapter": "WebGPU adapter",
+      "architecture": "Architecture",
+      "modelMemory": "AI model GPU memory",
+      "aiGpuTime": "AI run GPU time",
+      "aiWallRatio": "AI GPU / wall time ratio",
+      "slowestKernels": "Slowest WebGPU kernels",
+      "renderTriangles": "Last render triangles",
+      "renderDrawCalls": "Last render draw calls",
+      "renderSubmit": "Last render CPU submit",
+      "renderGpuTime": "Last render GPU time"
+    },
+    "memory": {
+      "modelCache": "Downloaded AI models",
+      "storageUsage": "Browser storage used",
+      "storageQuota": "Browser storage quota",
+      "jsHeap": "JavaScript heap",
+      "wasmMemory": "WebAssembly memory"
+    },
+    "jobs": {
+      "title": "Last jobs",
+      "empty": "No jobs recorded yet.",
+      "rebuild": "Model rebuild",
+      "colWhat": "Job",
+      "colBackend": "Backend",
+      "colDuration": "Duration",
+      "colBusy": "Busy share",
+      "colGpuTime": "GPU time",
+      "colTriangles": "Triangles"
+    }
   }
 }

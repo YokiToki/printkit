@@ -16,7 +16,7 @@
 
 ## 4. UI
 
-- [ ] 4.1 `ResourcesTab` in the log panel of `31a`: groups CPU, GPU and Memory, the table of the last jobs, a provenance label with a tooltip on every value, a one-line browser support summary, the diagnostics switch with its warning, refresh once a second while a job runs and when opened, collectors started on open and stopped on close, stacked groups on a phone, the resources report included in Copy. Strings in `en.json` and `ru.json`. No artboard exists: built from `ui/` components and `theme.css` tokens, said in the commit; compare in en and ru and at 390 px. Component tests: every value shows a label, an unsupported source is listed as not available, no percentage appears for estimated values, the switch persists in `gridfinity.diagnostics`, observers are disconnected on close, Copy contains the report, key parity.
+- [x] 4.1 `ResourcesTab` in the log panel of `31a`: groups CPU, GPU and Memory, the table of the last jobs, a provenance label with a tooltip on every value, a one-line browser support summary, the diagnostics switch with its warning, refresh once a second while a job runs and when opened, collectors started on open and stopped on close, stacked groups on a phone, the resources report included in Copy. Strings in `en.json` and `ru.json`. No artboard exists: built from `ui/` components and `theme.css` tokens, said in the commit; compare in en and ru and at 390 px. Component tests: every value shows a label, an unsupported source is listed as not available, no percentage appears for estimated values, the switch persists in `gridfinity.diagnostics`, observers are disconnected on close, Copy contains the report, key parity.
 
 ## 5. Version
 

@@ -1500,5 +1500,102 @@
       "confirm": "Скачать",
       "cancel": "Отмена"
     }
+  },
+  "resources": {
+    "tabLog": "Журнал",
+    "tabResources": "Ресурсы",
+    "viewSwitcher": "Вид панели журнала",
+    "diagnostics": {
+      "label": "Режим диагностики (немного замедляет запуск ИИ)"
+    },
+    "support": {
+      "available": "доступно",
+      "unavailable": "недоступно в этом браузере",
+      "pressure": "Compute Pressure",
+      "longTasks": "Long Tasks",
+      "webgpu": "WebGPU",
+      "timerQuery": "Таймер WebGL"
+    },
+    "source": {
+      "measured": "измерено",
+      "estimated": "оценка",
+      "unavailable": "недоступно"
+    },
+    "note": {
+      "busyShare": "время запросов воркера к длительности задачи (по одному запросу за раз)",
+      "coreEquivalent": "доля занятости воркера, умноженная на число потоков",
+      "wholeSystem": "нагрузка процессора всего компьютера, а не только этой вкладки",
+      "gpuMemory": "веса модели плюс крупнейшие буферы входа и выхода"
+    },
+    "unavailable": {
+      "noJob": "в этом сеансе ещё не было задач",
+      "noWorker": "выполняется в основном потоке, а не в воркере",
+      "backend": "бэкенд неизвестен",
+      "longTasks": "Long Tasks API недоступен в этом браузере",
+      "pressure": "Compute Pressure API недоступен в этом браузере",
+      "webgpu": "WebGPU недоступен в этом браузере",
+      "timestampQuery": "временные метки WebGPU недоступны в этом браузере",
+      "diagnosticsOff": "включите режим диагностики для измерения времени GPU",
+      "noRender": "3D-вид ещё не отрисовал модель",
+      "timerQuery": "таймер WebGL недоступен в этом браузере",
+      "timerDisjoint": "таймер GPU был прерван (disjoint), результат отброшен",
+      "storageEstimate": "Storage Estimate API недоступен в этом браузере",
+      "jsHeap": "размер кучи JS не раскрывается в этом браузере",
+      "wasmMemory": "размер памяти WebAssembly не раскрывается средой выполнения"
+    },
+    "unit": {
+      "cores": "ядер",
+      "triangles": "треуг.",
+      "calls": "вызовов"
+    },
+    "group": {
+      "cpu": "Процессор (CPU)",
+      "gpu": "Графика (GPU)",
+      "memory": "Память"
+    },
+    "cpu": {
+      "busyShare": "Доля занятости воркера (последняя задача)",
+      "coreEquivalent": "Эквивалент ядер воркера (последняя задача)",
+      "mainBlocked": "Основной поток заблокирован (за 10 с)",
+      "longestBlock": "Самая долгая блокировка потока",
+      "pressureLevel": "Нагрузка CPU системы (весь компьютер)",
+      "pressureTimes": "Время по уровням нагрузки",
+      "level": {
+        "nominal": "Нормальная",
+        "fair": "Умеренная",
+        "serious": "Высокая",
+        "critical": "Критическая"
+      }
+    },
+    "gpu": {
+      "adapter": "Адаптер WebGPU",
+      "architecture": "Архитектура",
+      "modelMemory": "Память GPU для модели ИИ",
+      "aiGpuTime": "Время GPU запуска ИИ",
+      "aiWallRatio": "Доля времени GPU в запуске ИИ",
+      "slowestKernels": "Самые медленные ядра WebGPU",
+      "renderTriangles": "Треугольники последнего кадра",
+      "renderDrawCalls": "Вызовы отрисовки последнего кадра",
+      "renderSubmit": "Подача кадра на CPU",
+      "renderGpuTime": "Время GPU последнего кадра"
+    },
+    "memory": {
+      "modelCache": "Скачанные модели ИИ",
+      "storageUsage": "Занято в хранилище браузера",
+      "storageQuota": "Квота хранилища браузера",
+      "jsHeap": "Куча JavaScript",
+      "wasmMemory": "Память WebAssembly"
+    },
+    "jobs": {
+      "title": "Последние задачи",
+      "empty": "Задач пока не было.",
+      "rebuild": "Перестройка модели",
+      "colWhat": "Задача",
+      "colBackend": "Бэкенд",
+      "colDuration": "Длительность",
+      "colBusy": "Доля занятости",
+      "colGpuTime": "Время GPU",
+      "colTriangles": "Треугольники"
+    }
   }
 }

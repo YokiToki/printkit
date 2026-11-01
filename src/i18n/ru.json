@@ -1391,7 +1391,9 @@
       "browser": "Браузер"
     },
     "job": {
-      "cancelled": "Отменено"
+      "cancelled": "Отменено",
+      "resource": "{{text}} ({{backend}}, занято {{busy}} %)",
+      "backend": "{{text}} ({{backend}})"
     },
     "model": {
       "start": "Строю модель…",

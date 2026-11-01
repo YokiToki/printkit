@@ -12,7 +12,7 @@
 
 ## 3. Integration
 
-- [ ] 3.1 Job reports in the log of `31a`: `modelClient` and `mlClient` report start, end, backend and threads; a finished job writes its resource line; the AI status line of `32` names the backend and threads. Tests: a fake rebuild and a fake AI run produce the lines with duration, backend and (for rebuilds) triangles, the status line shows "WASM ×4" and "WebGPU", English and Russian keys.
+- [x] 3.1 Job reports in the log of `31a`: `modelClient` and `mlClient` report start, end, backend and threads; a finished job writes its resource line; the AI status line of `32` names the backend and threads. Tests: a fake rebuild and a fake AI run produce the lines with duration, backend and (for rebuilds) triangles, the status line shows "WASM ×4" and "WebGPU", English and Russian keys.
 
 ## 4. UI
 

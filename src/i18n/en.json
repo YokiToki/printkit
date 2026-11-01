@@ -1391,7 +1391,9 @@
       "browser": "Browser"
     },
     "job": {
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "resource": "{{text}} ({{backend}}, busy {{busy}} %)",
+      "backend": "{{text}} ({{backend}})"
     },
     "model": {
       "start": "Building the model…",

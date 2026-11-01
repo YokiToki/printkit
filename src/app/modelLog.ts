@@ -1,5 +1,7 @@
 import type { ModelResult } from '../geometry/model'
+import type { ModelRunMeta } from '../geometry/modelClient'
 import { log, type Job } from './activityLog'
+import { formatBackend, recordJobReport } from './resources/jobs'
 
 /** Строки журнала о результате генерации: ошибки и замечания самой модели (ключи перевода уже в результате). */
 export function resultLines(m: ModelResult): { level: 'warn' | 'error'; key: string; params?: Record<string, string | number>; detail?: string }[] {
@@ -17,11 +19,22 @@ export function resultLines(m: ModelResult): { level: 'warn' | 'error'; key: str
 const triangles = (m: ModelResult) => m.parts.reduce((n, p) => n + Math.floor((p.mesh.triVerts?.length ?? 0) / 3), 0)
 
 /** Закрывает задачу генерации и пишет замечания, если набор изменился с прошлого раза (`seen` хранит подпись). */
-export function reportResult(job: Job, m: ModelResult, ms: number, seen: { current: string }) {
+export function reportResult(job: Job, m: ModelResult, ms: number, seen: { current: string }, run?: ModelRunMeta) {
   const lines = resultLines(m)
   const hasError = lines.some((l) => l.level === 'error')
   if (hasError) job.fail(lines.find((l) => l.level === 'error')!.key)
-  else job.done('log.model.done', { ms: Math.round(ms), triangles: triangles(m) })
+  else {
+    const tris = triangles(m), start = run?.start ?? 0, end = run?.end ?? ms
+    const report = recordJobReport({
+      id: job.id, kind: 'rebuild', name: 'log.model.start', start, end,
+      backend: run?.backend ?? 'wasm', threads: run?.threads ?? 1, spans: [{ start, end }], triangles: tris,
+    })
+    job.done('log.model.done', {
+      ms: Math.round(ms), triangles: tris,
+      backend: formatBackend(report.backend, report.threads),
+      busy: Math.round((report.busyShare.value ?? 1) * 100),
+    })
+  }
   const sig = JSON.stringify(lines)
   if (sig === seen.current) return
   seen.current = sig

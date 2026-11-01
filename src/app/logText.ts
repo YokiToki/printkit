@@ -7,7 +7,10 @@ export function logText(t: TFunction, key: string, params?: LogParams): string {
   if (typeof p.setting === 'string') p.setting = t(p.setting)
   if (typeof p.what === 'string') p.what = t(`log.what.${p.what}`)
   if (typeof p.reason === 'string' && p.reason.startsWith('log.')) p.reason = t(p.reason)
-  return t(key, p) as string
+  const text = t(key, p) as string
+  if (key === 'log.ai.session' || typeof p.backend !== 'string') return text
+  if (typeof p.busy === 'number') return t('log.job.resource', { text, backend: p.backend, busy: p.busy }) as string
+  return t('log.job.backend', { text, backend: p.backend }) as string
 }
 
 /** Размер файла для строки журнала: «12 KB», «1.4 MB». */

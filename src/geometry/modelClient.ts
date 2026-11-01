@@ -25,7 +25,9 @@ export interface WorkerLike {
   terminate?(): void
 }
 
-interface Pending { resolve: (m: ModelResult | null) => void; reject: (e: Error) => void }
+export interface ModelRunMeta { start: number; end: number; backend: 'wasm'; threads: number }
+
+interface Pending { resolve: (m: ModelResult | null) => void; reject: (e: Error) => void; start: number }
 
 /**
  * Клиент воркера генерации. Побеждает последний запрос: ответ на более старый запрос
@@ -35,6 +37,7 @@ export class ModelClient {
   private nextId = 1
   private latest = 0
   private pending = new Map<number, Pending>()
+  lastRun?: ModelRunMeta
 
   constructor(private worker: WorkerLike) {
     worker.addEventListener('message', (e) => this.onMessage(e.data))
@@ -45,8 +48,9 @@ export class ModelClient {
     this.latest = id
     // более старые запросы больше никому не нужны
     for (const [oldId, p] of this.pending) if (oldId < id) { p.resolve(null); this.pending.delete(oldId) }
+    const start = performance.now()
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
+      this.pending.set(id, { resolve, reject, start })
       this.worker.postMessage({ id, mode, params })
     })
   }
@@ -57,7 +61,10 @@ export class ModelClient {
     this.pending.delete(r.id)
     if (r.id !== this.latest) return p.resolve(null)
     if ('error' in r) p.reject(new Error(r.error))
-    else p.resolve(r.result)
+    else {
+      this.lastRun = { start: p.start, end: performance.now(), backend: 'wasm', threads: 1 }
+      p.resolve(r.result)
+    }
   }
 
   /** Сообщает воркеру сетку; сообщения идут по порядку, поэтому следующая генерация её уже видит. Копию передаём, исходная остаётся у вызывающего. */

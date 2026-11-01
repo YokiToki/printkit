@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { clearJobReports } from './resources/jobs'
 
 export type LogLevel = 'info' | 'warn' | 'error'
 export type LogSource = 'model' | 'photo' | 'image' | 'storage' | 'export' | 'ai' | 'app'
@@ -159,6 +160,7 @@ export function closeLog() { set({ open: false, openSource: undefined }) }
 /** Очистка без подтверждения (журнал одноразовый): остаются только начала работающих задач. */
 export function clearLog() {
   const running = new Set(snap.jobs.map((j) => j.id))
+  clearJobReports()
   set({ entries: snap.entries.filter((e) => e.job !== undefined && running.has(e.job)), warnings: 0, errors: 0 })
 }
 
@@ -173,6 +175,7 @@ export const isLoading = (s: LogSnapshot) => s.jobs.some((j) => j.loader)
 export function resetActivityLog() {
   timers.forEach((t) => clearTimeout(t))
   timers.clear(); cancels.clear(); once.clear()
+  clearJobReports()
   nextId = 1
   snap = { entries: [], jobs: [], warnings: 0, errors: 0, open: false }
   listeners.forEach((l) => l())

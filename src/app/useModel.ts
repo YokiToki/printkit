@@ -57,7 +57,9 @@ export function useModel<M extends ModeId>(mode: M, params: ModeParams[M], opts:
         (m) => {
           if (cancelled || !m) return // устарело
           // режим сообщил об ошибке построения (rackPanel: узор разрезал панель): прежняя сетка остаётся, экспорт считается устаревшим
-          reportResult(mine, m, performance.now() - started, seen)
+          const ended = performance.now()
+          const run = (c as ModelClient).lastRun ?? { start: started, end: ended, backend: 'wasm' as const, threads: 1 }
+          reportResult(mine, m, ended - started, seen, run)
           if (m.rack?.error) { setError(m.rack.error); return }
           setModel(m); setError(null); setPending(false)
         },

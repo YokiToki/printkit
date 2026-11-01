@@ -7,6 +7,7 @@ import type { ModelResult } from '../../geometry/model'
 import { groundOpacity } from './ground'
 import { readRootVar, toolColor } from './toolColor'
 import { assembledMatrix, layoutBounds, type KeychainView } from './layout'
+import { createRenderMonitor, type RendererLike } from '../../app/resources/render'
 
 export interface BuildPlate { x: number; y: number; /** Поле по краю: пунктирный контур рабочей области. */ margin?: number }
 
@@ -332,6 +333,7 @@ export function Viewport({ model, plate, gap = 0, view = 'sheet', openGap = 0, s
     renderer.domElement.addEventListener('click', onClick)
 
     const tmp = new THREE.Vector3()
+    const renderMon = createRenderMonitor(renderer as unknown as RendererLike)
     renderer.setAnimationLoop(() => {
       controls.update()
       grid.position.x = Math.round(controls.target.x / 50) * 50
@@ -347,7 +349,9 @@ export function Viewport({ model, plate, gap = 0, view = 'sheet', openGap = 0, s
       if (plateMats) { plateMats.fill.opacity = 0.85 * ground; plateMats.line.opacity = ground; if (plateMats.safe) plateMats.safe.opacity = ground }
       const w = el.clientWidth, h = el.clientHeight
       renderer.setViewport(0, 0, w, h); renderer.setScissorTest(false)
+      renderMon.beforeRender()
       renderer.clear(); renderer.render(scene, camera)
+      renderMon.afterRender()
       // гизмо
       tmp.copy(camera.position).sub(controls.target).normalize().multiplyScalar(4)
       gCam.position.copy(tmp); gCam.lookAt(0, 0, 0)
@@ -357,6 +361,7 @@ export function Viewport({ model, plate, gap = 0, view = 'sheet', openGap = 0, s
       renderer.clearDepth(); renderer.render(gScene, gCam)
     })
     return () => {
+      renderMon.dispose()
       ro.disconnect(); renderer.setAnimationLoop(null)
       renderer.domElement.removeEventListener('click', onClick)
       controls.dispose(); renderer.dispose(); el.removeChild(renderer.domElement)

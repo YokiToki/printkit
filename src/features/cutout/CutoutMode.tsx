@@ -28,16 +28,18 @@ export function CutoutMode() {
   const [ready, setReady] = useState(false)
   const [message, setMessage] = useState<{ kind: 'error' | 'warn' | 'info'; text: string } | null>(null)
   const store = useRef<MeshStore | null>(null)
+  const storePromise = useRef<Promise<MeshStore> | null>(null)
+  const getStore = useCallback(() => (storePromise.current ??= openMeshStore().then((s) => { store.current = s; return s })), [])
 
   // сетки из хранилища → память и воркер; генерация начинается, когда все доступные сетки зарегистрированы
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      store.current = await openMeshStore()
+      const s = await getStore()
       const loaded = new Map<string, IndexedMesh>()
       for (const c of p.cutouts) {
         if (c.source.kind !== 'mesh' || loaded.has(c.source.meshId)) continue
-        const m = await store.current.load(c.source.meshId)
+        const m = await s.load(c.source.meshId)
         if (m) { loaded.set(c.source.meshId, m); getModelClient().registerMesh(c.source.meshId, m) }
       }
       if (cancelled) return
@@ -68,10 +70,11 @@ export function CutoutMode() {
   const onImport = useCallback(async (file: File) => {
     setMessage({ kind: 'info', text: t('cutout.import.importing', { name: file.name }) })
     try {
-      const imported = importStl(await file.arrayBuffer())
+      const [buf, s] = await Promise.all([file.arrayBuffer(), getStore()])
+      const imported = importStl(buf)
       log.info('image', 'log.image.meshImported', { name: file.name, size: fmtSize(imported.sizeBytes), triangles: Math.floor(imported.mesh.triVerts.length / 3) })
       const meshId = newCutoutId()
-      await store.current?.save(meshId, imported.mesh)
+      await s.save(meshId, imported.mesh)
       getModelClient().registerMesh(meshId, imported.mesh)
       setMeshes((m) => new Map(m).set(meshId, imported.mesh))
       const source: MeshSource = { kind: 'mesh', meshId, filename: file.name, unit: 'mm', orientation: defaultOrientation, mode: 'projected', size: imported.info.size, hull: imported.info.hull }
@@ -82,14 +85,14 @@ export function CutoutMode() {
       const warns: string[] = []
       if (imported.open) warns.push(t('cutout.import.open'))
       if (imported.sizeBytes > LARGE_STL_BYTES) warns.push(t('cutout.import.large', { mb: (imported.sizeBytes / 1048576).toFixed(1) }))
-      if (store.current && !store.current.persistent) warns.push(t('cutout.import.notPersisted'))
+      if (!s.persistent) warns.push(t('cutout.import.notPersisted'))
       setMessage(warns.length ? { kind: 'warn', text: warns.join(' ') } : null)
     } catch (e) {
       const code = e instanceof StlError ? e.code : 'invalid'
       log.error('image', 'log.image.meshFailed', { name: file.name }, `${code}${e instanceof Error && e.message ? `: ${e.message}` : ''}`)
       setMessage({ kind: 'error', text: t(`cutout.import.${code}`) })
     }
-  }, [p, setP, t])
+  }, [getStore, p, setP, t])
 
   const nameBase = `cutout_${Math.round(axisMm(p.x, p.pitch))}x${Math.round(axisMm(p.y, p.pitch))}`
   return (

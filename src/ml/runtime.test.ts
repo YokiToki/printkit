@@ -69,4 +69,9 @@ describe('runtime', () => {
     await rt.load(spec, new ArrayBuffer(1), 'wasm'); await rt.release(spec.id)
     expect(rt.has(spec.id)).toBe(false); expect(log).toContain('release')
   })
+
+  it('vite.config.ts исключает onnxruntime-web из optimizeDeps, как и poc/ai/vite.config.ts', async () => {
+    const cfg = (await import('../../vite.config')).default
+    expect(cfg.optimizeDeps?.exclude).toContain('onnxruntime-web')
+  })
 })

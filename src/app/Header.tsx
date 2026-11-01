@@ -21,7 +21,7 @@ export function Header() {
   return (
     <header className="relative z-10 flex h-[52px] flex-none items-center gap-1 border-b border-border bg-surface-1 px-2 max-[400px]:[&_[role=group]_button]:px-2 min-[440px]:gap-2 md:gap-1 lg:gap-4 md:px-4">
       <Link to="/" aria-label={t('app.logoLabel')} className="flex h-8 items-center gap-2 font-display text-[13px] font-semibold tracking-tight text-text no-underline">
-        <Logo />{product
+        <Logo hue={product?.hue} />{product
           ? <span className="hidden whitespace-nowrap lg:inline">{t(`products.${product.id}.name`)}</span>
           : <span data-testid="site-name" className="hidden whitespace-nowrap min-[440px]:inline">{t('app.title')}</span>}
       </Link>

@@ -23,6 +23,14 @@ describe('Header: продукты и режимы', () => {
     expect(screen.queryByRole('navigation', { name: 'Product' })).toBeNull()
     expect(screen.queryByRole('navigation', { name: 'Mode' })).toBeNull()
   })
+  it('логотип берёт оттенок активного продукта, без продукта — синий (gridfinity)', () => {
+    const logo = () => document.querySelector('header svg[data-hue]')
+    for (const [path, hue] of [['/', 'gridfinity'], ['/gridfinity', 'gridfinity'], ['/keychain', 'keychain'], ['/rack', 'rack']] as const) {
+      const { unmount } = at(path)
+      expect(logo(), path).toHaveAttribute('data-hue', hue)
+      unmount()
+    }
+  })
   it('в Gridfinity: активен Gridfinity Master, видны режимы, в логотипе название продукта', async () => {
     at('/gridfinity/baseplate')
     const products = screen.getByRole('navigation', { name: 'Product' })

@@ -5,7 +5,8 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { I18nextProvider } from 'react-i18next'
 import i18n from '../i18n'
 import { routes } from './routes'
-import { ART, ART_IDS } from './ModeArt'
+import { ART, ART_IDS, artHue, ModeArt } from './ModeArt'
+import manifest from './art/manifest.json'
 import { MODES } from './modes'
 import { PRODUCTS } from './products'
 
@@ -14,6 +15,10 @@ vi.mock('./useModel', () => ({ useModel: () => ({ model: null, busy: false, pend
 vi.mock('../features/viewport/Viewport', () => ({ Viewport: () => <div data-testid="viewport" /> }))
 
 const BUDGET = 60 * 1024
+
+type NodeFs = { readFileSync(path: string, encoding: 'utf8'): string }
+const nodeFs = (globalThis as unknown as { process: { getBuiltinModule(id: 'node:fs'): NodeFs; cwd(): string } }).process
+const theme = nodeFs.getBuiltinModule('node:fs').readFileSync(`${nodeFs.cwd()}/src/app/theme.css`, 'utf8')
 
 describe('иллюстрации карточек', () => {
   it('восемь иллюстраций (box, baseplate, cutout, keychainImage, keychainShape, rackPanel, rackCase, rackShelf): валидный SVG до 60 КБ, тона классами, без цветов', () => {
@@ -52,6 +57,62 @@ describe('стартовая страница Gridfinity с рендерами',
     expect(getModelClient).not.toHaveBeenCalled()
     expect(screen.queryByTestId('viewport')).toBeNull()
     vi.unstubAllGlobals()
+  })
+})
+
+describe('воздух вокруг рисунков (36-site-refresh)', () => {
+  it('манифест покрывает все иллюстрации, у каждой не меньше 6 % свободного поля с каждой стороны', () => {
+    expect(Object.keys(manifest).sort()).toEqual([...ART_IDS].sort())
+    for (const id of ART_IDS) {
+      const m = (manifest as Record<string, { w: number; h: number }>)[id]
+      expect(m.w, `${id} ширина`).toBeLessThanOrEqual(1 - 2 * 0.06 + 1e-9)
+      expect(m.h, `${id} высота`).toBeLessThanOrEqual(1 - 2 * 0.06 + 1e-9)
+    }
+  })
+  it('брелок «Изображение» не выше коробки Gridfinity', () => {
+    expect(manifest.keychainImage.h).toBeLessThanOrEqual(manifest.box.h + 1e-9)
+  })
+})
+
+describe('оттенок иллюстраций по продукту (36-site-refresh)', () => {
+  it('каждый art id отображается на оттенок своего продукта, обёртка несёт data-hue', () => {
+    const want: Record<string, string> = {
+      box: 'gridfinity', baseplate: 'gridfinity', cutout: 'gridfinity',
+      keychainImage: 'keychain', keychainShape: 'keychain',
+      rackPanel: 'rack', rackCase: 'rack', rackShelf: 'rack',
+    }
+    for (const id of ART_IDS) expect(artHue(id), id).toBe(want[id])
+    for (const id of ART_IDS) {
+      const { unmount } = render(<ModeArt id={id} />)
+      expect(screen.getByTestId(`art-${id}`), id).toHaveAttribute('data-hue', want[id])
+      unmount()
+    }
+  })
+  it('файлы иллюстраций не менялись: только классы, без цветовых литералов', () => {
+    for (const id of ART_IDS) {
+      expect(ART[id], id).not.toMatch(/#[0-9a-f]{3,8}\b/i)
+      expect(ART[id], id).not.toMatch(/fill="|stroke="|style=/)
+    }
+  })
+  it('три лестницы задают все семь тонов, цвет контура общий', () => {
+    for (let i = 0; i <= 6; i++) {
+      expect(theme).toMatch(new RegExp(`--color-art-${i}: #`))
+      expect(theme).toMatch(new RegExp(`--color-art-keychain-${i}: #`))
+      expect(theme).toMatch(new RegExp(`--color-art-rack-${i}: #`))
+    }
+    expect(theme).toMatch(/--color-art-edge: #/)
+    for (const hue of ['keychain', 'rack']) for (let i = 0; i <= 6; i++) {
+      expect(theme).toContain(`[data-hue='${hue}'] .art-t${i} { fill: var(--color-art-${hue}-${i}); }`)
+    }
+  })
+  it('акцент, фокус и кнопки от оттенка не зависят: в блоках data-hue только тона арта и цвета логотипа', () => {
+    const blocks = [...theme.matchAll(/\[data-hue='(\w+)'\][^{]*\{([^}]*)\}/g)]
+    expect(blocks.length).toBeGreaterThan(0)
+    for (const [, , body] of blocks) {
+      expect(body).not.toMatch(/accent|focus|button|border|text|surface/)
+      expect(body).toMatch(/--color-(art|logo)-/)
+    }
+    for (const face of ['top', 'left', 'right']) expect(theme).toMatch(new RegExp(`--color-logo-${face}: #`))
   })
 })
 

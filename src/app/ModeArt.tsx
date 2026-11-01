@@ -6,16 +6,25 @@ import keychainShape from './art/keychainShape.svg?raw'
 import rackCase from './art/rackCase.svg?raw'
 import rackShelf from './art/rackShelf.svg?raw'
 import rackPanel from './art/rackPanel.svg?raw'
+import type { ProductHue } from './products'
 
 /** Готовые векторные рендеры настоящих деталей (npm run art). Цвета задают классы .art-* из theme.css; SVG вставляется как есть. */
 export const ART = { box, baseplate, cutout, keychainImage, keychainShape, rackPanel, rackCase, rackShelf }
 export type ArtId = keyof typeof ART
 export const ART_IDS = Object.keys(ART) as ArtId[]
 
-/** Иллюстрация карточки: чисто декоративная, поэтому скрыта от скринридеров. */
+/** Оттенок иллюстрации по её id: детали Gridfinity — синие, брелки — зелёные, детали стойки — жёлтые. */
+const ART_HUE: Record<ArtId, ProductHue> = {
+  box: 'gridfinity', baseplate: 'gridfinity', cutout: 'gridfinity',
+  keychainImage: 'keychain', keychainShape: 'keychain',
+  rackPanel: 'rack', rackCase: 'rack', rackShelf: 'rack',
+}
+export const artHue = (id: ArtId): ProductHue => ART_HUE[id]
+
+/** Иллюстрация карточки: чисто декоративная, поэтому скрыта от скринридеров; data-hue переключает лестницу тонов на оттенок продукта. */
 export function ModeArt({ id }: { id: ArtId }) {
   return (
-    <div aria-hidden data-testid={`art-${id}`} dangerouslySetInnerHTML={{ __html: ART[id] }}
+    <div aria-hidden data-testid={`art-${id}`} data-hue={artHue(id)} dangerouslySetInnerHTML={{ __html: ART[id] }}
       className="w-[300px] max-w-full transition-transform group-hover:-translate-y-1 group-hover:scale-105 [&>svg]:block [&>svg]:h-auto [&>svg]:w-full" />
   )
 }

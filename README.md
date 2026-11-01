@@ -111,7 +111,6 @@ design/         # visual design: brief, theme reference, artboards
 openspec/       # numbered change proposals, specs and the roadmap
 poc/            # proof-of-concept experiments (AI segmentation, keystone measurements)
 scripts/        # build scripts (start page art, evaluation helpers)
-tmp/            # scratch files and samples, not part of the build
 ```
 
 Work is planned as numbered [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes in `openspec/changes/` (order and dependencies in `openspec/ROADMAP.md`); `CLAUDE.md` describes the conventions.

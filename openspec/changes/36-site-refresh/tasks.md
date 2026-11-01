@@ -2,8 +2,8 @@
 
 ## 1. Texts
 
-- [ ] 1.1 Settle the wording of the card descriptions and tags with the owner from the table in `design.md` (three product cards and every mode card, en and ru) and write the result into `design.md`. Verify: the owner confirms the table.
-- [ ] 1.2 Update `products.*` and `start.*` in `en.json` and `ru.json` (descriptions and two tags each, no "soon", Russian terms translated, `keystone` written one way). Tests: key parity, every card has exactly two tags of at most two words, the words "soon" and "скоро" do not occur on cards, the Rack product description mentions panels, enclosures and shelves, the Cutout card mentions a photo.
+- [x] 1.1 Settle the wording of the card descriptions and tags with the owner from the table in `design.md` (three product cards and every mode card, en and ru) and write the result into `design.md`. Verify: the owner confirms the table.
+- [x] 1.2 Update `products.*` and `start.*` in `en.json` and `ru.json` (descriptions and two tags each, no "soon", Russian terms translated, `keystone` written one way). Tests: key parity, every card has exactly two tags of at most two words, the words "soon" and "скоро" do not occur on cards, the Rack product description mentions panels, enclosures and shelves, the Cutout card mentions a photo.
 
 ## 2. README
 

@@ -37,27 +37,27 @@
     "title": "What are you printing?",
     "box": {
       "desc": "Bin or tray on the Gridfinity grid, with lip, scoop and dividers.",
-      "tag1": "cells × height",
+      "tag1": "grid × height",
       "tag2": "compartments"
     },
     "baseplate": {
       "desc": "Grid plate for your bins. Magnets, screws, split to fit your bed.",
       "tag1": "fractional cells",
-      "tag2": "split"
+      "tag2": "bed split"
     },
     "cutout": {
-      "desc": "Bin with a pocket shaped to your tool. Import an STL or use a simple shape.",
-      "tag1": "STL import",
-      "tag2": "snap"
+      "desc": "A bin with pockets shaped to your tools: from a photo on a sheet of paper, an STL, a circle or a rectangle.",
+      "tag1": "from photo",
+      "tag2": "STL import"
     },
     "continue": "Continue: {{mode}} {{size}}, saved {{when}}",
     "gridfinityTitle": "Choose a Gridfinity part",
     "open": "Open {{name}}",
     "keychainTitle": "Choose a keychain start",
     "keychainImage": {
-      "desc": "Relief keychain from a picture: a drawing, logo or emblem becomes a silhouette with a height pattern.",
+      "desc": "A relief keychain from a picture: a drawing, logo or emblem becomes a silhouette with a height pattern, text and a ring mount.",
       "tag1": "image → relief",
-      "tag2": "mask"
+      "tag2": "text · mounts"
     },
     "keychainShape": {
       "desc": "A plain tag from a ready-made shape: rectangle, circle, ellipse, capsule or polygon, with an optional rim.",
@@ -71,9 +71,9 @@
       "tag2": "patterns"
     },
     "rackCase": {
-      "desc": "Front plate with rack ears and a shell around your device: mini PC, switch or router. Window, keystones, holes and vents.",
+      "desc": "A front plate with rack ears and a shell around your device: mini PC, switch or router. Window, keystone sockets, holes and vents.",
       "tag1": "device → shell",
-      "tag2": "keystones"
+      "tag2": "keystone sockets"
     },
     "rackShelf": {
       "desc": "A 10-inch rack front plate with a ventilated shelf and sloped side walls. Prints with the front face on the bed.",
@@ -605,21 +605,21 @@
     "label": "Product",
     "gridfinity": {
       "name": "Gridfinity Master",
-      "desc": "Parametric Gridfinity bins, baseplates and tool cutouts with STL and 3MF export.",
-      "tag1": "box · baseplate",
-      "tag2": "cutout"
+      "desc": "Parametric Gridfinity bins, baseplates and tool cutouts, with pockets traced from a photo.",
+      "tag1": "bins · baseplates",
+      "tag2": "tool cutouts"
     },
     "keychain": {
       "name": "Keychain Master",
-      "desc": "Turn an image into a relief keychain: silhouette, height pattern, ring mount.",
+      "desc": "Turn a picture or a plain shape into a relief keychain: silhouette, height pattern, text, ring mount, two halves with pins.",
       "tag1": "image → relief",
-      "tag2": "soon"
+      "tag2": "shapes · text"
     },
     "rack": {
       "name": "Rack Master",
-      "desc": "10-inch rack panels: blank and vented, Skadis, hexagon, pills and lines patterns, STL and 3MF export.",
-      "tag1": "panel · 1–10 U",
-      "tag2": "patterns"
+      "desc": "Parts for a 10-inch rack: panels with patterns, enclosures around a device and shelves, with standard ear holes.",
+      "tag1": "1–10 U",
+      "tag2": "cases · shelves"
     }
   },
   "keychain": {

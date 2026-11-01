@@ -17,11 +17,11 @@ No server. No account. No queue. Just real CSG running on your machine.
 
 ---
 
+> **Status: beta, v1.7.1.** The version is shown on the site next to the logo; changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
 ## Why this exists
 
-Gridfinity is an open standard, and I believe the tools for it should be free too: no accounts, no paywalls, no servers to trust. Everything here runs in your browser, so what you see is exactly what lands in the STL, with watertight meshes and no surprises in the slicer.
-
-The other tools (keychains, rack parts, photo cutouts) are things I make for myself and use myself. I am simply sharing them.
+Gridfinity is an open standard, and I believe the tools for it should be free too: no accounts, no paywalls, nothing to install. Everything runs in your browser. The other tools here (keychains, rack parts, photo cutouts) are things I make for myself and use myself, and I am simply sharing them.
 
 ## What you get
 
@@ -29,9 +29,9 @@ PrintKit is a set of products, each with its own modes. Every mode has a live 3D
 
 | Product | Modes |
 | --- | --- |
-| **Gridfinity Master** | **Box** (bin or tray with lip, scoop, dividers, magnets and screws), **Baseplate** (any grid, fractional cells, split to fit your bed, connectors, magnets and screws), **Cutout** (pockets from rectangles or imported STL parts) |
+| **Gridfinity Master** | **Box** (bin or tray with lip, scoop, dividers, magnets and screws), **Baseplate** (any grid, fractional cells, split to fit your bed, connectors, magnets and screws), **Cutout** (pockets shaped to your tools: traced from a photo on a sheet of paper, from an imported STL, or a simple circle or rectangle) |
 | **Keychain Master** | **Image** (a picture becomes a silhouette with a relief, patterns, text, ring mount, two printable halves with pins), **Shape** (a ready-made shape with a rim, the same patterns, text and mounts) |
-| **Rack Master** | **Panel** (10-inch rack panel of 1–10 U with standard ear holes, Skadis, hexagon, pills, lines and opening patterns, optional separate back wall); **Enclosure** (front plate with ears and a shell around a device, with window, keystone sockets, holes and vents); a **Shelf** (front plate with ears, a ventilated floor and sloped side walls) |
+| **Rack Master** | **Panel** (10-inch rack panel of 1–10 U with standard ear holes, Skadis, hexagon, pills, lines and Kumiko patterns, optional separate back wall), **Enclosure** (front plate with ears and a shell around a device, with window, keystone sockets, holes and vents), **Shelf** (front plate with ears, a ventilated floor and sloped side walls) |
 
 Highlights:
 
@@ -40,6 +40,12 @@ Highlights:
 - **Print-ready export.** Printer bed overlay, parts laid out on plates, separate objects in 3MF.
 - **Remembers you.** Settings persist in `localStorage`, per mode; units and language are shared.
 - **English and Russian**, millimetres and inches.
+
+## Privacy
+
+The app has no server and no account: your settings, photos and files stay in your browser (in `localStorage` and IndexedDB) and are never uploaded. The optional AI models for photo cutouts and keychain reliefs are downloaded to your machine and run locally; pictures never leave it.
+
+The only exception is an anonymous visit counter (Yandex Metrika, id in [`src/app/site.ts`](src/app/site.ts)). It starts **only after you accept it** in the consent banner; decline and nothing is ever sent. Everything else — models, exports, photo processing — works fully offline after the page and the optional models are loaded.
 
 ## Quick start
 
@@ -94,13 +100,26 @@ Renaming the repository is safe: GitHub redirects the old address, the Pages cus
 src/
 ├── app/        # entry, hash router, shell, start pages, theme tokens, site config
 ├── ui/         # generic controls (NumberField, LengthField, Section, …) and units
-├── features/   # one folder per mode (baseplate, box, cutout, keychain, …) and the viewport
+├── features/   # one folder per mode (baseplate, box, cutout, keychain, rack, …) and the viewport
 ├── geometry/   # all the CSG (manifold-3d), React-free
 ├── export/     # STL and 3MF, plate layout, printer presets
+├── ml/         # optional in-browser neural networks (WebGPU / WASM runtime)
+├── data/       # static data (printer presets)
 └── i18n/       # en / ru translations
+
+design/         # visual design: brief, theme reference, artboards
+openspec/       # numbered change proposals, specs and the roadmap
+poc/            # proof-of-concept experiments (AI segmentation, keystone measurements)
+scripts/        # build scripts (start page art, evaluation helpers)
+tmp/            # scratch files and samples, not part of the build
 ```
 
 Work is planned as numbered [OpenSpec](https://github.com/Fission-AI/OpenSpec) changes in `openspec/changes/` (order and dependencies in `openspec/ROADMAP.md`); `CLAUDE.md` describes the conventions.
+
+## Roadmap and changes
+
+- The build order and dependencies of planned work: [`openspec/ROADMAP.md`](openspec/ROADMAP.md)
+- Released versions and what each brought: [`CHANGELOG.md`](CHANGELOG.md)
 
 ## References
 

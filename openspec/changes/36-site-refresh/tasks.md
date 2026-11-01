@@ -7,7 +7,7 @@
 
 ## 2. README
 
-- [ ] 2.1 Rewrite `README.md` after the structure in `design.md`: status line with the version and the changelog link, the motivation text identical to `site.motivation`, the full product and mode table, the privacy note, the commands, the layout of existing folders, the roadmap link, the references. Tests: the motivation text in the README equals the site's (extend `site.test.ts`), every folder named in the layout exists, the README names every mode of `app/modes.tsx`.
+- [x] 2.1 Rewrite `README.md` after the structure in `design.md`: status line with the version and the changelog link, the motivation text identical to `site.motivation`, the full product and mode table, the privacy note, the commands, the layout of existing folders, the roadmap link, the references. Tests: the motivation text in the README equals the site's (extend `site.test.ts`), every folder named in the layout exists, the README names every mode of `app/modes.tsx`.
 
 ## 3. Illustrations
 

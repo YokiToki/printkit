@@ -17,7 +17,7 @@ No server. No account. No queue. Just real CSG running on your machine.
 
 ---
 
-> **Status: beta, v1.8.0.** The version is shown on the site next to the logo; changes are listed in [CHANGELOG.md](CHANGELOG.md).
+> **Status: beta, v1.9.0.** The version is shown on the site next to the logo; changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## Why this exists
 

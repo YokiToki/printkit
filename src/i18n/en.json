@@ -1471,7 +1471,13 @@
     "undoAria": "Undo agent change: {{label}}",
     "changedSinceTitle": "Undo agent change",
     "changedSincePrompt": "Parameters have been edited since the agent change. Restore previous values anyway?",
-    "restore": "Restore"
+    "restore": "Restore",
+    "exportTitle": "Save model",
+    "exportPrompt": "An agent wants to save the model files:",
+    "download": "Download",
+    "resetTitle": "Reset parameters",
+    "resetPrompt": "An agent wants to reset parameters to defaults.",
+    "resetConfirm": "Reset"
   },
   "ml": {
     "button": "AI models",

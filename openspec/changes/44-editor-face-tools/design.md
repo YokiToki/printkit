@@ -1,0 +1,40 @@
+# Design
+
+## Context
+
+The kernel is a triangle mesh (`manifold-3d`). Faces and edges of a B-rep do not exist, but what users call a face or an edge can be recognised: a flat region, a smooth patch, a chain of sharp edges. `42` already provides `planarRegion`. The risk, noted in `EDITOR.md`, is the "topological naming problem": references to recognised elements break when the model changes. The approach here: references describe *geometry* (a point, a normal, a kind and the region's approximate extent) and are re-resolved against the current mesh each time; ambiguity or absence is an explicit failure.
+
+## Goals / Non-Goals
+
+**Goals**: faces and edges you can select with the mouse on any mesh; Push/Pull, Fillet and Chamfer for the common planar/circular cases; sketch on face; references that survive reasonable edits.
+**Non-Goals**: a full B-rep, complete fillet theory, constrained face relations.
+
+## Decisions
+
+1. **Recognition (`topology/faces.ts`).** On a (cached) adjacency structure of the mesh: a *flat region* is grown from a seed triangle over edge-adjacent triangles with normal angle ≤ 1° to the seed normal and plane distance ≤ 0.02 mm; a *smooth patch* is grown by dihedral angle ≤ threshold (default 30°) between neighbouring triangles. Result: `FaceRegion {tris, kind: 'planar'|'cylinder'|'cone'|'sphere'|'smooth', plane?, axis?, radius?, area, centroid, boundaryLoops}`; primitive classification by least-squares fit with residual limits (cylinder/cone/sphere), used for messages and snapping, not required for planar operations. Segmentation of the whole mesh (all regions) is computed once per mesh version in the worker and cached by mesh hash; picking uses the region id per triangle.
+2. **Edges (`topology/edges.ts`).** Feature edges are mesh edges whose dihedral angle exceeds the threshold (default 30°); chains join edges through vertices where exactly two feature edges meet; each chain is classified `line` (max deviation from the best-fit line ≤ 0.02 mm), `circle` (planar, radius fit residual ≤ 0.02 mm, arcs allowed) or `free`. Convex/concave is the sign of the dihedral. Edge ids are per mesh version.
+3. **References (`topology/reference.ts`).** `FaceRef {kind:'face', point, normal, extent}` and `EdgeRef {kind:'edge', shape: line|circle, p0, p1 | centre, axis, radius}` in object-local space. `resolveFace(mesh, ref)` finds the region whose plane contains `point` within tolerance and whose normal matches within 5°, preferring the region containing the point; if two or none qualify the result is `ambiguous`/`missing`. `resolveEdge` similarly by geometry. The tolerance scales with the bounding box (tight 0.02 mm up to 1e-4 × diagonal). Operations store refs; evaluation resolves them against the solid *before* the operation, so earlier edits are accounted for.
+4. **Push / Pull (`ops/pushPull.ts`).** For a planar region with outline loops projected to its plane: build `CrossSection` polygons (outer loops with holes, EvenOdd), extrude along the normal by *d* (`Manifold.extrude`, positive) and union with the body; for negative *d*, subtract the same prism extruded inwards. Faces whose region is not planar are refused (`face.error.notPlanar`). The prism overlaps the body by 0.01 mm to guarantee a watertight union. Multiple regions with the same plane and normal are processed together. A negative distance larger than the available material is clamped and reports the limit.
+5. **Edge chamfer / fillet (`ops/edgeBreak3d.ts`).** Per chain:
+   - *straight edge between two planar faces*: the tool is a prism along the edge whose cross-section is, for a chamfer, the triangle cut off by the symmetric distance (convex) or the triangle to fill (concave); for a fillet, the region between the corner and the arc tangent to both faces (polygonal arc, segment count from the 0.02 mm sagitta, 4–24). Convex: subtract; concave: union. Ends are cut by the planes of the adjacent faces so the tool does not overshoot; a prism end that meets another selected chain is mitre-cut by the bisecting plane.
+   - *circular edge between planar/cylindrical faces* (rim of a cylinder, hole edge): the tool is the same cross-section revolved about the fitted axis (`Manifold.revolve`).
+   - *chains of mixed straight and circular segments* (rounded rectangle outline): tools per segment with tangent joins; the circular segment tools are revolved and the straight ones are prisms; joints are made watertight by overlapping 0.01 mm.
+   Limits: size ≤ 0.5 × the shorter adjacent face extent measured across the edge (otherwise `edge.error.tooLarge` with the maximum), dihedral between 20° and 160° (outside is refused with the reason), adjacent faces must be planar or cylindrical. Corner vertices where three selected edges meet use mitred prisms; the blend is a visible approximation and documented as such in the UI help text.
+6. **Sketch on face.** The sketch plane gets a second kind `{face: FaceRef, frame}`: origin at the picked point projected on the face, z = face normal, x = direction of the longest straight boundary edge (fallback: the projection of the world X onto the plane, then world Y). `frame` caches the last resolved frame; `resolveFace` is retried when the body changes; if it fails, the cached frame is used and the sketch is flagged `detached` (the user can re-pick the face). Projected geometry: boundary loops become lines (straight chains) and arcs/circles (circular chains) with coincident points; `construction` or real by the user's choice; projected geometry is *not* kept in sync with later changes (explicit refresh button), which avoids hidden dependencies.
+7. **Highlight and picking in the viewport.** Selection state `{mode, ids}` lives in the editor state; region membership is rendered through a per-triangle colour attribute (hover/selected) on a lightweight overlay mesh drawn with polygon offset, edges as line segments; picking resolves the triangle under the cursor to a region/edge id through the cached segmentation (ray against mesh with the BVH from `42`; edge picking by screen distance to chain polylines, 6 px).
+8. **Performance.** Segmentation and edges for 500k triangles must finish in the worker within a few seconds with a progress job; the Face/Edge modes are available for meshes up to a limit (default 1.5 M triangles) with a clear message otherwise; results are cached by mesh hash and shared by hover, selection and operations.
+9. **Stack integration.** `pushPull {faces: FaceRef[], distance}`, `edgeBreak {edges: EdgeRef[], kind: chamfer|fillet, size}` are `41` stack operations: editable, reorderable, suppressible; failed refs fail the operation with `face.error.missing|ambiguous` / `edge.error.*` and the reason.
+10. **Selection state is not history**, but the operations that use it are. Escape clears; Delete in Face mode is not defined (out of scope).
+
+## Risks / Trade-offs
+
+- **Reference stability** is the weakest point: geometry-based references fail after large edits. Mitigation: failures are explicit and local to one operation; re-picking is one click; tolerances scale with the model; this is documented in the user-visible messages.
+- **Fillet visual quality**: faceted arcs and approximate corners. Segment count follows a tolerance; export quality matters more than the on-screen preview, so the preview is coarser and the export rebuild uses the fine setting.
+- **Segmentation of noisy scans** produces many tiny regions; the UI suggests Smooth/Decimate from `42` and offers a larger angle threshold.
+- **Watertightness of unions** relies on small overlaps; covered by validity tests on every tool shape.
+- **Scope creep** toward a general modelling kernel: operations are limited to what the recognised geometry supports and refuse the rest with a reason.
+
+## Open Questions
+
+- Default dihedral threshold for feature edges (30°) and the flat-region tolerance (1°) — tuned on five reference models in task 2.4.
+- Whether Face mode should also offer "select tangent chain" by default on double click (assumed yes).

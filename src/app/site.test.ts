@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { APP_VERSION, DONATION_ADDRESS, GITHUB_URL, METRIKA_ID, SITE_NAME } from './site'
+import { APP_VERSION, CLOUDTIPS_URL, DONATION_ADDRESS, GITHUB_URL, METRIKA_ID, SITE_NAME } from './site'
 import { KEYCHAIN_MODES, MODES, RACK_MODES } from './modes'
 import en from '../i18n/en.json'
 
@@ -28,9 +28,10 @@ describe('сведения о сайте (1.1)', () => {
     expect(await validTronAddress(DONATION_ADDRESS.slice(1))).toBe(false)
     expect(await validTronAddress('')).toBe(false)
   })
-  it('счётчик — положительное целое, ссылка — https на репозиторий, имя PrintKit', () => {
+  it('счётчик — положительное целое, ссылки — https на репозиторий и CloudTips, имя PrintKit', () => {
     expect(Number.isInteger(METRIKA_ID) && METRIKA_ID > 0).toBe(true)
     expect(GITHUB_URL).toMatch(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/)
+    expect(CLOUDTIPS_URL).toMatch(/^https:\/\/pay\.cloudtips\.ru\/p\/[\w-]+$/)
     expect(SITE_NAME).toBe('PrintKit')
   })
 })

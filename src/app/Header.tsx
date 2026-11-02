@@ -1,6 +1,6 @@
 import { NavLink, Link, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { IconBrandGithub, IconChevronDown, IconCpu } from '@tabler/icons-react'
+import { IconAi, IconBrandGithub, IconChevronDown } from '@tabler/icons-react'
 import { useActivityLog } from './activityLog'
 import { openModelManager } from '../features/ml/managerState'
 import { GITHUB_URL } from './site'
@@ -41,13 +41,13 @@ export function Header() {
         </>
       )}
       <span className="hidden flex-1 md:block" />
-      <SegmentedControl ariaLabel={t('units.label')} value={unit} onChange={setUnit}
+      <SegmentedControl compact ariaLabel={t('units.label')} value={unit} onChange={setUnit}
         options={[{ value: 'mm', label: t('units.mm') }, { value: 'in', label: t('units.in') }]} />
-      <SegmentedControl ariaLabel={t('language.label')} value={lang} onChange={(l) => void i18n.changeLanguage(l)}
+      <SegmentedControl compact ariaLabel={t('language.label')} value={lang} onChange={(l) => void i18n.changeLanguage(l)}
         options={LANGUAGES.map((l) => ({ value: l, label: l.toUpperCase() }))} />
       <ModelsButton />
       <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" aria-label={t('site.github')} title={t('site.github')}
-        className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-group border border-border bg-bg text-text-muted no-underline hover:text-text max-[440px]:hidden md:h-8 md:w-8">
+        className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-group border border-border bg-bg text-text-muted no-underline hover:text-text max-[440px]:hidden md:h-8 md:w-8">
         <IconBrandGithub size={16} stroke={1.75} />
       </a>
     </header>
@@ -122,8 +122,8 @@ function ModelsButton() {
   const busy = useActivityLog().jobs.some((j) => j.source === 'ai')
   return (
     <button type="button" onClick={openModelManager} aria-label={t('ml.button')} title={t('ml.button')}
-      className="relative inline-flex h-10 w-10 flex-none cursor-pointer items-center justify-center rounded-group border border-border bg-bg text-text-muted hover:text-text md:h-8 md:w-8">
-      <IconCpu size={16} stroke={1.75} />
+      className="relative inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-group border border-border bg-bg text-text-muted hover:text-text md:h-8 md:w-8">
+      <IconAi size={18} stroke={1.75} />
       {busy && <span data-testid="models-busy" aria-hidden className="absolute top-1 right-1 h-2 w-2 rounded-full bg-accent" />}
     </button>
   )

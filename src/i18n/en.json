@@ -1138,6 +1138,7 @@
       "address": "TRC20 address",
       "copy": "Copy address",
       "copied": "Copied",
+      "cloudtips": "CloudTips",
       "source": "Source code",
       "analytics": "Analytics settings"
     },

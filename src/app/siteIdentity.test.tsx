@@ -6,7 +6,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { I18nextProvider } from 'react-i18next'
 import i18n from '../i18n'
 import { routes } from './routes'
-import { DONATION_ADDRESS, GITHUB_URL } from './site'
+import { CLOUDTIPS_URL, DONATION_ADDRESS, GITHUB_URL } from './site'
 
 vi.mock('../features/viewport/Viewport', () => ({ Viewport: () => <div data-testid="viewport" /> }))
 vi.mock('./useModel', () => ({
@@ -86,6 +86,24 @@ describe('идентичность сайта: ссылка, мотивация,
     expect(screen.getByTestId('donation-address')).toBeVisible()
     expect(window.getSelection()?.toString()).toBe(DONATION_ADDRESS)
     expect(screen.queryByText('Copied')).toBeNull()
+  })
+
+  it('сердечко со свечением рядом с заголовком поддержки; кнопка CloudTips видна только в русской локали', async () => {
+    at('/')
+    const heart = screen.getByTestId('support-heart')
+    expect(heart).toHaveClass('text-error')
+    expect(heart.getAttribute('class')).toContain('drop-shadow')
+    expect(screen.queryByTestId('cloudtips-link')).toBeNull()
+    expect(screen.queryByTestId('donation-divider')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'RU' }))
+    expect(screen.getByTestId('donation-divider')).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'CloudTips' })
+    expect(link).toHaveAttribute('href', CLOUDTIPS_URL)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link.getAttribute('rel')).toContain('noopener')
+    expect(screen.getByRole('contentinfo')).toHaveTextContent(/USDT.*CloudTips/)
+    await userEvent.click(screen.getByRole('button', { name: 'EN' }))
+    expect(screen.queryByTestId('cloudtips-link')).toBeNull()
   })
 })
 

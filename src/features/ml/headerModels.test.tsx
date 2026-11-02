@@ -19,9 +19,11 @@ const at = (path: string) => render(<I18nextProvider i18n={i18n}><RouterProvider
 describe('кнопка «Модели ИИ» в шапке (32, 5.2)', () => {
   beforeEach(async () => { localStorage.clear(); resetActivityLog(); closeModelManager(); await i18n.changeLanguage('en') })
 
-  it('видна на стартовой странице и в режиме, не зависит от режима; открывает менеджер', async () => {
+  it('видна на стартовой странице и в режиме, не зависит от режима; показывает значок AI и открывает менеджер', async () => {
     const { unmount } = at('/')
-    expect(screen.getByRole('button', { name: 'AI models' })).toBeInTheDocument()
+    const btn = screen.getByRole('button', { name: 'AI models' })
+    expect(btn).toBeInTheDocument()
+    expect(btn.querySelector('svg.tabler-icon-ai')).toBeInTheDocument()
     unmount()
     at('/gridfinity/box')
     await userEvent.click(screen.getByRole('button', { name: 'AI models' }))

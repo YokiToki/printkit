@@ -49,7 +49,9 @@ describe('ModelManager (32, 5.2)', () => {
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Download' }))
     await waitFor(() => expect(screen.getByTestId('status-a')).toHaveTextContent(/Ready|In use/))
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    await user.click(within(row('a')).getByRole('button', { name: 'Delete' }))
+    const delBtn = within(row('a')).getByRole('button', { name: 'Delete' })
+    expect(delBtn).toHaveClass('border-error-border', 'bg-error-bg', 'text-error-text')
+    await user.click(delBtn)
     expect(screen.getByTestId('status-a')).toHaveTextContent('Not downloaded')
     await user.click(within(row('a')).getByRole('button', { name: 'Download' }))
     expect(screen.getByRole('alertdialog')).toBeInTheDocument(); expect(fetchMock).toHaveBeenCalledTimes(1) // согласие спрашивается заново
@@ -90,13 +92,18 @@ describe('ModelManager (32, 5.2)', () => {
     expect(within(row('g')).queryByRole('button', { name: 'Download' })).toBeNull()
   })
 
-  it('«Удалить все» спрашивает подтверждение; ссылка «Открыть журнал» есть', async () => {
+  it('«Удалить все» стоит в шапке списка (не в подвале), оформлена красным и спрашивает подтверждение; ссылка «Открыть журнал» есть', async () => {
     const { user } = await setup()
     await user.click(within(row('a')).getByRole('button', { name: 'Download' }))
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Download' }))
     await waitFor(() => expect(screen.getByTestId('status-a')).toHaveTextContent(/Ready|In use/))
-    await user.click(screen.getByRole('button', { name: 'Delete all' }))
-    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete all' }))
+    const delAll = within(screen.getByTestId('models-list-header')).getByRole('button', { name: 'Delete all' })
+    expect(delAll).toHaveClass('border-error-border', 'bg-error-bg', 'text-error-text')
+    expect(screen.getByTestId('models-used').closest('footer')!.querySelectorAll('button')).toHaveLength(1) // в подвале только «Открыть журнал»
+    await user.click(delAll)
+    const confirmDelAll = within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete all' })
+    expect(confirmDelAll).toHaveClass('border-error-border', 'bg-error-bg', 'text-error-text')
+    await user.click(confirmDelAll)
     expect(screen.getByTestId('status-a')).toHaveTextContent('Not downloaded')
     expect(screen.getByRole('button', { name: 'Open the log' })).toBeInTheDocument()
   })

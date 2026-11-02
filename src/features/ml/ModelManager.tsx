@@ -61,7 +61,10 @@ export function ModelManager({ store: given, service, caps: givenCaps, models = 
             className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-control border-0 bg-transparent text-text-muted hover:bg-surface-3 hover:text-text"><IconX size={18} stroke={1.75} /></button>
         </header>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
-          <p className="m-0 text-xs text-text-muted">{t('ml.intro')}</p>
+          <div data-testid="models-list-header" className="flex flex-wrap items-center justify-between gap-3">
+            <p className="m-0 min-w-0 flex-1 text-xs text-text-muted">{t('ml.intro')}</p>
+            <Button danger onClick={() => setConfirmAll(true)} disabled={used === 0}>{t('ml.deleteAll')}</Button>
+          </div>
           {!store.persistent && <Banner kind="warn">{t('ml.notPersistent')}</Banner>}
           {KINDS.filter((k) => models.some((m) => m.kind === k)).map((kind) => (
             <section key={kind} aria-label={t(`ml.kind.${kind}`)} className="flex flex-col gap-2">
@@ -76,9 +79,8 @@ export function ModelManager({ store: given, service, caps: givenCaps, models = 
         </div>
         <footer className="flex flex-none flex-wrap items-center gap-3 border-t border-border px-4 py-3 text-xs text-text-muted">
           <span data-testid="models-used">{t('ml.used', { mb: mb(used) })}</span>
-          <button type="button" onClick={() => { closeModelManager(); openLog({ source: 'ai' }) }} className="cursor-pointer border-0 bg-transparent p-0 text-accent-text underline">{t('ml.openLog')}</button>
           <span className="flex-1" />
-          <Button onClick={() => setConfirmAll(true)} disabled={used === 0}>{t('ml.deleteAll')}</Button>
+          <button type="button" onClick={() => { closeModelManager(); openLog({ source: 'ai' }) }} className="cursor-pointer border-0 bg-transparent p-0 text-accent-text underline">{t('ml.openLog')}</button>
         </footer>
       </div>
       {consent && (
@@ -88,7 +90,7 @@ export function ModelManager({ store: given, service, caps: givenCaps, models = 
         </ConfirmDialog>
       )}
       {confirmAll && (
-        <ConfirmDialog title={t('ml.deleteAllTitle')} confirmLabel={t('ml.deleteAll')} cancelLabel={t('ml.consent.cancel')}
+        <ConfirmDialog danger title={t('ml.deleteAllTitle')} confirmLabel={t('ml.deleteAll')} cancelLabel={t('ml.consent.cancel')}
           onConfirm={() => { setConfirmAll(false); void store.removeAll() }} onCancel={() => setConfirmAll(false)}>
           {t('ml.deleteAllBody')}
         </ConfirmDialog>
@@ -127,7 +129,7 @@ function ModelRow({ spec, store, caps, activeId, onDownload }: { spec: ModelSpec
         <span className="flex-1" />
         {(st.state === 'absent' || st.state === 'failed') && !unavailable && <Button primary onClick={onDownload}>{t('ml.download')}</Button>}
         {st.state === 'downloading' && <Button onClick={() => store.cancel(spec.id)}>{t('ml.cancel')}</Button>}
-        {st.state === 'ready' && <Button onClick={() => void store.remove(spec.id)}>{t('ml.delete')}</Button>}
+        {st.state === 'ready' && <Button danger onClick={() => void store.remove(spec.id)}>{t('ml.delete')}</Button>}
       </div>
     </li>
   )

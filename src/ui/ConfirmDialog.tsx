@@ -6,11 +6,12 @@ import { Button } from './Button'
  * Окно подтверждения необратимого действия. Фокус уходит на «Отмена» (безопасная кнопка), Esc и щелчок по затемнению отменяют,
  * Tab не выходит из окна. Вернуть фокус на кнопку, открывшую окно, должен вызывающий (он знает, что открывало).
  */
-export function ConfirmDialog({ title, children, confirmLabel, cancelLabel, onConfirm, onCancel }: {
+export function ConfirmDialog({ title, children, confirmLabel, cancelLabel, danger, onConfirm, onCancel }: {
   title: string
   children: ReactNode
   confirmLabel: string
   cancelLabel: string
+  danger?: boolean
   onConfirm: () => void
   onCancel: () => void
 }) {
@@ -42,7 +43,7 @@ export function ConfirmDialog({ title, children, confirmLabel, cancelLabel, onCo
         <div className="flex justify-end gap-2">
           <button ref={cancel} type="button" onClick={onCancel}
             className="inline-flex h-9 cursor-pointer items-center justify-center rounded-control border border-border-strong bg-surface-2 px-3.5 font-medium text-text hover:bg-surface-3">{cancelLabel}</button>
-          <Button primary onClick={onConfirm}>{confirmLabel}</Button>
+          <Button primary={!danger} danger={danger} onClick={onConfirm}>{confirmLabel}</Button>
         </div>
       </div>
     </div>,

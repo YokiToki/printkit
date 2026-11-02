@@ -2,7 +2,7 @@
 
 ## 1. Check the browser API (spike)
 
-- [ ] 1.1 In a throwaway page (or a branch of `poc/`) in the owner's Chrome, register one read-only and one writing tool and drive them with the browser's own `getTools()` / `executeTool()` and with a real agent if one is available. Record in `design.md` (Open Questions): the entry point (`document.modelContext` / `navigator.modelContext`), the flag or origin trial, the shape `execute` must return and how errors are returned, `AbortSignal` unregistering, `toolchange`, whether a background tab keeps the tools, whether images can be returned, and the Chrome version. If the API cannot be used on a normal build, stop for `/opsx:update`.
+- [x] 1.1 In a throwaway page (or a branch of `poc/`) in the owner's Chrome, register one read-only and one writing tool and drive them with the browser's own `getTools()` / `executeTool()` and with a real agent if one is available. Record in `design.md` (Open Questions): the entry point (`document.modelContext` / `navigator.modelContext`), the flag or origin trial, the shape `execute` must return and how errors are returned, `AbortSignal` unregistering, `toolchange`, whether a background tab keeps the tools, whether images can be returned, and the Chrome version. If the API cannot be used on a normal build, stop for `/opsx:update`.
 
 ## 2. Agent core (React-free)
 

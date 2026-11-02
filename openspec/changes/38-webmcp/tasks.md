@@ -12,8 +12,8 @@
 
 ## 3. Descriptors and tools
 
-- [ ] 3.1 Descriptors for the writable modes (`agent/modes/{baseplate,box,rackPanel,rackCase,rackShelf,keychainShape}.ts`): schema of the documented fields with unit descriptions, `normalise` (the mode's migrate), `validate`, `describe`. Tests per mode: defaults satisfy the schema, a patch round-trips through `normalise`, invalid sizes give the same keys as the validator, and a coverage test that every setting of the panel is in the schema or in an explicit exclusion list.
-- [ ] 3.2 Tools: `get_app_state`, `open_mode`, `get_parameters`, `set_parameters`, `reset_parameters`, `get_model_info`, `get_export_settings`, `set_export_settings`, `request_export`. Tests with fake mode handles: unknown mode, read-only modes, patch rejected leaves state unchanged, invalid-but-applied returns keys with English texts, `get_model_info` waits for `pending`, times out with `ready: false`, never returns mesh data, printer ids checked, export file name normalised, lengths in mm regardless of unit.
+- [x] 3.1 Descriptors for the writable modes (`agent/modes/{baseplate,box,rackPanel,rackCase,rackShelf,keychainShape}.ts`): schema of the documented fields with unit descriptions, `normalise` (the mode's migrate), `validate`, `describe`. Tests per mode: defaults satisfy the schema, a patch round-trips through `normalise`, invalid sizes give the same keys as the validator, and a coverage test that every setting of the panel is in the schema or in an explicit exclusion list.
+- [x] 3.2 Tools: `get_app_state`, `open_mode`, `get_parameters`, `set_parameters`, `reset_parameters`, `get_model_info`, `get_export_settings`, `set_export_settings`, `request_export`. Tests with fake mode handles: unknown mode, read-only modes, patch rejected leaves state unchanged, invalid-but-applied returns keys with English texts, `get_model_info` waits for `pending`, times out with `ready: false`, never returns mesh data, printer ids checked, export file name normalised, lengths in mm regardless of unit.
 
 ## 4. App integration
 

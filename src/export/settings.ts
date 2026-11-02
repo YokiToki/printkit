@@ -65,6 +65,10 @@ const listeners = new Set<() => void>()
 const current = () => (state ??= loadPersisted(KEY, defaultExportSettings, normalizeExportSettings))
 const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
 
+export function getExportSettings(): ExportSettings {
+  return current()
+}
+
 export function updateExportSettings(patch: Partial<ExportSettings>) {
   state = { ...current(), ...patch }
   try { localStorage.setItem(KEY, JSON.stringify(state)) } catch { /* хранилище недоступно */ }

@@ -1,7 +1,7 @@
 import { NavLink, Link, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { IconAi, IconBrandGithub, IconChevronDown } from '@tabler/icons-react'
-import { useActivityLog } from './activityLog'
+import { IconAi, IconBrandGithub, IconChevronDown, IconRobot } from '@tabler/icons-react'
+import { openLog, useActivityLog } from './activityLog'
 import { openModelManager } from '../features/ml/managerState'
 import { GITHUB_URL } from './site'
 import { PRODUCTS, productOf, type Product } from './products'
@@ -45,6 +45,7 @@ export function Header() {
         options={[{ value: 'mm', label: t('units.mm') }, { value: 'in', label: t('units.in') }]} />
       <SegmentedControl compact ariaLabel={t('language.label')} value={lang} onChange={(l) => void i18n.changeLanguage(l)}
         options={LANGUAGES.map((l) => ({ value: l, label: l.toUpperCase() }))} />
+      <AgentButton />
       <ModelsButton />
       <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" aria-label={t('site.github')} title={t('site.github')}
         className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-group border border-border bg-bg text-text-muted no-underline hover:text-text max-[440px]:hidden md:h-8 md:w-8">
@@ -125,6 +126,19 @@ function ModelsButton() {
       className="relative inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-group border border-border bg-bg text-text-muted hover:text-text md:h-8 md:w-8">
       <IconAi size={18} stroke={1.75} />
       {busy && <span data-testid="models-busy" aria-hidden className="absolute top-1 right-1 h-2 w-2 rounded-full bg-accent" />}
+    </button>
+  )
+}
+
+/** Кнопка открытия журнала активности агента: точка-индикатор, пока агент выполняет инструмент. */
+function AgentButton() {
+  const { t } = useTranslation()
+  const busy = useActivityLog().jobs.some((j) => j.source === 'agent')
+  return (
+    <button type="button" onClick={() => openLog({ source: 'agent' })} aria-label={t('agent.title')} title={t('agent.title')}
+      className="relative inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-group border border-border bg-bg text-text-muted hover:text-text md:h-8 md:w-8">
+      <IconRobot size={18} stroke={1.75} />
+      {busy && <span data-testid="agent-busy" aria-hidden className="absolute top-1 right-1 h-2 w-2 rounded-full bg-accent" />}
     </button>
   )
 }

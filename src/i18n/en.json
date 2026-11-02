@@ -1384,6 +1384,7 @@
       "storage": "Storage",
       "export": "Export",
       "ai": "AI",
+      "agent": "Agent",
       "app": "App"
     },
     "copyHeader": {
@@ -1455,7 +1456,22 @@
       "runFailed": "{{name}} failed",
       "firstPassImage": "Removing the background",
       "depthPass": "Computing the depth map"
+    },
+    "agent": {
+      "call": "Agent: {{tool}} {{summary}}",
+      "callFailed": "Agent: {{tool}} failed ({{summary}})",
+      "running": "Agent: {{tool}}…",
+      "undone": "Agent change reverted: {{label}}"
     }
+  },
+  "agent": {
+    "title": "Browser agents",
+    "allow": "Allow browser agents",
+    "undo": "Undo agent change",
+    "undoAria": "Undo agent change: {{label}}",
+    "changedSinceTitle": "Undo agent change",
+    "changedSincePrompt": "Parameters have been edited since the agent change. Restore previous values anyway?",
+    "restore": "Restore"
   },
   "ml": {
     "button": "AI models",

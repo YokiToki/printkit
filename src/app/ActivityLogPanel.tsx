@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { IconAlertTriangle, IconArrowDown, IconCircleX, IconInfoCircle, IconX } from '@tabler/icons-react'
+import { IconAlertTriangle, IconArrowBackUp, IconArrowDown, IconCircleX, IconInfoCircle, IconX } from '@tabler/icons-react'
 import { Button } from '../ui/Button'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { SegmentedControl } from '../ui/SegmentedControl'
+import { Toggle } from '../ui/Toggle'
+import { agentBridge, useAgentHistory } from '../agent/bridge'
+import { useAgentSettings } from '../agent/settings'
 import { APP_VERSION } from './site'
 import { LOG_SOURCES, clearLog, closeLog, useActivityLog, type LogEntry, type LogLevel, type LogSource } from './activityLog'
 import { logText } from './logText'
@@ -39,9 +43,19 @@ function Panel({ resourcesDeps }: { resourcesDeps?: ResourcesDeps }) {
   const [source, setSource] = useState<LogSource | 'all'>(log.openSource ?? 'all')
   const [follow, setFollow] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [agentSettings, updateAgentSettings] = useAgentSettings()
+  const { top: topAgentEntry, canUndo } = useAgentHistory()
+  const [confirmUndo, setConfirmUndo] = useState<{ logEntryId?: number } | null>(null)
   const list = useRef<HTMLDivElement>(null)
   const opener = useRef<Element | null>(typeof document === 'undefined' ? null : document.activeElement)
   const closeBtn = useRef<HTMLButtonElement>(null)
+
+  const handleUndo = (logEntryId?: number) => {
+    const outcome = agentBridge.undo(logEntryId)
+    if (outcome.status === 'changed_since') {
+      setConfirmUndo({ logEntryId })
+    }
+  }
 
   const counts = useMemo(() => {
     const c: Partial<Record<LogSource, number>> = {}
@@ -90,10 +104,19 @@ function Panel({ resourcesDeps }: { resourcesDeps?: ResourcesDeps }) {
   return (
     <section role="dialog" aria-label={t('log.title')}
       className="fixed inset-x-0 bottom-0 z-40 flex h-[65vh] flex-col rounded-t-group border border-border-strong bg-surface-1 shadow-xl md:right-0 md:bottom-9 md:left-auto md:h-[40vh] md:w-[min(760px,100%)] md:rounded-tr-none">
-      <header className="flex items-center gap-3 border-b border-border px-4 py-2">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2">
         <h2 className="m-0 flex-1 text-sm font-semibold">{t('log.title')}</h2>
+        <div className="flex items-center text-xs">
+          <Toggle label={t('agent.allow')} checked={agentSettings.enabled} onChange={(enabled) => updateAgentSettings({ enabled })} />
+        </div>
         <SegmentedControl<PanelTab> ariaLabel={t('resources.viewSwitcher')} value={tab} onChange={setTab}
           options={[{ value: 'log', label: t('resources.tabLog') }, { value: 'resources', label: t('resources.tabResources') }]} />
+        {canUndo && (
+          <Button onClick={() => handleUndo()} title={topAgentEntry?.label ? t('agent.undoAria', { label: topAgentEntry.label }) : t('agent.undo')}>
+            <IconArrowBackUp size={16} aria-hidden />
+            {t('agent.undo')}
+          </Button>
+        )}
         <Button onClick={() => void copy()}>{copied ? t('log.copied') : t('log.copy')}</Button>
         <Button onClick={() => clearLog()}>{t('log.clear')}</Button>
         <button ref={closeBtn} type="button" aria-label={t('log.close')} onClick={close}
@@ -119,6 +142,7 @@ function Panel({ resourcesDeps }: { resourcesDeps?: ResourcesDeps }) {
             {rows.length === 0 && <p className="m-0 py-4 text-text-muted">{t('log.empty')}</p>}
             {rows.map((e) => {
               const Icon = ICON[e.level]
+              const isUndoableAgentLine = e.source === 'agent' && topAgentEntry?.logEntryId === e.id
               return (
                 <div key={e.id} className="flex items-start gap-2 py-0.5">
                   <span className="shrink-0 text-text-subtle">{formatLogTime(e.time)}</span>
@@ -133,6 +157,18 @@ function Panel({ resourcesDeps }: { resourcesDeps?: ResourcesDeps }) {
                       </details>
                     )}
                   </span>
+                  {isUndoableAgentLine && (
+                    <button
+                      type="button"
+                      onClick={() => handleUndo(e.id)}
+                      title={t('agent.undoAria', { label: topAgentEntry.label })}
+                      aria-label={t('agent.undoAria', { label: topAgentEntry.label })}
+                      className="ml-2 inline-flex h-6 flex-none cursor-pointer items-center gap-1 rounded-control border border-border-strong bg-surface-2 px-2 text-xs text-text hover:bg-surface-3"
+                    >
+                      <IconArrowBackUp size={14} aria-hidden />
+                      {t('agent.undo')}
+                    </button>
+                  )}
                 </div>
               )
             })}
@@ -147,6 +183,21 @@ function Panel({ resourcesDeps }: { resourcesDeps?: ResourcesDeps }) {
           </Button>
         )}
       </footer>
+      {confirmUndo && (
+        <ConfirmDialog
+          title={t('agent.changedSinceTitle')}
+          confirmLabel={t('agent.restore')}
+          cancelLabel={t('log.cancel')}
+          danger
+          onConfirm={() => {
+            agentBridge.undo(confirmUndo.logEntryId, { force: true })
+            setConfirmUndo(null)
+          }}
+          onCancel={() => setConfirmUndo(null)}
+        >
+          {t('agent.changedSincePrompt')}
+        </ConfirmDialog>
+      )}
     </section>
   )
 }

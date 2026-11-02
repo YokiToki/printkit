@@ -8,6 +8,8 @@ import { Workspace } from '../../app/Workspace'
 import { ExportPanel } from '../export/ExportPanel'
 import { migrateRackCase } from './migrateCase'
 import { CasePanel } from './CasePanel'
+import { rackCaseDescriptor } from '../../agent/modes'
+import { useAgentMode } from '../../agent/useAgentMode'
 
 const PARAMS_KEY = 'rack.case'
 
@@ -22,6 +24,17 @@ export function CaseMode() {
   const valid = check.errors.length === 0
   const { model, pending } = useModel('rackCase', params, { enabled: valid, invalid: check.errors })
   const l = valid ? caseLayout(params) : null
+  const exportName = `rack_case_${l?.units ?? 0}u_${Math.round(p.device.width)}x${Math.round(p.device.depth)}x${Math.round(p.device.height)}`
+
+  useAgentMode(rackCaseDescriptor, {
+    state: p,
+    setState: setP,
+    defaults: defaultRackCase,
+    onReset: () => setP(defaultRackCase),
+    model,
+    pending,
+    exportName,
+  })
 
   useEffect(() => { recordSession('case', `${p.device.width} × ${p.device.depth} × ${p.device.height}`, 'rack') }, [p.device])
 
@@ -30,7 +43,7 @@ export function CaseMode() {
       model={model}
       onStartOver={() => setP(defaultRackCase)} modeName={t('rack.modes.case')}
       panel={<CasePanel params={p} onChange={setP} />}
-      footer={<ExportPanel model={model} busy={pending} name={`rack_case_${l?.units ?? 0}u_${Math.round(p.device.width)}x${Math.round(p.device.depth)}x${Math.round(p.device.height)}`} />}
+      footer={<ExportPanel model={model} busy={pending} name={exportName} />}
     />
   )
 }

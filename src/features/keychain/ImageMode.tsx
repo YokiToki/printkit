@@ -18,6 +18,7 @@ import { KeychainPanel } from './KeychainPanel'
 import { MaskPreview } from './MaskPreview'
 import type { ImageNotice } from './ImageSection'
 import { KeychainWorkspace } from './KeychainWorkspace'
+import { keychainImageDescriptor } from '../../agent/modes'
 
 const KEY = 'keychain.relief'
 /** `subjectAuto` — автоматический выбор предмета для источника «Фото» (по умолчанию включён, правка значений его выключает). */
@@ -109,6 +110,12 @@ export function ImageMode() {
   return (
     <KeychainWorkspace
       mode="image" params={params} image={image} onDrop={onDrop} onStartOver={startOver} hold={hold}
+      agent={{
+        descriptor: keychainImageDescriptor,
+        state: params,
+        defaults: defaultKeychain,
+        writable: false,
+      }}
       overlay={(info) => (image ? <MaskPreview preview={info?.preview ?? null} selected={selectedArea} onSelect={setSelectedArea} matte={params.silhouette.source === 'ai' ? matte.matte : null} height={info?.height ? { width: info.height.width, height: info.height.height, data: info.height.data } : null}
         extra={image ? <CropEditor image={image} crop={params.crop} subjectBox={subjectBox} onChange={(c) => setState((o) => ({ ...o, crop: c }))} /> : null} /> : null)}
       panel={(info) => <KeychainPanel params={params} onChange={setState} imageName={imageName} hasImage={!!image} info={info} notice={notice} onFile={(f) => void onFile(f)} selectedArea={selectedArea} onSelectArea={setSelectedArea} aiSource={aiSource} image={image} subjectBox={subjectBox} photo={photoPanel} />}

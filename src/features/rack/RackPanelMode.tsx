@@ -9,6 +9,8 @@ import { Workspace } from '../../app/Workspace'
 import { ExportPanel } from '../export/ExportPanel'
 import { migrateRackPanel } from './migrate'
 import { RackPanel } from './RackPanel'
+import { rackPanelDescriptor } from '../../agent/modes'
+import { useAgentMode } from '../../agent/useAgentMode'
 
 const PARAMS_KEY = 'rack.panel'
 
@@ -26,12 +28,24 @@ export function RackPanelMode() {
   useEffect(() => { recordSession('panel', `${p.units} U`, 'rack') }, [p.units])
 
   const height = Math.round((p.units * RACK_UNIT - (p.tolerance ? HEIGHT_TOLERANCE : 0)) * 10) / 10
+  const exportName = `rack_panel_${p.units}u_${height}`
+
+  useAgentMode(rackPanelDescriptor, {
+    state: p,
+    setState: setP,
+    defaults: defaultRackPanel,
+    onReset: () => setP(defaultRackPanel),
+    model,
+    pending,
+    error,
+    exportName,
+  })
   return (
     <Workspace
       model={model}
       onStartOver={() => setP(defaultRackPanel)} modeName={t('rack.modes.panel')}
       panel={<RackPanel params={p} onChange={setP} buildError={error} />}
-      footer={<ExportPanel model={model} busy={pending} name={`rack_panel_${p.units}u_${height}`} />}
+      footer={<ExportPanel model={model} busy={pending} name={exportName} />}
     />
   )
 }

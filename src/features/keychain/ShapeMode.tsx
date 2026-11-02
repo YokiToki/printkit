@@ -3,6 +3,7 @@ import { usePersistedState } from '../../app/usePersistedState'
 import { KeychainWorkspace } from './KeychainWorkspace'
 import { ShapePanel } from './ShapePanel'
 import { defaultShapeState, migrateShape, shapeParams, type ShapeState } from './shapeState'
+import { keychainShapeDescriptor } from '../../agent/modes'
 
 const KEY = 'keychain.shape'
 
@@ -15,6 +16,13 @@ export function ShapeMode() {
   return (
     <KeychainWorkspace
       mode="shape" params={params} image={null} onStartOver={() => setState(defaultShapeState)}
+      agent={{
+        descriptor: keychainShapeDescriptor,
+        state,
+        setState,
+        defaults: defaultShapeState,
+        writable: true,
+      }}
       panel={(info) => <ShapePanel state={state} params={params} info={info} onChange={setState} />}
     />
   )

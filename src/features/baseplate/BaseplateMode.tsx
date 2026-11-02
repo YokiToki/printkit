@@ -10,6 +10,8 @@ import { migrateBaseplate } from './migrate'
 import { BaseplatePanel } from './BaseplatePanel'
 import { bedOf, useExportSettings } from '../../export/settings'
 import { ExportPanel } from '../export/ExportPanel'
+import { baseplateDescriptor } from '../../agent/modes'
+import { useAgentMode } from '../../agent/useAgentMode'
 
 const PARAMS_KEY = 'gridfinity.baseplate'
 
@@ -30,6 +32,17 @@ export function BaseplateMode() {
   const valid = check.ok
   const { model, pending } = useModel('baseplate', geometry, { enabled: valid, invalid: check.errors.map((e) => e.key) })
   const { sizeX, sizeY } = baseplateLayout(geometry)
+  const exportName = `baseplate_${Math.round(sizeX)}x${Math.round(sizeY)}`
+
+  useAgentMode(baseplateDescriptor, {
+    state: p,
+    setState: setP,
+    defaults: defaultParams,
+    onReset: () => setP(defaultParams),
+    model,
+    pending,
+    exportName,
+  })
 
   useEffect(() => {
     const units = p.x.mode === 'units' && p.y.mode === 'units'
@@ -43,7 +56,7 @@ export function BaseplateMode() {
       gap={p.split.enabled && p.split.exploded ? p.split.gap : 0}
       plate={p.preview.showPlate ? { x: p.preview.plateX, y: p.preview.plateY, margin: ex.margin } : null}
       panel={<BaseplatePanel params={p} onChange={setP} />}
-      footer={<ExportPanel model={model} busy={pending} name={`baseplate_${Math.round(sizeX)}x${Math.round(sizeY)}`} />}
+      footer={<ExportPanel model={model} busy={pending} name={exportName} />}
     />
   )
 }

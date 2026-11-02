@@ -15,6 +15,8 @@ import { openMeshStore, type MeshStore } from './meshStore'
 import { importStl, LARGE_STL_BYTES } from './importStl'
 import { migrateCutout } from './migrate'
 import { CutoutPanel } from './CutoutPanel'
+import { cutoutDescriptor } from '../../agent/modes'
+import { useAgentMode } from '../../agent/useAgentMode'
 
 const PARAMS_KEY = 'gridfinity.cutout'
 
@@ -64,6 +66,17 @@ export function CutoutMode() {
   const check = validateCutout(params)
   const valid = check.ok
   const { model, pending, error } = useModel('cutout', params, { enabled: valid && ready, invalid: check.errors.map((e) => e.key) })
+  const nameBase = `cutout_${Math.round(axisMm(p.x, p.pitch))}x${Math.round(axisMm(p.y, p.pitch))}`
+
+  useAgentMode(cutoutDescriptor, {
+    state: p,
+    defaults: defaultCutout,
+    writable: false,
+    model,
+    pending,
+    error,
+    exportName: nameBase,
+  })
 
   useEffect(() => { recordSession('cutout', `${p.cutouts.length}`) }, [p.cutouts.length])
 
@@ -94,7 +107,6 @@ export function CutoutMode() {
     }
   }, [getStore, p, setP, t])
 
-  const nameBase = `cutout_${Math.round(axisMm(p.x, p.pitch))}x${Math.round(axisMm(p.y, p.pitch))}`
   return (
     <Workspace
       model={model}

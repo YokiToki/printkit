@@ -8,6 +8,8 @@ import { Workspace } from '../../app/Workspace'
 import { ExportPanel } from '../export/ExportPanel'
 import { migrateRackShelf } from './migrateShelf'
 import { ShelfPanel } from './ShelfPanel'
+import { rackShelfDescriptor } from '../../agent/modes'
+import { useAgentMode } from '../../agent/useAgentMode'
 
 const PARAMS_KEY = 'rack.shelf'
 
@@ -22,6 +24,18 @@ export function ShelfMode() {
   const valid = check.errors.length === 0
   const { model, pending, error } = useModel('rackShelf', params, { enabled: valid, invalid: check.errors })
   const l = shelfLayout(params)
+  const exportName = `rack_shelf_${p.units}u_${Math.round(l.width)}x${Math.round(p.shelf.depth)}`
+
+  useAgentMode(rackShelfDescriptor, {
+    state: p,
+    setState: setP,
+    defaults: defaultRackShelf,
+    onReset: () => setP(defaultRackShelf),
+    model,
+    pending,
+    error,
+    exportName,
+  })
 
   useEffect(() => { recordSession('shelf', `${p.units} U · ${p.shelf.depth}`, 'rack') }, [p.units, p.shelf.depth])
 
@@ -30,7 +44,7 @@ export function ShelfMode() {
       model={model}
       onStartOver={() => setP(defaultRackShelf)} modeName={t('rack.modes.shelf')}
       panel={<ShelfPanel params={p} onChange={setP} buildError={error} />}
-      footer={<ExportPanel model={model} busy={pending} name={`rack_shelf_${p.units}u_${Math.round(l.width)}x${Math.round(p.shelf.depth)}`} />}
+      footer={<ExportPanel model={model} busy={pending} name={exportName} />}
     />
   )
 }

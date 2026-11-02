@@ -17,7 +17,7 @@
 
 ## 4. App integration
 
-- [ ] 4.1 `useAgentMode(descriptor, handle)` and `AgentHost` in `AppShell` (tool set follows the mounted mode); each writable mode calls the hook with its state, setter, defaults and model result; the read-only modes call it with `writable: false`. Tests: mounting a mode adds its tools, switching modes swaps them, unmount removes them, a tool called during a route change answers `no_active_mode`.
+- [x] 4.1 `useAgentMode(descriptor, handle)` and `AgentHost` in `AppShell` (tool set follows the mounted mode); each writable mode calls the hook with its state, setter, defaults and model result; the read-only modes call it with `writable: false`. Tests: mounting a mode adds its tools, switching modes swaps them, unmount removes them, a tool called during a route change answers `no_active_mode`.
 - [ ] 4.2 Activity log entries and the status marker through the API of `31a` (source `agent`, a summary built from the changed paths), the "Undo agent change" control in the log line and panel, the switch "Allow browser agents" (key `gridfinity.agent`) in the log panel header with its Header-menu entry. Strings in `en.json` and `ru.json`. No artboard exists: built from `ui/` and tokens, said in the commit. Component tests: log entry text, undo restores, changed-since prompt, switch persists and unregisters, key parity.
 - [ ] 4.3 `AgentExportDialog` and the reset confirmation (`ConfirmDialog`): file list and sizes, Download runs the normal export, decline and the 120 s timeout resolve the call, one dialog at a time, focus handling and Esc. Tests: saved / declined / timeout, no download without a click, nothing opens when the model has errors.
 

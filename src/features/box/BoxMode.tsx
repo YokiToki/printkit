@@ -9,6 +9,8 @@ import { Workspace } from '../../app/Workspace'
 import { ExportPanel } from '../export/ExportPanel'
 import { migrateBox } from './migrate'
 import { BoxPanel } from './BoxPanel'
+import { boxDescriptor } from '../../agent/modes'
+import { useAgentMode } from '../../agent/useAgentMode'
 
 const PARAMS_KEY = 'gridfinity.box'
 
@@ -22,6 +24,17 @@ export function BoxMode() {
   const check = validateBox(params)
   const valid = check.ok
   const { model, pending } = useModel('box', params, { enabled: valid, invalid: check.errors.map((e) => e.key) })
+  const exportName = `box_${Math.round(axisMm(p.x, p.pitch))}x${Math.round(axisMm(p.y, p.pitch))}`
+
+  useAgentMode(boxDescriptor, {
+    state: p,
+    setState: setP,
+    defaults: defaultBox,
+    onReset: () => setP(defaultBox),
+    model,
+    pending,
+    exportName,
+  })
 
   useEffect(() => {
     const h = p.height.mode === 'units' ? p.height.value : Number((p.height.value / 7).toFixed(1))
@@ -33,7 +46,7 @@ export function BoxMode() {
       model={model}
       onStartOver={() => setP(defaultBox)} modeName={t('modes.box')}
       panel={<BoxPanel params={p} onChange={setP} />}
-      footer={<ExportPanel model={model} busy={pending} name={`box_${Math.round(axisMm(p.x, p.pitch))}x${Math.round(axisMm(p.y, p.pitch))}`} />}
+      footer={<ExportPanel model={model} busy={pending} name={exportName} />}
     />
   )
 }

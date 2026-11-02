@@ -6,9 +6,9 @@
 
 ## 2. Agent core (React-free)
 
-- [ ] 2.1 `agent/registry.ts` (`AgentTool`, `ToolResult`, error codes), `agent/schema.ts` (JSON-Schema subset validator returning JSON paths: object, number min/max, integer, boolean, enum, array with max items, size limit) and `agent/patch.ts` (deep merge, arrays replaced, the diff of normalisation). Tests: valid, unknown field, wrong type, out of range, oversized, arrays, merge of nested objects, diff reporting.
-- [ ] 2.2 `agent/webmcp.ts`: feature detection, registration with an `AbortController` per tool, result conversion as fixed by the spike, `toolchange`, `dispose()`, call rate limit. Tests with a fake `modelContext` (both entry points): no API → `install()` is `null` and nothing throws; tools registered and removed; a thrown handler becomes an error result; rate limit.
-- [ ] 2.3 `agent/history.ts`: per-mode stack of the last 10 `{label, before, after}`, undo, the changed-since check. Tests.
+- [x] 2.1 `agent/registry.ts` (`AgentTool`, `ToolResult`, error codes), `agent/schema.ts` (JSON-Schema subset validator returning JSON paths: object, number min/max, integer, boolean, enum, array with max items, size limit) and `agent/patch.ts` (deep merge, arrays replaced, the diff of normalisation). Tests: valid, unknown field, wrong type, out of range, oversized, arrays, merge of nested objects, diff reporting.
+- [x] 2.2 `agent/webmcp.ts`: feature detection, registration with an `AbortController` per tool, result conversion as fixed by the spike, `toolchange`, `dispose()`, call rate limit. Tests with a fake `modelContext` (both entry points): no API → `install()` is `null` and nothing throws; tools registered and removed; a thrown handler becomes an error result; rate limit.
+- [x] 2.3 `agent/history.ts`: per-mode stack of the last 10 `{label, before, after}`, undo, the changed-since check. Tests.
 
 ## 3. Descriptors and tools
 

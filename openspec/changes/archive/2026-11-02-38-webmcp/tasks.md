@@ -28,4 +28,4 @@
 ## 6. Verification
 
 - [x] 6.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; in a browser without WebMCP the app behaves as before.
-- [ ] 6.2 In Chrome with WebMCP enabled, en and ru: list the tools, change a baseplate (size, fasteners), a box, a rack case that becomes too wide (see the error in the panel), a keychain shape; check `get_model_info` against the STL bounding box and volume of the real export; ask for an export and confirm, decline and let it time out; undo an agent change; turn the switch off and check the tools disappear; check no tool returns images or file data and no network request is made by the tools.
+- [x] 6.2 In Chrome with WebMCP enabled, en and ru: list the tools, change a baseplate (size, fasteners), a box, a rack case that becomes too wide (see the error in the panel), a keychain shape; check `get_model_info` against the STL bounding box and volume of the real export; ask for an export and confirm, decline and let it time out; undo an agent change; turn the switch off and check the tools disappear; check no tool returns images or file data and no network request is made by the tools.

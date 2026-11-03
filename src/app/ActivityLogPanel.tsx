@@ -118,9 +118,9 @@ function Panel({ initialTab, resourcesDeps }: { initialTab: PanelTab; resourcesD
 
   return (
     <section role="dialog" aria-label={t('log.title')}
-      className="absolute inset-x-0 bottom-9 z-40 flex h-[65vh] md:h-[40vh] flex-col border-t border-border-strong bg-surface-1 shadow-xl">
-      <header className="flex flex-none items-center justify-between border-b border-border bg-surface-2 px-2 h-9 text-xs">
-        <div role="tablist" aria-label={t('resources.viewSwitcher')} className="flex items-center gap-0.5">
+      className="absolute inset-x-0 bottom-9 z-40 flex h-[60vh] md:h-[35vh] flex-col border-t border-border-strong bg-surface-1 shadow-xl">
+      <header className="flex flex-none items-center justify-between border-b border-border bg-surface-2 px-1.5 h-7 text-xs">
+        <div role="tablist" aria-label={t('resources.viewSwitcher')} className="flex items-center gap-px h-full">
           {TABS.map(({ id, label }) => {
             const active = tab === id
             return (
@@ -130,7 +130,7 @@ function Panel({ initialTab, resourcesDeps }: { initialTab: PanelTab; resourcesD
                 type="button"
                 aria-selected={active}
                 onClick={() => setTab(id)}
-                className={`relative inline-flex h-8 items-center px-3 font-medium transition-colors cursor-pointer border-b-2 ${
+                className={`relative inline-flex h-full items-center px-2.5 text-xs font-medium transition-colors cursor-pointer border-b-2 ${
                   active
                     ? 'border-accent text-text bg-surface-1 font-semibold'
                     : 'border-transparent text-text-muted hover:text-text hover:bg-surface-3/50'
@@ -138,10 +138,10 @@ function Panel({ initialTab, resourcesDeps }: { initialTab: PanelTab; resourcesD
               >
                 {label}
                 {id === 'models' && busyAi && (
-                  <span data-testid="models-busy" aria-hidden className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
+                  <span data-testid="models-busy" aria-hidden className="ml-1 h-1.5 w-1.5 rounded-full bg-accent" />
                 )}
                 {id === 'agent' && busyAgent && (
-                  <span data-testid="agent-busy" aria-hidden className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
+                  <span data-testid="agent-busy" aria-hidden className="ml-1 h-1.5 w-1.5 rounded-full bg-accent" />
                 )}
               </button>
             )
@@ -152,9 +152,9 @@ function Panel({ initialTab, resourcesDeps }: { initialTab: PanelTab; resourcesD
           type="button"
           aria-label={t('log.close')}
           onClick={close}
-          className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-control border-0 bg-transparent text-text-muted hover:bg-surface-3 hover:text-text"
+          className="inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-control border-0 bg-transparent text-text-muted hover:bg-surface-3 hover:text-text"
         >
-          <IconX size={16} aria-hidden />
+          <IconX size={14} aria-hidden />
         </button>
       </header>
 
@@ -164,23 +164,23 @@ function Panel({ initialTab, resourcesDeps }: { initialTab: PanelTab; resourcesD
         <ModelsTab />
       ) : tab === 'agent' ? (
         <div data-testid="agent-tab" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2 text-xs">
-            <Toggle label={t('agent.allow')} checked={agentSettings.enabled} onChange={(enabled) => updateAgentSettings({ enabled })} />
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-2.5 py-1 text-xs">
+            <Toggle compact label={t('agent.allow')} checked={agentSettings.enabled} onChange={(enabled) => updateAgentSettings({ enabled })} />
             {canUndo && (
-              <Button onClick={() => handleUndo()} title={topAgentEntry?.label ? t('agent.undoAria', { label: topAgentEntry.label }) : t('agent.undo')}>
-                <IconArrowBackUp size={16} aria-hidden />
+              <Button compact onClick={() => handleUndo()} title={topAgentEntry?.label ? t('agent.undoAria', { label: topAgentEntry.label }) : t('agent.undo')}>
+                <IconArrowBackUp size={14} aria-hidden />
                 {t('agent.undo')}
               </Button>
             )}
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2 font-mono text-xs">
+          <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-1 font-mono text-[11px] leading-relaxed">
             {agentRows.length === 0 ? (
-              <p className="m-0 py-4 text-text-muted">{t('log.empty')}</p>
+              <p className="m-0 py-3 text-text-muted">{t('log.empty')}</p>
             ) : (
               agentRows.map((e) => {
                 const isUndoable = topAgentEntry?.logEntryId === e.id
                 return (
-                  <div key={e.id} className="flex items-start gap-2 py-1">
+                  <div key={e.id} className="flex items-start gap-1.5 py-0.5">
                     <span className="shrink-0 text-text-subtle">{formatLogTime(e.time)}</span>
                     <span className="min-w-0 flex-1 break-words text-text">
                       {logText(t, e.key, e.params)}
@@ -197,9 +197,9 @@ function Panel({ initialTab, resourcesDeps }: { initialTab: PanelTab; resourcesD
                         onClick={() => handleUndo(e.id)}
                         title={t('agent.undoAria', { label: topAgentEntry.label })}
                         aria-label={t('agent.undoAria', { label: topAgentEntry.label })}
-                        className="ml-2 inline-flex h-6 flex-none cursor-pointer items-center gap-1 rounded-control border border-border-strong bg-surface-2 px-2 text-xs text-text hover:bg-surface-3"
+                        className="ml-1 inline-flex h-5 flex-none cursor-pointer items-center gap-1 rounded-control border border-border-strong bg-surface-2 px-1.5 text-[10px] text-text hover:bg-surface-3"
                       >
-                        <IconArrowBackUp size={14} aria-hidden />
+                        <IconArrowBackUp size={12} aria-hidden />
                         {t('agent.undo')}
                       </button>
                     )}
@@ -211,30 +211,30 @@ function Panel({ initialTab, resourcesDeps }: { initialTab: PanelTab; resourcesD
         </div>
       ) : (
         <div data-testid="log-tab" className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-1.5 text-xs">
-            <SegmentedControl<LevelFilter> ariaLabel={t('log.filterLevel')} value={level} onChange={setLevel}
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-2.5 py-1 text-xs">
+            <SegmentedControl<LevelFilter> size="sm" ariaLabel={t('log.filterLevel')} value={level} onChange={setLevel}
               options={[{ value: 'all', label: t('log.levels.all') }, { value: 'warn', label: t('log.levels.warn') }, { value: 'error', label: t('log.levels.error') }]} />
-            <div role="group" aria-label={t('log.filterSource')} className="flex flex-wrap gap-1.5">
+            <div role="group" aria-label={t('log.filterSource')} className="flex flex-wrap gap-1">
               {(['all', ...LOG_SOURCES.filter((s) => counts[s] || s === source)] as (LogSource | 'all')[]).map((s) => (
                 <button key={s} type="button" aria-pressed={source === s} onClick={() => setSource(s)}
-                  className={`cursor-pointer rounded-control border px-2 py-0.5 text-xs ${source === s ? 'border-accent bg-accent-muted text-white' : 'border-border-strong bg-surface-2 text-text-muted hover:text-text'}`}>
+                  className={`cursor-pointer rounded-control border px-1.5 py-0.5 text-[11px] leading-tight ${source === s ? 'border-accent bg-accent-muted text-white' : 'border-border-strong bg-surface-2 text-text-muted hover:text-text'}`}>
                   {s === 'all' ? t('log.levels.all') : `${t(`log.sources.${s}`)} ${counts[s] ?? 0}`}
                 </button>
               ))}
             </div>
             <span className="flex-1" />
-            <Button onClick={() => void copy()}>{copied ? t('log.copied') : t('log.copy')}</Button>
-            <Button onClick={() => clearLog()}>{t('log.clear')}</Button>
+            <Button compact onClick={() => void copy()}>{copied ? t('log.copied') : t('log.copy')}</Button>
+            <Button compact onClick={() => clearLog()}>{t('log.clear')}</Button>
           </div>
-          <div ref={list} onScroll={onScroll} data-testid="log-list" className="min-h-0 flex-1 overflow-y-auto px-4 py-2 font-mono text-xs">
-            {rows.length === 0 && <p className="m-0 py-4 text-text-muted">{t('log.empty')}</p>}
+          <div ref={list} onScroll={onScroll} data-testid="log-list" className="min-h-0 flex-1 overflow-y-auto px-2.5 py-1 font-mono text-[11px] leading-relaxed">
+            {rows.length === 0 && <p className="m-0 py-3 text-text-muted">{t('log.empty')}</p>}
             {rows.map((e) => {
               const Icon = ICON[e.level]
               const isUndoableAgentLine = e.source === 'agent' && topAgentEntry?.logEntryId === e.id
               return (
-                <div key={e.id} className="flex items-start gap-2 py-0.5">
+                <div key={e.id} className="flex items-start gap-1.5 py-0.5">
                   <span className="shrink-0 text-text-subtle">{formatLogTime(e.time)}</span>
-                  <Icon size={14} stroke={1.75} className={`mt-px shrink-0 ${COLOR[e.level]}`} aria-label={t(`log.levelName.${e.level}`)} role="img" />
+                  <Icon size={13} stroke={1.75} className={`mt-0.5 shrink-0 ${COLOR[e.level]}`} aria-label={t(`log.levelName.${e.level}`)} role="img" />
                   <span className="shrink-0 text-text-subtle">{t(`log.sources.${e.source}`)}</span>
                   <span className="min-w-0 flex-1 break-words text-text">
                     {logText(t, e.key, e.params)}
@@ -251,9 +251,9 @@ function Panel({ initialTab, resourcesDeps }: { initialTab: PanelTab; resourcesD
                       onClick={() => handleUndo(e.id)}
                       title={t('agent.undoAria', { label: topAgentEntry.label })}
                       aria-label={t('agent.undoAria', { label: topAgentEntry.label })}
-                      className="ml-2 inline-flex h-6 flex-none cursor-pointer items-center gap-1 rounded-control border border-border-strong bg-surface-2 px-2 text-xs text-text hover:bg-surface-3"
+                      className="ml-1 inline-flex h-5 flex-none cursor-pointer items-center gap-1 rounded-control border border-border-strong bg-surface-2 px-1.5 text-[10px] text-text hover:bg-surface-3"
                     >
-                      <IconArrowBackUp size={14} aria-hidden />
+                      <IconArrowBackUp size={12} aria-hidden />
                       {t('agent.undo')}
                     </button>
                   )}
@@ -261,11 +261,11 @@ function Panel({ initialTab, resourcesDeps }: { initialTab: PanelTab; resourcesD
               )
             })}
           </div>
-          <footer className="flex items-center gap-3 border-t border-border px-4 py-1.5 text-xs text-text-subtle">
+          <footer className="flex items-center gap-2 border-t border-border px-2.5 py-1 text-[11px] text-text-subtle">
             <span className="flex-1">{t('log.privacy')}</span>
             {!follow && (
-              <Button className="h-7 text-xs" onClick={() => { setFollow(true); const el = list.current; if (el) el.scrollTop = el.scrollHeight }}>
-                <IconArrowDown size={14} aria-hidden />{t('log.jumpLatest')}
+              <Button compact className="h-5 text-[10px] px-1.5" onClick={() => { setFollow(true); const el = list.current; if (el) el.scrollTop = el.scrollHeight }}>
+                <IconArrowDown size={12} aria-hidden />{t('log.jumpLatest')}
               </Button>
             )}
           </footer>

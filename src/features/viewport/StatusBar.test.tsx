@@ -10,31 +10,30 @@ afterEach(() => vi.useRealTimers())
 
 describe('StatusBar', () => {
   it('без задач и сообщений показывает «Updated», если есть модель', () => {
-    render(<StatusBar hasModel />)
-    expect(screen.getByRole('button', { name: 'Open the log' })).toHaveTextContent('Updated')
+    const { container } = render(<StatusBar hasModel />)
+    expect(container.querySelector('.truncate')).toHaveTextContent('Updated')
+    expect(screen.getByRole('button', { name: 'Open the log' })).toBeInTheDocument()
   })
 
   it('строка следует за задачей, индикатор появляется после 200 мс, прогресс виден', () => {
-    render(<StatusBar hasModel />)
+    const { container } = render(<StatusBar hasModel />)
     let job!: ReturnType<typeof startJob>
     act(() => { job = startJob({ source: 'model', key: 'log.model.start' }) })
-    const btn = screen.getByRole('button', { name: 'Open the log' })
-    expect(btn).toHaveTextContent('Building the model…')
-    expect(btn.querySelector('svg.animate-spin')).toBeNull()
+    expect(container.querySelector('.truncate')).toHaveTextContent('Building the model…')
+    expect(container.querySelector('svg.animate-spin')).toBeNull()
     act(() => { vi.advanceTimersByTime(250) })
-    expect(btn.querySelector('svg.animate-spin')).not.toBeNull()
+    expect(container.querySelector('svg.animate-spin')).not.toBeNull()
     act(() => job.update({ key: 'log.model.start', progress: 0.5 }))
-    expect(btn).toHaveTextContent('50 %')
+    expect(container.querySelector('.truncate')).toHaveTextContent('50 %')
   })
 
   it('после задачи последнее сообщение 4 с, затем «Updated»', () => {
-    render(<StatusBar hasModel />)
+    const { container } = render(<StatusBar hasModel />)
     act(() => { startJob({ source: 'model', key: 'log.model.start' }).done('log.model.done', { ms: 12, triangles: 100 }) })
-    const btn = screen.getByRole('button', { name: 'Open the log' })
-    expect(btn).toHaveTextContent('Model built in 12 ms, 100 triangles')
-    act(() => { vi.advanceTimersByTime(MESSAGE_MS + 100) })
-    expect(btn).toHaveTextContent('Updated')
-    expect(btn).not.toHaveTextContent('Model built')
+    expect(container.querySelector('.truncate')).toHaveTextContent('Model built in 12 ms, 100 triangles')
+    act(() => { vi.advanceTimersByTime(MESSAGE_MS + 1100) })
+    expect(container.querySelector('.truncate')).toHaveTextContent('Updated')
+    expect(container.querySelector('.truncate')).not.toHaveTextContent('Model built')
   })
 
   it('счётчики предупреждений и ошибок', () => {
@@ -72,6 +71,12 @@ describe('StatusBar', () => {
     }
     // за 2 с — не больше трёх разных объявлений
     expect(seen.size).toBeLessThanOrEqual(3)
+  })
+
+  it('кнопка открытия журнала аккуратная и подсвечивает контур при наведении', () => {
+    render(<StatusBar hasModel />)
+    const btn = screen.getByRole('button', { name: 'Open the log' })
+    expect(btn).toHaveClass('border-transparent', 'hover:border-border')
   })
 })
 

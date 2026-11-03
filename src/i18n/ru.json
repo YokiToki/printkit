@@ -136,7 +136,9 @@
   "shell": {
     "parameters": "Параметры",
     "dragDrawer": "Потяните, чтобы изменить высоту шторки",
-    "collapseDrawer": "Свернуть шторку"
+    "collapseDrawer": "Свернуть шторку",
+    "collapseSidebar": "Скрыть параметры",
+    "expandSidebar": "Показать параметры"
   },
   "time": {
     "justNow": "только что"

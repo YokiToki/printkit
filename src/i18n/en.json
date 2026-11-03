@@ -136,7 +136,9 @@
   "shell": {
     "parameters": "Parameters",
     "dragDrawer": "Drag to resize the drawer",
-    "collapseDrawer": "Collapse drawer"
+    "collapseDrawer": "Collapse drawer",
+    "collapseSidebar": "Hide parameters",
+    "expandSidebar": "Show parameters"
   },
   "time": {
     "justNow": "just now"

@@ -130,16 +130,12 @@ describe('ActivityLogPanel', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
-  it('занимает всю ширину области просмотра над строкой состояния (md:bottom-9), не перекрывая боковую панель (md:left-[380px])', () => {
+  it('занимает всю ширину области просмотра над строкой состояния (bottom-9 inset-x-0)', () => {
     render(<ActivityLogPanel />)
     act(() => openLog())
     const dlg = screen.getByRole('dialog', { name: 'Activity log' })
-    expect(dlg.className).toContain('md:left-[380px]')
-    expect(dlg.className).toContain('md:right-0')
-    expect(dlg.className).toContain('md:bottom-9')
-    expect(dlg.className).toContain('md:rounded-none')
-    expect(dlg.className).toContain('md:border-x-0')
-    expect(dlg.className).not.toContain('760px')
-    expect(dlg.className).not.toContain('md:left-auto')
+    expect(dlg.className).toContain('bottom-9')
+    expect(dlg.className).toContain('inset-x-0')
+    expect(dlg.className).toContain('border-t')
   })
 })

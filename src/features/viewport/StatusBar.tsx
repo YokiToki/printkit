@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { IconAlertTriangle, IconCheck, IconCircleX, IconLoader2 } from '@tabler/icons-react'
+import { IconAlertTriangle, IconCheck, IconCircleX, IconLoader2, IconTerminal2 } from '@tabler/icons-react'
 import { cancelJob, isLoading, openLog, useActivityLog } from '../../app/activityLog'
 import { logText } from '../../app/logText'
 
@@ -50,14 +50,20 @@ export function StatusBar({ hasModel }: { hasModel: boolean }) {
           {t('log.cancel')}
         </button>
       )}
-      <button type="button" aria-label={t('log.open')} title={t('log.open')} onClick={() => openLog()}
-        className="inline-flex min-h-8 min-w-0 cursor-pointer items-center justify-end gap-3 rounded-control border-0 bg-transparent px-1 text-xs text-text-muted hover:text-text">
-        {log.warnings > 0 && <span className="inline-flex shrink-0 items-center gap-1 text-warn-text" title={t('log.warnings', { count: log.warnings })}><IconAlertTriangle size={14} stroke={1.75} aria-hidden />{log.warnings}</span>}
-        {log.errors > 0 && <span className="inline-flex shrink-0 items-center gap-1 text-error-text" title={t('log.errors', { count: log.errors })}><IconCircleX size={14} stroke={1.75} aria-hidden />{log.errors}</span>}
-        <span className={`inline-flex min-w-0 items-center gap-1.5 ${levelColor}`}>
-          {loading ? <IconLoader2 size={14} className="shrink-0 animate-spin" aria-hidden /> : !job && !showLast && hasModel && <IconCheck size={14} stroke={1.75} className="shrink-0" aria-hidden />}
-          <span className="truncate">{text}</span>
-        </span>
+      {log.warnings > 0 && <span className="inline-flex shrink-0 items-center gap-1 text-warn-text" title={t('log.warnings', { count: log.warnings })}><IconAlertTriangle size={14} stroke={1.75} aria-hidden />{log.warnings}</span>}
+      {log.errors > 0 && <span className="inline-flex shrink-0 items-center gap-1 text-error-text" title={t('log.errors', { count: log.errors })}><IconCircleX size={14} stroke={1.75} aria-hidden />{log.errors}</span>}
+      <span className={`inline-flex min-w-0 items-center gap-1.5 ${levelColor}`}>
+        {loading ? <IconLoader2 size={14} className="shrink-0 animate-spin" aria-hidden /> : !job && !showLast && hasModel && <IconCheck size={14} stroke={1.75} className="shrink-0" aria-hidden />}
+        <span className="truncate">{text}</span>
+      </span>
+      <button
+        type="button"
+        aria-label={t('log.open')}
+        title={t('log.open')}
+        onClick={() => openLog()}
+        className="inline-flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-control border border-transparent hover:border-border hover:bg-surface-2/60 text-text-muted hover:text-text transition-colors"
+      >
+        <IconTerminal2 size={15} stroke={1.75} aria-hidden />
       </button>
       <span role="status" aria-live="polite" className="sr-only">{announced}</span>
     </div>

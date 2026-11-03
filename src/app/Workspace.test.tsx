@@ -69,3 +69,24 @@ describe('Workspace: вид половин брелка (2.2)', () => {
     expect(last.view).toBe('sheet')
   })
 })
+
+describe('Workspace: скрытие и раскрытие боковой панели', () => {
+  it('кнопка скрытия сворачивает aside на десктопе, кнопка раскрытия возвращает', async () => {
+    render(<Workspace panel={<div>content</div>} model={null} exportOptions={false} />)
+    const aside = screen.getByRole('complementary', { name: 'Parameters' })
+    expect(aside).toHaveClass('md:flex')
+    expect(aside).not.toHaveClass('md:hidden')
+    expect(screen.queryByRole('button', { name: 'Show parameters' })).toBeNull()
+
+    const collapseBtn = screen.getByRole('button', { name: 'Hide parameters' })
+    await userEvent.click(collapseBtn)
+    expect(aside).toHaveClass('md:hidden')
+    const expandBtn = screen.getByRole('button', { name: 'Show parameters' })
+    expect(expandBtn).toBeInTheDocument()
+
+    await userEvent.click(expandBtn)
+    expect(aside).toHaveClass('md:flex')
+    expect(aside).not.toHaveClass('md:hidden')
+    expect(screen.queryByRole('button', { name: 'Show parameters' })).toBeNull()
+  })
+})

@@ -11,9 +11,9 @@
 
 ## 3. Workspace Sidebar Collapse & Docking
 
-- [ ] 3.1 Add collapsible parameter sidebar state and toggle button in `Workspace.tsx`, expanding viewport to full width when collapsed (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/app/Workspace.test.tsx`)
-- [ ] 3.2 Move `ActivityLogPanel` from `AppShell.tsx` into `Workspace.tsx` docked above `MeasurementsBar` (`bottom-9`) spanning the viewport and expanding with collapsed sidebar, ensuring it never mounts on start page or mode choosers (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/app/ActivityLogPanel.test.tsx`)
-- [ ] 3.3 Style the log button in `StatusBar.tsx` to have outline visible only on hover (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/features/viewport/StatusBar.test.tsx`)
+- [x] 3.1 Add collapsible parameter sidebar state and toggle button in `Workspace.tsx`, expanding viewport to full width when collapsed (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/app/Workspace.test.tsx`)
+- [x] 3.2 Move `ActivityLogPanel` from `AppShell.tsx` into `Workspace.tsx` docked above `MeasurementsBar` (`bottom-9`) spanning the viewport and expanding with collapsed sidebar, ensuring it never mounts on start page or mode choosers (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/app/ActivityLogPanel.test.tsx`)
+- [x] 3.3 Style the log button in `StatusBar.tsx` to have outline visible only on hover (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/features/viewport/StatusBar.test.tsx`)
 
 ## 4. Chrome DevTools 4-Tab Activity Log Panel
 

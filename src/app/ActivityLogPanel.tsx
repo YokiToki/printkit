@@ -103,7 +103,7 @@ function Panel({ resourcesDeps }: { resourcesDeps?: ResourcesDeps }) {
 
   return (
     <section role="dialog" aria-label={t('log.title')}
-      className="fixed inset-x-0 bottom-0 z-40 flex h-[65vh] flex-col rounded-t-group border border-border-strong bg-surface-1 shadow-xl md:right-0 md:bottom-9 md:left-[380px] md:h-[40vh] md:rounded-none md:border-x-0">
+      className="absolute inset-x-0 bottom-9 z-40 flex h-[65vh] md:h-[40vh] flex-col border-t border-border-strong bg-surface-1 shadow-xl">
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2">
         <h2 className="m-0 flex-1 text-sm font-semibold">{t('log.title')}</h2>
         <div className="flex items-center text-xs">

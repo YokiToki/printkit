@@ -2,7 +2,6 @@ import { Outlet } from 'react-router'
 import { Header } from './Header'
 import { AnalyticsHost } from './AnalyticsHost'
 import { ConsentBanner } from './ConsentBanner'
-import { ActivityLogPanel } from './ActivityLogPanel'
 import { ModelManager } from '../features/ml/ModelManager'
 import { useModelManagerOpen } from '../features/ml/managerState'
 import { AgentHost } from '../agent/AgentHost'
@@ -14,7 +13,6 @@ export function AppShell() {
       <AgentHost />
       <Header />
       <Outlet />
-      <ActivityLogPanel />
       {managerOpen && <ModelManager />}
       <ConsentBanner />
       <AnalyticsHost />

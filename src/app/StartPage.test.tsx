@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { I18nextProvider } from 'react-i18next'
 import i18n from '../i18n'
 import { routes } from './routes'
 import { recordSession } from './lastSession'
+import { openLog, resetActivityLog } from './activityLog'
 
 // WebGL в jsdom недоступен
 vi.mock('../features/viewport/Viewport', () => ({ Viewport: () => <div data-testid="viewport" /> }))
@@ -59,6 +60,12 @@ describe('StartPage (выбор продукта)', () => {
     renderAt('/')
     expect(screen.queryByLabelText('3D preview')).toBeNull()
     expect(screen.queryByLabelText('Parameters')).toBeNull()
+  })
+  it('журнал не монтируется на стартовой странице, даже если вызван openLog() (38b)', () => {
+    resetActivityLog()
+    renderAt('/')
+    act(() => openLog())
+    expect(screen.queryByRole('dialog', { name: /Activity log|Журнал событий/ })).toBeNull()
   })
   it('неизвестный путь показывает стартовую страницу', () => {
     renderAt('/nope')

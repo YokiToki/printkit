@@ -66,11 +66,15 @@ The start pages SHALL show a footer with a "Support the project" heading accompa
 - **THEN** the footer is not shown
 
 ### Requirement: Analytics consent
-The site SHALL use Yandex Metrika for visit statistics only after the visitor consents. A consent banner SHALL be shown on the first visit with Accept and Decline of equal prominence and a short statement of what is collected, without naming the analytics service. Until Accept is pressed, the analytics script SHALL NOT be loaded and no analytics cookie or request SHALL be made. The choice SHALL be remembered and SHALL be changeable from the footer. Session replay and click maps SHALL be off, and the statistics SHALL NOT contain photos, files, parameter values or anything else the visitor enters.
+The site SHALL use Yandex Metrika for visit statistics only after the visitor consents. A consent banner SHALL be shown on the first visit as a floating popover card in the bottom-left corner with rounded corners, overlaying the interface without taking space in the document layout flow, with Accept and Decline of equal prominence and a short statement of what is collected, without naming the analytics service. Until Accept is pressed, the analytics script SHALL NOT be loaded and no analytics cookie or request SHALL be made. The choice SHALL be remembered and SHALL be changeable from the footer. Session replay and click maps SHALL be off, and the statistics SHALL NOT contain photos, files, parameter values or anything else the visitor enters.
 
 #### Scenario: First visit
 - **WHEN** a visitor opens the site for the first time
-- **THEN** the banner is shown and no request to the analytics host is made
+- **THEN** the floating consent card is shown in the bottom-left corner and no request to the analytics host is made
+
+#### Scenario: Floating popover appearance
+- **WHEN** the consent banner is visible
+- **THEN** it floats above the page content in the bottom-left corner with rounded corners and shadow, without pushing or affecting the page layout or status bar
 
 #### Scenario: Accept
 - **WHEN** the visitor presses Accept

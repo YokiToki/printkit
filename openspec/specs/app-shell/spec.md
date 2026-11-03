@@ -6,7 +6,7 @@ Defines the application layout, mode navigation and shared UI controls that ever
 ## Requirements
 
 ### Requirement: Mode navigation
-Inside Gridfinity Master the app SHALL offer three modes — Box, Baseplate and Cutout — selectable from the top bar, each reachable by its own URL path under `/gridfinity`.
+Inside Gridfinity Master the app SHALL offer three modes — Box, Baseplate and Cutout — selectable from the top bar, each reachable by its own URL path under `/gridfinity`. The top bar SHALL show the product switcher, the mode switcher, unit and language selectors, and the GitHub link, and SHALL NOT show separate buttons for AI models or agents.
 
 #### Scenario: Switch mode
 - **WHEN** the user selects Baseplate in the mode switcher
@@ -20,8 +20,12 @@ Inside Gridfinity Master the app SHALL offer three modes — Box, Baseplate and 
 - **WHEN** a mode or product has no implementation yet
 - **THEN** a localized placeholder is shown in place of its parameter panel and the 3D viewport stays usable
 
+#### Scenario: Header controls
+- **WHEN** the user views the top bar
+- **THEN** no standalone buttons for AI models or browser agents are present in the bar
+
 ### Requirement: Start page
-The app SHALL open on a start page at the root path that lets the user choose Gridfinity Master, Keychain Master or Rack Master, each as a card with an icon, a short localized description and a link. Gridfinity Master SHALL have its own start page at `/gridfinity` where the user chooses Box, Baseplate or Cutout, and Rack Master SHALL have its own start page at `/rack` where the user chooses among its modes.
+The app SHALL open on a start page at the root path that lets the user choose Gridfinity Master, Keychain Master or Rack Master, each as a card with an icon, a short localized description and a link. Gridfinity Master SHALL have its own start page at `/gridfinity` where the user chooses Box, Baseplate or Cutout, and Rack Master SHALL have its own start page at `/rack` where the user chooses among its modes. Choice cards SHALL have a width of 360 px and a fixed height of 470 px, and their tags SHALL stay strictly within card bounds without overflowing.
 
 #### Scenario: Choose a product
 - **WHEN** the user opens the root URL and selects the Keychain Master card
@@ -51,6 +55,10 @@ The app SHALL open on a start page at the root path that lets the user choose Gr
 - **WHEN** the user opens a path that matches no route
 - **THEN** the root start page is shown
 
+#### Scenario: Card dimensions and tag containment
+- **WHEN** choice cards are rendered on the start page
+- **THEN** each card has a width of 360 px, a height of 470 px, and all tag texts fit within the card without horizontal or vertical overflow
+
 ### Requirement: Per-mode persisted state
 The app SHALL keep each mode's parameters independently and restore them after a page reload.
 
@@ -63,7 +71,15 @@ The app SHALL keep each mode's parameters independently and restore them after a
 - **THEN** the mode falls back to its default parameters and the app remains usable
 
 ### Requirement: Shared parameter controls
-Parameter panels SHALL be composed from shared controls: numeric field with unit label, segmented choice, on/off toggle and collapsible section. Control labels SHALL never be clipped in English or Russian at the 380 px panel width. Every collapsible section SHALL be collapsed when its panel is first shown, whatever the stored parameters are. A section SHALL show a summary of its settings opposite its title; when those settings differ from their defaults the summary SHALL be highlighted in an orange accent colour taken from the theme, otherwise it SHALL use the muted text colour. A section whose summary is not a setting (a file name, a list of items) SHALL never be highlighted.
+Parameter panels SHALL be composed from shared controls: numeric field with unit label, segmented choice, on/off toggle and collapsible section. Control labels SHALL never be clipped in English or Russian at the 380 px panel width. Every collapsible section SHALL be collapsed when its panel is first shown, whatever the stored parameters are. A section SHALL show a summary of its settings opposite its title; when those settings differ from their defaults the summary SHALL be highlighted in an orange accent colour taken from the theme, otherwise it SHALL use the muted text colour. A section whose summary is not a setting (a file name, a list of items) SHALL never be highlighted. In the editor workspace, the entire parameter panel sidebar SHALL be collapsible via a toggle button, expanding the 3D viewport to full workspace width.
+
+#### Scenario: Collapse parameter sidebar
+- **WHEN** the user activates the sidebar collapse toggle in the editor workspace
+- **THEN** the parameter sidebar is hidden and the 3D viewport expands to occupy the full width of the workspace
+
+#### Scenario: Expand parameter sidebar
+- **WHEN** the user activates the sidebar expand toggle while the sidebar is collapsed
+- **THEN** the parameter sidebar is restored to its 380 px width
 
 #### Scenario: Numeric clamping
 - **WHEN** the user enters a value outside a control's allowed range

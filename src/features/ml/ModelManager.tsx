@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { IconX } from '@tabler/icons-react'
+import { IconAlertCircle, IconCheck, IconCircleCheck, IconCloud, IconLoader2, IconX } from '@tabler/icons-react'
 import { openLog } from '../../app/activityLog'
 import { availability, type Capabilities } from '../../ml/capabilities'
 import type { ModelStore } from '../../ml/modelStore'
@@ -116,30 +116,92 @@ function ModelRow({ spec, store, caps, activeId, onDownload }: { spec: ModelSpec
   const unavailable = av && !av.ok ? av.reason : null
   const active = activeId === spec.id
   const pct = st.state === 'downloading' ? Math.round((st.loaded / st.total) * 100) : 0
+
+  const statusText = unavailable
+    ? t(`ml.unavailable.${unavailable}`)
+    : st.state === 'absent'
+    ? t('ml.status.absent')
+    : st.state === 'ready'
+    ? active
+      ? t('ml.status.inUse')
+      : t('ml.status.ready')
+    : st.state === 'downloading'
+    ? t('ml.status.downloading', { pct })
+    : t('ml.status.failed', { reason: t(`log.ai.reason.${st.error}`) })
+
+  let statusIcon = <IconCloud size={14} stroke={1.75} aria-hidden />
+  let statusColor = 'text-text-subtle'
+
+  if (unavailable) {
+    statusIcon = <IconAlertCircle size={14} stroke={1.75} aria-hidden />
+    statusColor = 'text-warn-text'
+  } else if (st.state === 'ready') {
+    if (active) {
+      statusIcon = <IconCircleCheck size={14} stroke={1.75} aria-hidden />
+      statusColor = 'text-accent'
+    } else {
+      statusIcon = <IconCheck size={14} stroke={1.75} aria-hidden />
+      statusColor = 'text-text-muted'
+    }
+  } else if (st.state === 'downloading') {
+    statusIcon = <IconLoader2 size={14} stroke={1.75} className="animate-spin" aria-hidden />
+    statusColor = 'text-accent'
+  } else if (st.state === 'failed') {
+    statusIcon = <IconAlertCircle size={14} stroke={1.75} aria-hidden />
+    statusColor = 'text-error-text'
+  }
+
   return (
-    <li data-testid={`model-${spec.id}`} className="flex flex-col gap-1 rounded-control border border-border bg-bg p-2 text-xs">
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-        <input type="radio" name={`active-${spec.kind}`} aria-label={t('ml.use')} title={t('ml.use')} checked={active} disabled={st.state !== 'ready' || !!unavailable}
-          onChange={() => store.setActive(spec.kind, spec.id)} className="h-3.5 w-3.5 flex-none cursor-pointer disabled:cursor-default disabled:opacity-40" />
-        <span className="text-xs font-semibold">{spec.name}</span>
-        <span className="rounded-full bg-surface-3 px-1.5 py-px text-[10px] text-text-muted">{t(`ml.purpose.${spec.purpose}`)}</span>
-        <span className="font-mono text-[11px] text-text-muted">{t('ml.size', { mb: mb(spec.bytes) })}</span>
-        <a href={spec.source} target="_blank" rel="noopener noreferrer" className="text-[11px] text-text-muted">{t('ml.licence', { spdx: spec.spdx })}</a>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 pl-6 text-[11px]">
-        <span data-testid={`status-${spec.id}`} className={st.state === 'failed' ? 'text-error-text' : active && st.state === 'ready' ? 'text-text' : 'text-text-muted'}>
-          {unavailable ? t(`ml.unavailable.${unavailable}`)
-            : st.state === 'absent' ? t('ml.status.absent')
-            : st.state === 'ready' ? (active ? t('ml.status.inUse') : t('ml.status.ready'))
-            : st.state === 'downloading' ? t('ml.status.downloading', { pct })
-            : t('ml.status.failed', { reason: t(`log.ai.reason.${st.error}`) })}
-        </span>
-        {st.state === 'downloading' && <progress value={pct} max={100} aria-label={spec.name} className="h-1.5 w-28" />}
-        <span className="flex-1" />
-        {(st.state === 'absent' || st.state === 'failed') && !unavailable && <Button compact primary onClick={onDownload}>{t('ml.download')}</Button>}
-        {st.state === 'downloading' && <Button compact onClick={() => store.cancel(spec.id)}>{t('ml.cancel')}</Button>}
-        {st.state === 'ready' && <Button compact danger onClick={() => void store.remove(spec.id)}>{t('ml.delete')}</Button>}
-      </div>
+    <li
+      data-testid={`model-${spec.id}`}
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-border bg-bg px-2.5 py-1 text-xs"
+    >
+      <input
+        type="radio"
+        name={`active-${spec.kind}`}
+        aria-label={t('ml.use')}
+        title={t('ml.use')}
+        checked={active}
+        disabled={st.state !== 'ready' || !!unavailable}
+        onChange={() => store.setActive(spec.kind, spec.id)}
+        className="h-3.5 w-3.5 flex-none cursor-pointer disabled:cursor-default disabled:opacity-40"
+      />
+      <span className="font-semibold whitespace-nowrap text-text">{spec.name}</span>
+      <span className="rounded-full bg-surface-3 px-1.5 py-px text-[10px] text-text-muted whitespace-nowrap">
+        {t(`ml.purpose.${spec.purpose}`)}
+      </span>
+      <span className="font-mono text-[11px] text-text-muted whitespace-nowrap">
+        {t('ml.size', { mb: mb(spec.bytes) })}
+      </span>
+      <a
+        href={spec.source}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[11px] text-text-muted whitespace-nowrap underline hover:text-text"
+      >
+        {t('ml.licence', { spdx: spec.spdx })}
+      </a>
+      <span
+        data-testid={`status-${spec.id}`}
+        title={statusText}
+        className={`inline-flex items-center gap-1 cursor-help flex-none ${statusColor}`}
+      >
+        {statusIcon}
+        <span className="sr-only">{statusText}</span>
+        {st.state === 'downloading' && (
+          <progress value={pct} max={100} aria-label={spec.name} className="h-1.5 w-16" />
+        )}
+      </span>
+      <span className="flex-1" />
+      {(st.state === 'absent' || st.state === 'failed') && !unavailable && (
+        <Button compact primary onClick={onDownload}>{t('ml.download')}</Button>
+      )}
+      {st.state === 'downloading' && (
+        <Button compact onClick={() => store.cancel(spec.id)}>{t('ml.cancel')}</Button>
+      )}
+      {st.state === 'ready' && (
+        <Button compact danger onClick={() => void store.remove(spec.id)}>{t('ml.delete')}</Button>
+      )}
     </li>
   )
 }

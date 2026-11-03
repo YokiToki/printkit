@@ -32,6 +32,24 @@ describe('StartPage (выбор продукта)', () => {
     expect(screen.getByTestId('card-rack')).toHaveAttribute('href', '/rack')
     expect(screen.getByTestId('card-rack')).toHaveTextContent('Rack Master')
   })
+  it('карточки имеют фиксированную ширину 360 px, высоту 470 px и теги не выходят за пределы (38b)', async () => {
+    for (const lang of ['en', 'ru']) {
+      await i18n.changeLanguage(lang)
+      const { unmount } = renderAt('/')
+      for (const id of ['card-gridfinity', 'card-keychain', 'card-rack']) {
+        const card = screen.getByTestId(id)
+        expect(card).toHaveClass('w-[360px]', 'h-[470px]')
+        const tagsContainer = card.querySelector('[data-testid="choice-card-tags"]')
+        expect(tagsContainer).toBeInTheDocument()
+        const tags = tagsContainer?.querySelectorAll('span[title]')
+        expect(tags?.length).toBeGreaterThanOrEqual(2)
+        tags?.forEach((tag) => {
+          expect(tag).toHaveClass('truncate', 'max-w-[130px]')
+        })
+      }
+      unmount()
+    }
+  })
   it('клавиша 3 открывает Rack Master', async () => {
     renderAt('/')
     await userEvent.keyboard('3')

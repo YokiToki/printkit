@@ -7,7 +7,7 @@
 
 ## 2. Start Page Cards 360px & Tag Containment
 
-- [ ] 2.1 Revert `ChoiceCard` width to 360px in `StartLayout.tsx`, constrain tags to prevent horizontal/vertical overflow outside the card, and add a unit test in `StartPage.test.tsx` verifying card dimensions (360px width, 470px height) and tag text containment (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/app/StartPage.test.tsx`)
+- [x] 2.1 Revert `ChoiceCard` width to 360px in `StartLayout.tsx`, constrain tags to prevent horizontal/vertical overflow outside the card, and add a unit test in `StartPage.test.tsx` verifying card dimensions (360px width, 470px height) and tag text containment (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/app/StartPage.test.tsx`)
 
 ## 3. Workspace Sidebar Collapse & Docking
 

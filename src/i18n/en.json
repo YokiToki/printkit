@@ -1355,6 +1355,12 @@
   },
   "log": {
     "title": "Activity log",
+    "tabs": {
+      "log": "Log",
+      "agent": "Agents",
+      "models": "Models",
+      "resources": "Resources"
+    },
     "open": "Open the log",
     "close": "Close",
     "copy": "Copy",

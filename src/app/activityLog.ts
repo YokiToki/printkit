@@ -36,6 +36,8 @@ export interface ActiveJob {
   loader: boolean
 }
 
+export type LogTab = 'log' | 'agent' | 'models' | 'resources'
+
 export interface LogSnapshot {
   entries: LogEntry[]
   jobs: ActiveJob[]
@@ -45,6 +47,8 @@ export interface LogSnapshot {
   open: boolean
   /** Источник, выбранный при открытии панели из другого места. */
   openSource?: LogSource
+  /** Вкладка, выбранная при открытии панели. */
+  openTab?: LogTab
 }
 
 export interface Job {
@@ -152,10 +156,11 @@ export function cancelJob(id: number) {
   push('info', job.source, 'log.job.cancelled', undefined, undefined, id)
 }
 
-export function openLog(o: { source?: LogSource } = {}) {
-  set({ open: true, openSource: o.source, warnings: 0, errors: 0 })
+export function openLog(o: { source?: LogSource; tab?: LogTab } = {}) {
+  const tab = o.tab ?? (o.source === 'agent' ? 'agent' : undefined)
+  set({ open: true, openSource: o.source, openTab: tab, warnings: 0, errors: 0 })
 }
-export function closeLog() { set({ open: false, openSource: undefined }) }
+export function closeLog() { set({ open: false, openSource: undefined, openTab: undefined }) }
 
 /** Очистка без подтверждения (журнал одноразовый): остаются только начала работающих задач. */
 export function clearLog() {

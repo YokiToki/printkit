@@ -170,7 +170,7 @@ describe('agent UI and activity log integration (task 4.2)', () => {
     expect(fakeContext.tools.has('get_app_state')).toBe(true)
 
     render(<ActivityLogPanel />)
-    act(() => openLog())
+    act(() => openLog({ tab: 'agent' }))
 
     const toggle = screen.getByRole('switch', { name: 'Allow browser agents' })
     expect(toggle).toHaveAttribute('aria-checked', 'true')
@@ -196,19 +196,15 @@ describe('agent UI and activity log integration (task 4.2)', () => {
     expect(fakeContext.tools.size).toBeGreaterThan(0)
   })
 
-  it('Header agent button opens log for agent and shows busy marker', async () => {
-    const { Header } = await import('../app/Header')
-    const { MemoryRouter } = await import('react-router')
-    const { startJob } = await import('../app/activityLog')
+  it('ActivityLogPanel agent tab shows busy marker and handles agent job', async () => {
+    const { ActivityLogPanel } = await import('../app/ActivityLogPanel')
+    const { startJob, openLog } = await import('../app/activityLog')
 
-    const { unmount } = render(
-      <MemoryRouter>
-        <Header />
-      </MemoryRouter>,
-    )
+    const { unmount } = render(<ActivityLogPanel />)
+    act(() => openLog({ tab: 'agent' }))
 
-    const agentBtn = screen.getByRole('button', { name: 'Browser agents' })
-    expect(agentBtn).toBeInTheDocument()
+    const agentTab = screen.getByRole('tab', { name: 'Agents' })
+    expect(agentTab).toBeInTheDocument()
     expect(screen.queryByTestId('agent-busy')).toBeNull()
 
     // When an agent job runs, busy dot appears
@@ -217,14 +213,6 @@ describe('agent UI and activity log integration (task 4.2)', () => {
       job = startJob({ source: 'agent', key: 'log.agent.running', params: { tool: 'set_parameters' } })
     })
     expect(screen.getByTestId('agent-busy')).toBeInTheDocument()
-
-    // Clicking opens log filtered to agent
-    act(() => {
-      fireEvent.click(agentBtn)
-    })
-    const { getLogSnapshot } = await import('../app/activityLog')
-    expect(getLogSnapshot().open).toBe(true)
-    expect(getLogSnapshot().openSource).toBe('agent')
 
     act(() => {
       job.discard()

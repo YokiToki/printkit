@@ -17,8 +17,8 @@
 
 ## 4. Chrome DevTools 4-Tab Activity Log Panel
 
-- [ ] 4.1 Restructure `ActivityLogPanel.tsx` with a compact Chrome DevTools-style tab bar and four dedicated tabs (`log`, `agent`, `models`, `resources`), isolating agent enable/undo to the Agents tab and AI model download/management to the Models tab without mixing controls in the header (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/app/ActivityLogPanel.test.tsx`)
-- [ ] 4.2 Route `openModelManager()` and `openLog({ source: 'agent' })` to activate their respective tabs in `ActivityLogPanel`, and update `ModelManager.test.tsx` and `agentUi.test.tsx` (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/features/ml/ModelManager.test.tsx` and `npx vitest run src/agent/agentUi.test.tsx`)
+- [x] 4.1 Restructure `ActivityLogPanel.tsx` with a compact Chrome DevTools-style tab bar and four dedicated tabs (`log`, `agent`, `models`, `resources`), isolating agent enable/undo to the Agents tab and AI model download/management to the Models tab without mixing controls in the header (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/app/ActivityLogPanel.test.tsx`)
+- [x] 4.2 Route `openModelManager()` and `openLog({ source: 'agent' })` to activate their respective tabs in `ActivityLogPanel`, and update `ModelManager.test.tsx` and `agentUi.test.tsx` (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/features/ml/ModelManager.test.tsx` and `npx vitest run src/agent/agentUi.test.tsx`)
 
 ## 5. ResourcesTab CPU Block Fix
 

@@ -26,7 +26,7 @@
 
 ## 6. Version Bump
 
-- [ ] 6.1 Bump version in `package.json` to 1.9.2 and add entry in `CHANGELOG.md` naming `38b-workspace-layout-polish`
+- [x] 6.1 Bump version in `package.json` to 1.9.2 and add entry in `CHANGELOG.md` naming `38b-workspace-layout-polish`
 
 ## 7. Verification
 

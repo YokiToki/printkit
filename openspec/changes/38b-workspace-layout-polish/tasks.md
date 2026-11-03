@@ -22,7 +22,7 @@
 
 ## 5. ResourcesTab CPU Block Fix
 
-- [ ] 5.1 Fix text overflow in `ResourcesTab.tsx` by updating `ValueRow` and multi-level pressure times formatting so text wraps properly and never escapes the CPU group box (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/app/resources/ResourcesTab.test.tsx`)
+- [x] 5.1 Fix text overflow in `ResourcesTab.tsx` by updating `ValueRow` and multi-level pressure times formatting so text wraps properly and never escapes the CPU group box (no artboard exists: built from ui/ and tokens; verify with `npx vitest run src/app/resources/ResourcesTab.test.tsx`)
 
 ## 6. Version Bump
 

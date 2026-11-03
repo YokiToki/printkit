@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
+import { Button } from '../../ui/Button'
 import { Toggle } from '../../ui/Toggle'
 import { MODELS } from '../../ml/models'
 import { useActivityLog } from '../activityLog'
@@ -100,15 +101,39 @@ const BADGE_STYLE: Record<ResourceValue<unknown>['source'], string> = {
 function ValueRow({ label, val }: { label: string; val: ResourceValue<unknown> }) {
   const { t } = useTranslation()
   const tip = provenanceTooltip(t, val)
+  const formatted = formatResourceValue(t, val)
+  const isMulti = typeof val.value === 'object' && val.value !== null
+  const isLong = formatted.length > 25
+
+  if (isMulti || isLong) {
+    return (
+      <div className="min-w-0 py-0.5 text-xs">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-text-muted">{label}</span>
+          <span
+            data-testid="resource-provenance"
+            title={tip}
+            className={`shrink-0 rounded-control border px-1 py-px font-sans text-[10px] leading-tight ${BADGE_STYLE[val.source]}`}
+          >
+            {t(`resources.source.${val.source}`)}
+          </span>
+        </div>
+        <div className="mt-0.5 break-words font-mono text-text text-right">
+          {formatted}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex items-baseline justify-between gap-2 py-0.5 text-xs">
-      <span className="text-text-muted">{label}</span>
+    <div className="flex min-w-0 items-baseline justify-between gap-2 py-0.5 text-xs">
+      <span className="truncate text-text-muted">{label}</span>
       <span className="inline-flex shrink-0 items-baseline gap-1.5 text-right font-mono text-text">
-        <span>{formatResourceValue(t, val)}</span>
+        <span className="break-words">{formatted}</span>
         <span
           data-testid="resource-provenance"
           title={tip}
-          className={`rounded-control border px-1 py-px font-sans text-[10px] leading-tight ${BADGE_STYLE[val.source]}`}
+          className={`shrink-0 rounded-control border px-1 py-px font-sans text-[10px] leading-tight ${BADGE_STYLE[val.source]}`}
         >
           {t(`resources.source.${val.source}`)}
         </span>
@@ -281,17 +306,38 @@ export function ResourcesTab({ deps }: { deps?: ResourcesDeps }) {
     timerQuery: renderSnap.timerQuerySupported,
   })
 
+  const [copied, setCopied] = useState(false)
+  const copyResources = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        formatResourcesReport(t, {
+          longTasks: ltSnap,
+          pressure: prSnap,
+          gpu: gpuSnap,
+          mem: memSnap,
+          render: renderSnap,
+          jobs,
+        }),
+      )
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // clipboard unavailable
+    }
+  }
+
   return (
     <div data-testid="resources-tab" className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-2 text-xs">
       <div className="flex flex-col gap-2 border-b border-border pb-2 md:flex-row md:items-center md:justify-between">
         <p data-testid="resources-support-summary" className="m-0 text-text-muted">{supportLine}</p>
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
+          <Button onClick={() => void copyResources()}>{copied ? t('log.copied') : t('log.copy')}</Button>
           <Toggle label={t('resources.diagnostics.label')} checked={diagnostics} onChange={setDiagnostics} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <section aria-label={t('resources.group.cpu')} className="rounded-group border border-border bg-surface-2 p-2.5">
+        <section aria-label={t('resources.group.cpu')} className="min-w-0 overflow-hidden rounded-group border border-border bg-surface-2 p-2.5">
           <h3 className="m-0 mb-1.5 text-xs font-semibold text-text">{t('resources.group.cpu')}</h3>
           <ValueRow label={t('resources.cpu.busyShare')} val={lastJob?.busyShare ?? unavailable('resources.unavailable.noJob')} />
           <ValueRow label={t('resources.cpu.coreEquivalent')} val={lastJob?.coreEquivalent ?? unavailable('resources.unavailable.noJob')} />
@@ -301,7 +347,7 @@ export function ResourcesTab({ deps }: { deps?: ResourcesDeps }) {
           <ValueRow label={t('resources.cpu.pressureTimes')} val={prSnap.timeByLevelMs} />
         </section>
 
-        <section aria-label={t('resources.group.gpu')} className="rounded-group border border-border bg-surface-2 p-2.5">
+        <section aria-label={t('resources.group.gpu')} className="min-w-0 overflow-hidden rounded-group border border-border bg-surface-2 p-2.5">
           <h3 className="m-0 mb-1.5 text-xs font-semibold text-text">{t('resources.group.gpu')}</h3>
           <ValueRow label={t('resources.gpu.adapter')} val={gpuSnap.adapterName} />
           <ValueRow label={t('resources.gpu.architecture')} val={gpuSnap.architecture} />
@@ -315,7 +361,7 @@ export function ResourcesTab({ deps }: { deps?: ResourcesDeps }) {
           <ValueRow label={t('resources.gpu.renderGpuTime')} val={renderSnap.gpuMs} />
         </section>
 
-        <section aria-label={t('resources.group.memory')} className="rounded-group border border-border bg-surface-2 p-2.5">
+        <section aria-label={t('resources.group.memory')} className="min-w-0 overflow-hidden rounded-group border border-border bg-surface-2 p-2.5">
           <h3 className="m-0 mb-1.5 text-xs font-semibold text-text">{t('resources.group.memory')}</h3>
           <ValueRow label={t('resources.memory.modelCache')} val={memSnap.modelCacheBytes} />
           <ValueRow label={t('resources.memory.storageUsage')} val={memSnap.storageUsageBytes} />

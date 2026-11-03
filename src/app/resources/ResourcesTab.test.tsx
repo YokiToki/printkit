@@ -61,7 +61,7 @@ describe('ResourcesTab в ActivityLogPanel (37, 4.1)', () => {
 
     render(<ActivityLogPanel />)
     act(() => openLog())
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resources' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Resources' })) })
 
     const tab = screen.getByTestId('resources-tab')
     expect(within(tab).getByRole('region', { name: 'Processor (CPU)' })).toBeInTheDocument()
@@ -118,7 +118,7 @@ describe('ResourcesTab в ActivityLogPanel (37, 4.1)', () => {
       />,
     )
     act(() => openLog())
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resources' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Resources' })) })
 
     expect(screen.getByTestId('resources-support-summary')).toHaveTextContent(
       'Compute Pressure: not available in this browser',
@@ -136,7 +136,7 @@ describe('ResourcesTab в ActivityLogPanel (37, 4.1)', () => {
   it('переключатель диагностики предупреждает о замедлении и сохраняется в gridfinity.diagnostics', async () => {
     render(<ActivityLogPanel />)
     act(() => openLog())
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resources' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Resources' })) })
 
     const sw = screen.getByRole('switch', { name: /Diagnostics mode \(slows AI runs down a little\)/ })
     expect(sw).toHaveAttribute('aria-checked', 'false')
@@ -175,7 +175,7 @@ describe('ResourcesTab в ActivityLogPanel (37, 4.1)', () => {
     expect(pr.running).toBe(false)
 
     act(() => openLog())
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resources' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Resources' })) })
     expect(lt.running).toBe(true)
     expect(pr.running).toBe(true)
 
@@ -207,7 +207,7 @@ describe('ResourcesTab в ActivityLogPanel (37, 4.1)', () => {
     })
     render(<ActivityLogPanel />)
     act(() => openLog())
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resources' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Resources' })) })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Copy' })) })
 
     const text = write.mock.calls[0][0] as string
@@ -222,7 +222,7 @@ describe('ResourcesTab в ActivityLogPanel (37, 4.1)', () => {
     expect(flatKeys(en.resources).sort()).toEqual(flatKeys(ru.resources).sort())
     render(<ActivityLogPanel />)
     act(() => openLog())
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resources' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Resources' })) })
     await act(async () => { await i18n.changeLanguage('ru') })
     expect(screen.getByRole('region', { name: 'Процессор (CPU)' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Графика (GPU)' })).toBeInTheDocument()
@@ -294,7 +294,7 @@ describe('ResourcesTab в ActivityLogPanel (37, 4.1)', () => {
       />,
     )
     act(() => openLog())
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resources' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Resources' })) })
 
     const tab = screen.getByTestId('resources-tab')
     // Стек из одной колонки на телефоне (390 px), три колонки от md
@@ -306,5 +306,35 @@ describe('ResourcesTab в ActivityLogPanel (37, 4.1)', () => {
     expect(within(tab).getByText('4 calls')).toBeInTheDocument()
     expect(fetchSpy).not.toHaveBeenCalled()
     vi.unstubAllGlobals()
+  })
+
+  it('форматирует время под нагрузкой и длинные значения с переносом строк без выпадания из блока CPU (task 5.1)', async () => {
+    const pr = createPressureCollector({ Observer: undefined })
+    // Simulate measured pressure time values
+    pr.snapshot = () => ({
+      supported: true,
+      level: measured('nominal'),
+      timeByLevelMs: measured({
+        nominal: 12500,
+        fair: 3400,
+        serious: 1200,
+        critical: 400,
+      }),
+    })
+
+    render(<ActivityLogPanel resourcesDeps={{ pressure: pr }} />)
+    act(() => openLog())
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Resources' }))
+    })
+
+    const cpuSection = screen.getByRole('region', { name: 'Processor (CPU)' })
+    expect(cpuSection).toHaveClass('overflow-hidden')
+    expect(cpuSection).toHaveClass('min-w-0')
+
+    // Expect the wrapped text to be rendered with break-words
+    const pressureText = within(cpuSection).getByText(/Nominal 12.5 s · Fair 3.4 s · Serious 1.2 s · Critical 0.4 s/)
+    expect(pressureText).toBeInTheDocument()
+    expect(pressureText).toHaveClass('break-words')
   })
 })

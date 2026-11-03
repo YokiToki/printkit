@@ -312,6 +312,7 @@ describe('ResourcesTab в ActivityLogPanel (37, 4.1)', () => {
     const pr = createPressureCollector({ Observer: undefined })
     // Simulate measured pressure time values
     pr.snapshot = () => ({
+      running: true,
       supported: true,
       level: measured('nominal'),
       timeByLevelMs: measured({

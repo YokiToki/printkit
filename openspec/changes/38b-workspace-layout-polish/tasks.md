@@ -30,4 +30,4 @@
 
 ## 7. Verification
 
-- [ ] 7.1 Run `npm test` and `npm run build`, and verify in browser that the activity log renders only in editor workspaces above status bar, sidebar collapses/expands smoothly, the four DevTools tabs are cleanly isolated, CPU text stays inside card bounds, and home page cards render at 360px without tag overflow
+- [x] 7.1 Run `npm test` and `npm run build`, and verify in browser that the activity log renders only in editor workspaces above status bar, sidebar collapses/expands smoothly, the four DevTools tabs are cleanly isolated, CPU text stays inside card bounds, and home page cards render at 360px without tag overflow

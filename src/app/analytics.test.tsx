@@ -75,9 +75,11 @@ describe('без согласия ничего не загружается (3.1,
     expect(scripts()).toHaveLength(0)
   })
 
-  it('баннер идёт в потоке страницы, а не поверх неё (не перекрывает кнопку копирования)', () => {
+  it('баннер отображается всплывающей плашкой в левом нижнем углу с скруглёнными углами', () => {
     at()
-    expect(screen.getByTestId('consent-banner').className).not.toMatch(/\b(fixed|absolute)\b/)
+    const banner = screen.getByTestId('consent-banner')
+    expect(banner.className).toMatch(/\bfixed\b/)
+    expect(banner).toHaveClass('bottom-4', 'left-4', 'rounded-2xl', 'shadow-float')
   })
 
   it('в тексте баннера не названа конкретная система аналитики (en и ru)', async () => {

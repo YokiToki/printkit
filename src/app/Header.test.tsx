@@ -83,15 +83,16 @@ describe('Header: продукты и режимы', () => {
     expect(await screen.findByText(/Choose an image to start/)).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('keychain.relief')!).relief.hmax).toBe(3)
   })
-  it('переключатели единиц и языка компактные и совпадают по высоте с кнопками шапки', () => {
+  it('переключатели единиц и языка компактные и совпадают по высоте со ссылкой GitHub', () => {
     at('/')
     const unitsGroup = screen.getByRole('group', { name: 'Units' })
     const langGroup = screen.getByRole('group', { name: 'Language' })
-    const modelsBtn = screen.getByRole('button', { name: 'AI models' })
     const githubLink = screen.getByRole('link', { name: 'PrintKit on GitHub' })
-    for (const el of [unitsGroup, langGroup, modelsBtn, githubLink]) {
+    for (const el of [unitsGroup, langGroup, githubLink]) {
       expect(el).toHaveClass('h-9', 'md:h-8')
     }
     expect(within(unitsGroup).getByRole('button', { name: 'mm' })).toHaveClass('px-2', 'text-xs')
+    expect(screen.queryByRole('button', { name: 'AI models' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Agent activity' })).toBeNull()
   })
 })

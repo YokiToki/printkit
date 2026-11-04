@@ -48,5 +48,5 @@
 
 ## 8. Verification
 
-- [ ] 8.1 `npm test` and `npm run build` are green, the dev server starts, the console has no errors; the three generators open and work as before.
-- [ ] 8.2 In the browser, en and ru, desktop and 390 px: import two real STL files (one with holes), add a box and a cylinder, move / rotate / scale with the gizmo and with numbers, snap, drop to bed, mirror, duplicate, hide, lock, undo/redo everything, reload and see the same scene, export STL and 3MF of all and of the selection and check the bounding box and volume in an external viewer or the measurements bar.
+- [x] 8.1 `npm test` and `npm run build` are green, the dev server starts, the console has no errors; the three generators open and work as before.
+- [x] 8.2 In the browser, en and ru, desktop and 390 px: import two real STL files (one with holes), add a box and a cylinder, move / rotate / scale with the gizmo and with numbers, snap, drop to bed, mirror, duplicate, hide, lock, undo/redo everything, reload and see the same scene, export STL and 3MF of all and of the selection and check the bounding box and volume in an external viewer or the measurements bar.

@@ -17,7 +17,7 @@ function download(blob: Blob, name: string) {
   URL.revokeObjectURL(a.href)
 }
 
-/** Закреплённый компактный блок экспорта внизу панели: формат, принтер, кнопка скачивания и статус. */
+/** Закреплённый блок экспорта внизу панели: формат, принтер, компактная кнопка скачивания и статус. */
 export function ExportPanel({ model, busy, name }: { model: ModelResult | null; busy: boolean; name: string }) {
   const { t } = useTranslation()
   const [s, update] = useExportSettings()
@@ -42,30 +42,32 @@ export function ExportPanel({ model, busy, name }: { model: ModelResult | null; 
   const options = [...PRINTERS.map((p) => ({ value: p.id, label: p.name })), { value: CUSTOM_PRINTER, label: t('export.printer.custom') }]
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1.5">
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
         <SegmentedControl compact accent ariaLabel={t('export.format')} value={s.format} onChange={(v: ExportFormat) => update({ format: v })}
           options={[{ value: 'stl', label: 'STL' }, { value: '3mf', label: '3MF' }]} />
         <select aria-label={t('export.printer.label')} value={s.printerId} onChange={(e) => update({ printerId: e.target.value })}
-          className="h-7 min-w-0 flex-1 rounded-control border border-border-strong bg-bg px-2 text-xs text-text">
+          className="h-8 min-w-0 flex-1 rounded-control border border-border-strong bg-bg px-2 text-xs text-text">
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <Button primary compact disabled={disabled} onClick={go} className="h-7 px-2.5 text-xs font-semibold shrink-0">
-          <IconDownload size={14} stroke={1.75} />{label}
-        </Button>
       </div>
-      <div className="flex items-center justify-between text-[11px] text-text-muted px-0.5" role="status">
-        {busy ? <span className="text-text-muted">{t('export.building')}</span>
-          : overflow > 0 ? <span className="inline-flex items-center gap-1 text-warn-text"><IconAlertTriangle size={13} stroke={1.75} />{t('export.overflow', { n: overflow })}</span>
-          : plates > 1 ? <span className="inline-flex items-center gap-1 text-text-muted">{t('export.plates', { n: plates })}</span>
-          : plan ? <span className="inline-flex items-center gap-1 text-success-text"><IconCheck size={13} stroke={1.75} />{t('export.fits')}</span> : null}
+      <div className="flex items-center justify-between gap-2">
+        <Button primary compact className="h-7.5 px-3 text-xs font-semibold" disabled={disabled} onClick={go}>
+          <IconDownload size={15} stroke={1.75} />{label}
+        </Button>
+        <span className="flex flex-1 items-center justify-end gap-1.5 text-xs" role="status">
+          {busy ? <span className="text-text-muted">{t('export.building')}</span>
+            : overflow > 0 ? <span className="inline-flex items-center gap-1.5 text-warn-text"><IconAlertTriangle size={14} stroke={1.75} />{t('export.overflow', { n: overflow })}</span>
+            : plates > 1 ? <span className="inline-flex items-center gap-1.5 text-text-muted">{t('export.plates', { n: plates })}</span>
+            : plan ? <span className="inline-flex items-center gap-1.5 text-success-text"><IconCheck size={14} stroke={1.75} />{t('export.fits')}</span> : null}
+        </span>
       </div>
       {parts.length > 1 && (
-        <div className="grid grid-cols-4 gap-1 pt-0.5">
+        <div className="grid grid-cols-4 gap-1.5">
           {parts.map((p) => {
             const partLabel = t(`export.partName.${p.label}`, { defaultValue: p.label })
             return (
-              <Button key={p.label} compact className="h-6.5 px-1.5 text-[11px]" disabled={disabled} aria-label={t('export.part', { label: partLabel })}
+              <Button key={p.label} compact className="h-7 px-2 text-xs" disabled={disabled} aria-label={t('export.part', { label: partLabel })}
                 onClick={() => { const built = buildExport([p], s, `${name}_${p.label}`); logBuilt(built.files.length, 1, p.oversize ? 1 : 0); built.files.forEach((f) => download(f.blob, f.name)) }}>
                 {p.oversize && <span aria-hidden className="text-error">!</span>}{partLabel}
               </Button>

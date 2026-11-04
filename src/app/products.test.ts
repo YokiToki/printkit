@@ -17,18 +17,26 @@ describe('products', () => {
     expect(kc.modes).toBe(KEYCHAIN_MODES)
     expect(PRODUCTS.find((p) => p.id === 'gridfinity')?.modes).toHaveLength(3)
   })
-  it('Rack: путь /rack, режимы panel, case и shelf, пути с префиксом, три продукта', () => {
-    expect(PRODUCTS.map((p) => p.id)).toEqual(['gridfinity', 'keychain', 'rack'])
+  it('Rack: путь /rack, режимы panel, case и shelf, пути с префиксом, четыре продукта', () => {
+    expect(PRODUCTS.map((p) => p.id)).toEqual(['editor', 'gridfinity', 'keychain', 'rack'])
     const r = PRODUCTS.find((p) => p.id === 'rack')!
     expect(r.path).toBe('/rack')
     expect(r.modes?.map((m) => [m.id, m.path])).toEqual([['panel', '/rack/panel'], ['case', '/rack/case'], ['shelf', '/rack/shelf']])
     expect(productOf('/rack/panel')?.id).toBe('rack')
     expect(productOf('/racket')).toBeUndefined()
   })
+  it('Editor: путь /editor, первый продукт, без режимов', () => {
+    const ed = PRODUCTS.find((p) => p.id === 'editor')!
+    expect(ed.path).toBe('/editor')
+    expect(ed.modes).toBeUndefined()
+    expect(productOf('/editor')?.id).toBe('editor')
+    expect(productOf('/editor/sub')?.id).toBe('editor')
+  })
   it('id режимов уникальны в пределах продукта, ключи подписей и карточек заданы', () => {
     for (const p of PRODUCTS) {
-      expect(new Set(p.modes?.map((m) => m.id)).size).toBe(p.modes?.length)
-      for (const m of p.modes ?? []) { expect(m.labelKey).toBeTruthy(); expect(m.startKey).toBeTruthy() }
+      const modes = p.modes ?? []
+      expect(new Set(modes.map((m) => m.id)).size).toBe(modes.length)
+      for (const m of modes) { expect(m.labelKey).toBeTruthy(); expect(m.startKey).toBeTruthy() }
     }
   })
   it('productOf: сам путь и подпуть, граница по слэшу', () => {

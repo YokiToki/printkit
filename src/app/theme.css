@@ -54,7 +54,14 @@
   --color-art-5: #7a90ba;
   --color-art-6: #9fb2d6;
   --color-art-edge: #0b0d11;
-  /* лестницы тонов иллюстраций по продукту: те же шаги светлоты, что у синей; Keychain — чистый зелёный, Rack — янтарно-оранжевый */
+  /* лестницы тонов иллюстраций по продукту: те же шаги светлоты, что у синей; Keychain — чистый зелёный, Rack — янтарно-оранжевый, Editor — фиолетовый */
+  --color-art-editor-0: #20142b;
+  --color-art-editor-1: #331c46;
+  --color-art-editor-2: #4a2768;
+  --color-art-editor-3: #64368a;
+  --color-art-editor-4: #824cb0;
+  --color-art-editor-5: #a56cd4;
+  --color-art-editor-6: #cc9ef2;
   --color-art-keychain-0: #14281b;
   --color-art-keychain-1: #1d4028;
   --color-art-keychain-2: #2b5c38;
@@ -94,8 +101,13 @@ body { background: var(--color-bg); color: var(--color-text); font: 13px/1.4 var
 /* Оттенок по продукту (data-hue на обёртке ModeArt и на логотипе): меняются только тона иллюстраций и грани логотипа;
    акцент, фокус, кнопки и остальной интерфейс от оттенка не зависят. */
 .logo-top { fill: var(--color-logo-top); } .logo-left { fill: var(--color-logo-left); } .logo-right { fill: var(--color-logo-right); }
+[data-hue='editor'] { --color-logo-top: #c084fc; --color-logo-left: #9333ea; --color-logo-right: #6b21a8; }
 [data-hue='keychain'] { --color-logo-top: #67e294; --color-logo-left: #35a45c; --color-logo-right: #267a45; }
 [data-hue='rack'] { --color-logo-top: #f2b64a; --color-logo-left: #c08a24; --color-logo-right: #8f6519; }
+[data-hue='editor'] .art-t0 { fill: var(--color-art-editor-0); } [data-hue='editor'] .art-t1 { fill: var(--color-art-editor-1); }
+[data-hue='editor'] .art-t2 { fill: var(--color-art-editor-2); } [data-hue='editor'] .art-t3 { fill: var(--color-art-editor-3); }
+[data-hue='editor'] .art-t4 { fill: var(--color-art-editor-4); } [data-hue='editor'] .art-t5 { fill: var(--color-art-editor-5); }
+[data-hue='editor'] .art-t6 { fill: var(--color-art-editor-6); }
 [data-hue='keychain'] .art-t0 { fill: var(--color-art-keychain-0); } [data-hue='keychain'] .art-t1 { fill: var(--color-art-keychain-1); }
 [data-hue='keychain'] .art-t2 { fill: var(--color-art-keychain-2); } [data-hue='keychain'] .art-t3 { fill: var(--color-art-keychain-3); }
 [data-hue='keychain'] .art-t4 { fill: var(--color-art-keychain-4); } [data-hue='keychain'] .art-t5 { fill: var(--color-art-keychain-5); }

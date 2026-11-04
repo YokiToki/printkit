@@ -1,3 +1,4 @@
+import editor from './art/editor.svg?raw'
 import baseplate from './art/baseplate.svg?raw'
 import box from './art/box.svg?raw'
 import cutout from './art/cutout.svg?raw'
@@ -9,12 +10,13 @@ import rackPanel from './art/rackPanel.svg?raw'
 import type { ProductHue } from './products'
 
 /** Готовые векторные рендеры настоящих деталей (npm run art). Цвета задают классы .art-* из theme.css; SVG вставляется как есть. */
-export const ART = { box, baseplate, cutout, keychainImage, keychainShape, rackPanel, rackCase, rackShelf }
+export const ART = { editor, box, baseplate, cutout, keychainImage, keychainShape, rackPanel, rackCase, rackShelf }
 export type ArtId = keyof typeof ART
 export const ART_IDS = Object.keys(ART) as ArtId[]
 
-/** Оттенок иллюстрации по её id: детали Gridfinity — синие, брелки — зелёные, детали стойки — жёлтые. */
+/** Оттенок иллюстрации по её id: детали Gridfinity — синие, брелки — зелёные, детали стойки — жёлтые, редактор — фиолетовый. */
 const ART_HUE: Record<ArtId, ProductHue> = {
+  editor: 'editor',
   box: 'gridfinity', baseplate: 'gridfinity', cutout: 'gridfinity',
   keychainImage: 'keychain', keychainShape: 'keychain',
   rackPanel: 'rack', rackCase: 'rack', rackShelf: 'rack',

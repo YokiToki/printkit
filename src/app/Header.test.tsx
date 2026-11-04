@@ -31,12 +31,20 @@ describe('Header: хлебные крошки и навигация', () => {
 
   it('логотип берёт оттенок активного продукта, без продукта — синий (gridfinity)', () => {
     const logo = () => document.querySelector('header svg[data-hue]')
-    for (const [path, hue] of [['/', 'gridfinity'], ['/gridfinity', 'gridfinity'], ['/keychain', 'keychain'], ['/rack', 'rack']] as const) {
+    for (const [path, hue] of [['/', 'gridfinity'], ['/editor', 'editor'], ['/gridfinity', 'gridfinity'], ['/keychain', 'keychain'], ['/rack', 'rack']] as const) {
       const { unmount } = at(path)
       expect(logo(), path).toHaveAttribute('data-hue', hue)
       unmount()
       localStorage.clear()
     }
+  })
+
+  it('в Editor крошки: PrintKit / Editor (без ссылки и режима)', () => {
+    at('/editor')
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: /PrintKit/ })).toHaveAttribute('href', '/')
+    expect(within(nav).getByText('Editor')).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).queryByRole('link', { name: 'Editor' })).toBeNull()
   })
 
   it('на странице выбора продукта в крошках PrintKit / Gridfinity', () => {

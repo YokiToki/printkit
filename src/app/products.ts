@@ -1,10 +1,12 @@
-import { IconGridDots, IconKey, IconServer, type Icon } from '@tabler/icons-react'
+import { Icon3dCubeSphere, IconGridDots, IconKey, IconServer, type Icon } from '@tabler/icons-react'
 import type { ArtId } from './ModeArt'
 import { GRIDFINITY_PATH, KEYCHAIN_MODES, KEYCHAIN_PATH, MODES, RACK_MODES, RACK_PATH, type ProductMode } from './modes'
 
-export type ProductId = 'gridfinity' | 'keychain' | 'rack'
-/** Оттенок иллюстраций и логотипа продукта (совпадает с id): Gridfinity — синий, Keychain — зелёный, Rack — жёлтый. */
+export type ProductId = 'editor' | 'gridfinity' | 'keychain' | 'rack'
+/** Оттенок иллюстраций и логотипа продукта (совпадает с id): Editor — фиолетовый, Gridfinity — синий, Keychain — зелёный, Rack — жёлтый. */
 export type ProductHue = ProductId
+
+export const EDITOR_PATH = '/editor'
 
 /** Раздел сайта: свои маршруты, название, описание (ключи i18n products.<id>.*) и состояние. Новый продукт — одна запись здесь плюс маршруты. */
 export interface Product {
@@ -20,6 +22,7 @@ export interface Product {
 }
 
 export const PRODUCTS: Product[] = [
+  { id: 'editor', path: EDITOR_PATH, Icon: Icon3dCubeSphere, artId: 'editor', hue: 'editor' },
   { id: 'gridfinity', path: GRIDFINITY_PATH, Icon: IconGridDots, modes: MODES, artId: 'box', hue: 'gridfinity' },
   { id: 'keychain', path: KEYCHAIN_PATH, Icon: IconKey, modes: KEYCHAIN_MODES, artId: 'keychainImage', hue: 'keychain' },
   { id: 'rack', path: RACK_PATH, Icon: IconServer, modes: RACK_MODES, artId: 'rackPanel', hue: 'rack' },

@@ -12,6 +12,7 @@ import { ShapeMode } from '../features/keychain/ShapeMode'
 import { RackPanelMode } from '../features/rack/RackPanelMode'
 import { CaseMode } from '../features/rack/CaseMode'
 import { ShelfMode } from '../features/rack/ShelfMode'
+import { EditorMode } from '../features/editor/EditorMode'
 
 /** Прежние адреса режимов (до появления продуктов) ведут на новые. */
 const legacy = (mode: string): RouteObject => ({ path: mode, element: <Navigate to={`${GRIDFINITY_PATH}/${mode}`} replace /> })
@@ -21,6 +22,13 @@ export const routes: RouteObject[] = [{
   element: <AppShell />,
   children: [
     { index: true, element: <StartPage /> },
+    {
+      path: 'editor',
+      children: [
+        { index: true, element: <EditorMode /> },
+        { path: '*', element: <Navigate to="/editor" replace /> },
+      ],
+    },
     {
       path: 'gridfinity',
       children: [

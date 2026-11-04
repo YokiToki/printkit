@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { decode } from 'jpeg-js'
 import { generate, registerImage, registerMesh, type ModelResult } from '../src/geometry/model'
+import { getWasm } from '../src/geometry/wasm'
 import { toGeometry, defaultParams } from '../src/geometry/baseplate'
 import { defaultBox, equalDividers, boxLayout } from '../src/geometry/box'
 import { defaultCutout, newCutoutId, type Cutout } from '../src/geometry/cutout'
@@ -124,8 +125,51 @@ async function rackModels(): Promise<Record<string, TriMesh>> {
   return { rackPanel: meshOf(panel), rackCase: meshOf(rackCase), rackShelf: meshOf(shelf) }
 }
 
+async function editorModel(): Promise<Record<string, TriMesh>> {
+  const w = await getWasm()
+  const M = w.Manifold
+  // L-Bracket
+  const baseBracket = M.cube([32, 20, 32], false).subtract(
+    M.cube([24, 22, 24], false).translate([8, -1, 8])
+  )
+  const hole1 = M.cylinder(12, 3.5, 3.5, 32, false).translate([20, 10, -1])
+  const hole2 = M.cylinder(12, 3.5, 3.5, 32, false).rotate([0, 90, 0]).translate([-1, 10, 20])
+  const bracket = baseBracket.subtract(hole1).subtract(hole2)
+
+  // Box
+  const box = M.cube([18, 18, 18], false).translate([-28, 0, 0])
+
+  // Cylinder
+  const cyl = M.cylinder(24, 7, 7, 32, false).translate([0, 26, 0])
+
+  // Gizmo on the box
+  const arrowX = M.cylinder(14, 0.8, 0.8, 16, false)
+    .add(M.cylinder(5, 2, 0, 16, false).translate([0, 0, 14]))
+    .rotate([0, 90, 0])
+    .translate([-19, 9, 9])
+
+  const arrowY = M.cylinder(14, 0.8, 0.8, 16, false)
+    .add(M.cylinder(5, 2, 0, 16, false).translate([0, 0, 14]))
+    .rotate([-90, 0, 0])
+    .translate([-19, 9, 9])
+
+  const arrowZ = M.cylinder(14, 0.8, 0.8, 16, false)
+    .add(M.cylinder(5, 2, 0, 16, false).translate([0, 0, 14]))
+    .translate([-19, 9, 9])
+
+  const combined = M.union([bracket, box, cyl, arrowX, arrowY, arrowZ])
+  const m = combined.getMesh()
+  const n = m.vertProperties.length / m.numProp
+  const positions = new Float32Array(n * 3)
+  for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) positions[i * 3 + k] = m.vertProperties[i * m.numProp + k]
+  return { editor: { positions, triangles: m.triVerts } }
+}
+
 /** Размеры рисунков (доли поля 250 × 165) для манифеста: тест держит поля по краям и рост брелка не выше коробки. */
-const manifest: Record<string, { w: number; h: number }> = {}
+const manifestPath = resolve(OUT, 'manifest.json')
+const manifest: Record<string, { w: number; h: number }> = existsSync(manifestPath)
+  ? JSON.parse(readFileSync(manifestPath, 'utf8'))
+  : {}
 
 /**
  * Рендерит группу и пишет SVG. Без `heightOf` у группы один общий масштаб (картинки одной группы одного размера). С `heightOf`
@@ -159,6 +203,8 @@ function writeGroup(all: Record<string, TriMesh>, heightOf?: { name: string; hei
 writeGroup(await keychainModels(), { name: 'keychainImage', height: BOX_ART_HEIGHT * KEYCHAIN_ART_RATIO }, { ...defaultArtOptions, smooth: KEYCHAIN_SMOOTH })
 // Rack: одна группа из трёх деталей 1 U с общим масштабом, чтобы остальные картинки не менялись
 writeGroup(await rackModels())
+// Editor: группа из одной сцены
+writeGroup(await editorModel())
 if (!existsSync(SAMPLE)) {
   console.error(`Группа Gridfinity пропущена: нужен образец выреза ${SAMPLE} (STL, любая закрытая деталь). Картинки брелков записаны.`)
   process.exit(1)

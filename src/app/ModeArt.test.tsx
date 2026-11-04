@@ -21,8 +21,8 @@ const nodeFs = (globalThis as unknown as { process: { getBuiltinModule(id: 'node
 const theme = nodeFs.getBuiltinModule('node:fs').readFileSync(`${nodeFs.cwd()}/src/app/theme.css`, 'utf8')
 
 describe('иллюстрации карточек', () => {
-  it('восемь иллюстраций (box, baseplate, cutout, keychainImage, keychainShape, rackPanel, rackCase, rackShelf): валидный SVG до 60 КБ, тона классами, без цветов', () => {
-    expect(ART_IDS.sort()).toEqual(['baseplate', 'box', 'cutout', 'keychainImage', 'keychainShape', 'rackCase', 'rackPanel', 'rackShelf'])
+  it('девять иллюстраций (editor, box, baseplate, cutout, keychainImage, keychainShape, rackPanel, rackCase, rackShelf): валидный SVG до 60 КБ, тона классами, без цветов', () => {
+    expect(ART_IDS.sort()).toEqual(['baseplate', 'box', 'cutout', 'editor', 'keychainImage', 'keychainShape', 'rackCase', 'rackPanel', 'rackShelf'])
     for (const id of ART_IDS) {
       const svg = ART[id]
       expect(svg.length, id).toBeGreaterThan(500)
@@ -77,6 +77,7 @@ describe('воздух вокруг рисунков (36-site-refresh)', () => {
 describe('оттенок иллюстраций по продукту (36-site-refresh)', () => {
   it('каждый art id отображается на оттенок своего продукта, обёртка несёт data-hue', () => {
     const want: Record<string, string> = {
+      editor: 'editor',
       box: 'gridfinity', baseplate: 'gridfinity', cutout: 'gridfinity',
       keychainImage: 'keychain', keychainShape: 'keychain',
       rackPanel: 'rack', rackCase: 'rack', rackShelf: 'rack',
@@ -101,7 +102,7 @@ describe('оттенок иллюстраций по продукту (36-site-r
       expect(theme).toMatch(new RegExp(`--color-art-rack-${i}: #`))
     }
     expect(theme).toMatch(/--color-art-edge: #/)
-    for (const hue of ['keychain', 'rack']) for (let i = 0; i <= 6; i++) {
+    for (const hue of ['editor', 'keychain', 'rack']) for (let i = 0; i <= 6; i++) {
       expect(theme).toContain(`[data-hue='${hue}'] .art-t${i} { fill: var(--color-art-${hue}-${i}); }`)
     }
   })
@@ -131,7 +132,7 @@ describe('карточки с рендерами: продукты и режим
       expect(ART_IDS).toContain(p.artId)
       for (const m of p.modes ?? []) expect(ART_IDS, `${p.id}/${m.id}`).toContain(m.artId)
     }
-    expect(PRODUCTS.map((p) => p.artId)).toEqual(['box', 'keychainImage', 'rackPanel'])
+    expect(PRODUCTS.map((p) => p.artId)).toEqual(['editor', 'box', 'keychainImage', 'rackPanel'])
   })
   it('корневая страница: карточка Gridfinity показывает коробку, Keychain — брелок «Изображение»; значков вместо рендеров нет', () => {
     at('/')

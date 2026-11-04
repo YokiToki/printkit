@@ -29,6 +29,7 @@ PrintKit is a set of products, each with its own modes. Every mode has a live 3D
 
 | Product | Modes |
 | --- | --- |
+| **3D Editor** | Free 3D scene editor: import STL models, add primitives (box, cylinder, sphere, cone, torus, wedge), precise transform & gizmo, outliner, mesh health inspection, and binary STL/3MF export |
 | **Gridfinity Master** | **Box** (bin or tray with lip, scoop, dividers, magnets and screws), **Baseplate** (any grid, fractional cells, split to fit your bed, connectors, magnets and screws), **Cutout** (pockets shaped to your tools: traced from a photo on a sheet of paper, from an imported STL, or a simple circle or rectangle) |
 | **Keychain Master** | **Image** (a picture becomes a silhouette with a relief, patterns, text, ring mount, two printable halves with pins), **Shape** (a ready-made shape with a rim, the same patterns, text and mounts) |
 | **Rack Master** | **Panel** (10-inch rack panel of 1–10 U with standard ear holes, Skadis, hexagon, pills, lines and Kumiko patterns, optional separate back wall), **Enclosure** (front plate with ears and a shell around a device, with window, keystone sockets, holes and vents), **Shelf** (front plate with ears, a ventilated floor and sloped side walls) |

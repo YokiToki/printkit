@@ -10,6 +10,7 @@ import { useUnit } from '../ui/units'
 import { LANGUAGES, type Language } from '../i18n'
 
 const ENGLISH_PRODUCT_NAMES: Record<string, string> = {
+  editor: 'Editor',
   gridfinity: 'Gridfinity',
   keychain: 'Keychain',
   rack: 'Rack',

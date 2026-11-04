@@ -13,7 +13,7 @@ export function readSession(): LastSession | null {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) ?? 'null')
     if (!s || typeof s.size !== 'string' || typeof s.savedAt !== 'number') return null
-    const product: ProductId = s.product === 'keychain' || s.product === 'rack' ? s.product : 'gridfinity'
+    const product: ProductId = s.product === 'editor' || s.product === 'keychain' || s.product === 'rack' ? s.product : 'gridfinity'
     if (typeof s.mode !== 'string' && product === 'gridfinity') return null
     return { product, mode: typeof s.mode === 'string' ? s.mode : undefined, size: s.size, savedAt: s.savedAt }
   } catch { /* ignore */ }

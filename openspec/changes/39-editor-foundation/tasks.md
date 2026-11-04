@@ -33,9 +33,9 @@
 
 ## 5. Product, routes, start page
 
-- [ ] 5.1 `products.ts` (`editor` first, `Product.modes` none), `routes.tsx` (`/editor`, unknown subpaths go to `/editor`), `lastSession` stores the product (a record without it still reads as gridfinity), `Header` switcher and logo text, `AppShell` hides the generator mode switcher for the Editor. Test: routes, switcher lists four products, old session records.
-- [ ] 5.2 Start page: the Editor as the main card (render of a small scene: a bracket mesh, a box and a cylinder with a gizmo, via the art script as a fifth group `editor.svg`, size budget as for the others), generator cards under a "Generators" heading; hotkeys 1–4. Test `ModeArt` budget and the start-page component test; compare at 390 px and desktop in en and ru (decides the Open Question in `design.md`).
-- [ ] 5.3 Strings in `en.json` and `ru.json` for everything above, including `log.editor.*` keys (the key-parity test must pass). The README product list gets the Editor.
+- [x] 5.1 `products.ts` (`editor` first, `Product.modes` none), `routes.tsx` (`/editor`, unknown subpaths go to `/editor`), `lastSession` stores the product (a record without it still reads as gridfinity), `Header` switcher and logo text, `AppShell` hides the generator mode switcher for the Editor. Test: routes, switcher lists four products, old session records.
+- [x] 5.2 Start page: the Editor as the main card (render of a small scene: a bracket mesh, a box and a cylinder with a gizmo, via the art script as a fifth group `editor.svg`, size budget as for the others), generator cards under a "Generators" heading; hotkeys 1–4. Test `ModeArt` budget and the start-page component test; compare at 390 px and desktop in en and ru (decides the Open Question in `design.md`).
+- [x] 5.3 Strings in `en.json` and `ru.json` for everything above, including `log.editor.*` keys (the key-parity test must pass). The README product list gets the Editor.
 
 ## 6. Export and log
 

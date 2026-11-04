@@ -25,8 +25,10 @@ const renderAt = (path: string) => render(
 describe('StartPage (выбор продукта)', () => {
   beforeEach(async () => { localStorage.clear(); await i18n.changeLanguage('en') })
 
-  it('три карточки ведут на разделы продуктов', () => {
+  it('четыре карточки ведут на разделы продуктов', () => {
     renderAt('/')
+    expect(screen.getByTestId('card-editor')).toHaveAttribute('href', '/editor')
+    expect(screen.getByTestId('card-editor')).toHaveTextContent('Editor')
     expect(screen.getByTestId('card-gridfinity')).toHaveAttribute('href', '/gridfinity')
     expect(screen.getByTestId('card-keychain')).toHaveAttribute('href', '/keychain')
     expect(screen.getByTestId('card-keychain')).toHaveTextContent('Keychain')
@@ -37,7 +39,7 @@ describe('StartPage (выбор продукта)', () => {
     for (const lang of ['en', 'ru']) {
       await i18n.changeLanguage(lang)
       const { unmount } = renderAt('/')
-      for (const id of ['card-gridfinity', 'card-keychain', 'card-rack']) {
+      for (const id of ['card-editor', 'card-gridfinity', 'card-keychain', 'card-rack']) {
         const card = screen.getByTestId(id)
         expect(card).toHaveClass('w-[360px]', 'h-[470px]')
         const tagsContainer = card.querySelector('[data-testid="choice-card-tags"]')
@@ -51,9 +53,24 @@ describe('StartPage (выбор продукта)', () => {
       unmount()
     }
   })
-  it('клавиша 3 открывает Rack Master', async () => {
-    renderAt('/')
+  it('клавиша 1 открывает Editor, 2 — Gridfinity, 3 — Keychain, 4 — Rack', async () => {
+    const { unmount: u1 } = renderAt('/')
+    await userEvent.keyboard('1')
+    expect(await screen.findByTestId('editor-mode')).toBeInTheDocument()
+    u1()
+
+    const { unmount: u2 } = renderAt('/')
+    await userEvent.keyboard('2')
+    expect(await screen.findByRole('heading', { name: 'Choose a Gridfinity part' })).toBeInTheDocument()
+    u2()
+
+    const { unmount: u3 } = renderAt('/')
     await userEvent.keyboard('3')
+    expect(await screen.findByRole('heading', { name: 'Choose a keychain start' })).toBeInTheDocument()
+    u3()
+
+    renderAt('/')
+    await userEvent.keyboard('4')
     expect(await screen.findByRole('heading', { name: 'Choose a rack part' })).toBeInTheDocument()
   })
   it('вьюпорт и панель параметров не рендерятся', () => {
@@ -70,11 +87,6 @@ describe('StartPage (выбор продукта)', () => {
   it('неизвестный путь показывает стартовую страницу', () => {
     renderAt('/nope')
     expect(screen.getByRole('heading', { name: 'What are you printing?' })).toBeInTheDocument()
-  })
-  it('клавиша 2 открывает Keychain Master', async () => {
-    renderAt('/')
-    await userEvent.keyboard('2')
-    expect(await screen.findByRole('heading', { name: 'Choose a keychain start' })).toBeInTheDocument()
   })
   it('плашка «Продолжить» скрыта без сохранённой сессии и ведёт в режим Gridfinity', () => {
     const { unmount } = renderAt('/')

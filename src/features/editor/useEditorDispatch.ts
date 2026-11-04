@@ -48,7 +48,7 @@ export function useEditorDispatch(
       bump()
 
       // Пишет в журнал для отображения имени шага в строке состояния
-      log.info('app', 'log.editor.step', { name: label })
+      log.info('editor', 'log.editor.step', { name: label })
     },
     [setDoc]
   )
@@ -58,7 +58,7 @@ export function useEditorDispatch(
     if (!step) return
     setDoc(step.state)
     bump()
-    log.info('app', 'log.editor.undoStep', { name: step.label })
+    log.info('editor', 'log.editor.undoStep', { name: step.label })
   }, [setDoc])
 
   const redo = useCallback(() => {
@@ -66,7 +66,7 @@ export function useEditorDispatch(
     if (!step) return
     setDoc(step.state)
     bump()
-    log.info('app', 'log.editor.redoStep', { name: step.label })
+    log.info('editor', 'log.editor.redoStep', { name: step.label })
   }, [setDoc])
 
   return {

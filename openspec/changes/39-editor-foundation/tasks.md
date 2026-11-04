@@ -39,8 +39,8 @@
 
 ## 6. Export and log
 
-- [ ] 6.1 `editorParts(doc, meshes, {selectionOnly})` applies the matrices (`applyMatrix`) and makes unique labels; the Editor's export footer reuses `ExportPanel` with the "Selection only" toggle, open-mesh and below-bed warnings. Test: exported bbox and volume of the selection equal the matrices applied by hand; open mesh gives a warning but exports; labels unique.
-- [ ] 6.2 Log producers (`import`, `add`, `history`, `export` entries with names and sizes only) and a performance check: a 500k-triangle STL imports, orbits and picks without freezing (record numbers in the commit message; add a BVH task here only if picking takes more than 50 ms).
+- [x] 6.1 `editorParts(doc, meshes, {selectionOnly})` applies the matrices (`applyMatrix`) and makes unique labels; the Editor's export footer reuses `ExportPanel` with the "Selection only" toggle, open-mesh and below-bed warnings. Test: exported bbox and volume of the selection equal the matrices applied by hand; open mesh gives a warning but exports; labels unique.
+- [x] 6.2 Log producers (`import`, `add`, `history`, `export` entries with names and sizes only) and a performance check: a 500k-triangle STL imports, orbits and picks without freezing (record numbers in the commit message; add a BVH task here only if picking takes more than 50 ms).
 
 ## 7. Version
 

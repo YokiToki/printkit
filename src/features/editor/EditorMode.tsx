@@ -29,12 +29,23 @@ import { useHotkeys, type HotkeyDef } from './useHotkeys'
 import { loadEditorUi, saveEditorUi } from './editorUiStore'
 import { importFiles } from './importFiles'
 import { getModelClient } from '../../app/useModel'
+import { EditorExportFooter } from './EditorExportFooter'
+import { log } from '../../app/activityLog'
+import type { MeshData } from '../../geometry/mesh'
 
 export function EditorMode() {
   const { t } = useTranslation()
   const [persistedDoc, setPersistedDoc] = useScene()
   const { doc, dispatch, undo, redo, canUndo, canRedo } = useEditorDispatch(persistedDoc, setPersistedDoc)
-  const { model } = useEditorModel(doc)
+  const { model, pending, partsById } = useEditorModel(doc)
+
+  const meshesMap = useMemo(() => {
+    const map: Record<string, MeshData> = {}
+    for (const [id, part] of partsById.entries()) {
+      map[id] = part.mesh
+    }
+    return map
+  }, [partsById])
 
   const [selection, setSelection] = useState<string[]>([])
   const [tool, setTool] = useState<TransformTool>('select')
@@ -140,6 +151,7 @@ export function EditorMode() {
       existingNames: doc.objects.map((o) => o.name),
     })
     if (res.objects.length > 0) {
+      log.info('editor', 'log.editor.imported', { count: res.objects.length, names: files.map((f) => f.name).join(', ') })
       dispatch(
         t('log.editor.imported', { count: res.objects.length, names: files.map((f) => f.name).join(', ') }),
         (prev) => ({
@@ -176,6 +188,7 @@ export function EditorMode() {
         scale: [1, 1, 1],
       },
     }
+    log.info('editor', 'log.editor.added', { shape: t(desc.labelKey) })
     dispatch(t('log.editor.added', { shape: t(desc.labelKey) }), (prev) => ({
       ...prev,
       objects: [...prev.objects, newObj],
@@ -192,6 +205,10 @@ export function EditorMode() {
   }
 
   const handleUpdateTransform = (id: string, newTransform: EditorObject['transform'], mergeKey?: string) => {
+    const obj = doc.objects.find((o) => o.id === id)
+    if (obj) {
+      log.info('editor', 'log.editor.transformed', { name: obj.name })
+    }
     dispatch('Transform', (prev) => ({
       ...prev,
       objects: prev.objects.map((o) => (o.id === id ? { ...o, transform: newTransform } : o)),
@@ -211,6 +228,7 @@ export function EditorMode() {
 
   const handleDelete = (ids: string[]) => {
     if (!ids.length) return
+    log.info('editor', 'log.editor.deleted', { count: ids.length })
     dispatch(t('log.editor.deleted', { count: ids.length }), (prev) => ({
       ...prev,
       objects: prev.objects.filter((o) => !ids.includes(o.id)),
@@ -230,6 +248,7 @@ export function EditorMode() {
         position: [orig.transform.position[0] + 10, orig.transform.position[1] + 10, orig.transform.position[2]],
       },
     }
+    log.info('editor', 'log.editor.duplicated', { name: orig.name })
     dispatch(t('log.editor.duplicated', { name: orig.name }), (prev) => ({
       ...prev,
       objects: [...prev.objects, dup],
@@ -638,6 +657,13 @@ export function EditorMode() {
               healthMap={healthMap}
             />
           </div>
+          <EditorExportFooter
+            doc={doc}
+            selection={selection}
+            meshes={meshesMap}
+            healthMap={healthMap}
+            busy={pending}
+          />
         </aside>
 
         {/* Mobile bottom drawer buttons (below 768px) */}
@@ -725,14 +751,25 @@ export function EditorMode() {
                   healthMap={healthMap}
                 />
               ) : (
-                <Properties
-                  objects={doc.objects}
-                  selection={selection}
-                  onUpdateObject={handleUpdateObject}
-                  onUpdateTransform={handleUpdateTransform}
-                  onUpdatePrimitiveParams={handleUpdatePrimitiveParams}
-                  healthMap={healthMap}
-                />
+                <>
+                  <Properties
+                    objects={doc.objects}
+                    selection={selection}
+                    onUpdateObject={handleUpdateObject}
+                    onUpdateTransform={handleUpdateTransform}
+                    onUpdatePrimitiveParams={handleUpdatePrimitiveParams}
+                    healthMap={healthMap}
+                  />
+                  <div className="mt-4">
+                    <EditorExportFooter
+                      doc={doc}
+                      selection={selection}
+                      meshes={meshesMap}
+                      healthMap={healthMap}
+                      busy={pending}
+                    />
+                  </div>
+                </>
               )}
             </div>
           </aside>

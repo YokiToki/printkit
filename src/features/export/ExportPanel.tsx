@@ -18,7 +18,7 @@ function download(blob: Blob, name: string) {
 }
 
 /** Закреплённый блок экспорта внизу панели: формат, принтер, компактная кнопка скачивания и статус. */
-export function ExportPanel({ model, busy, name }: { model: ModelResult | null; busy: boolean; name: string }) {
+export function ExportPanel({ model, busy, name, onExport }: { model: ModelResult | null; busy: boolean; name: string; onExport?: (name: string) => void }) {
   const { t } = useTranslation()
   const [s, update] = useExportSettings()
   const parts = model?.parts ?? []
@@ -37,6 +37,7 @@ export function ExportPanel({ model, busy, name }: { model: ModelResult | null; 
   const go = () => {
     const built = buildExport(parts, s, name, !!model?.sheetLayout)
     logBuilt(built.files.length, plates, overflow)
+    onExport?.(name)
     built.files.forEach((f) => download(f.blob, f.name))
   }
   const options = [...PRINTERS.map((p) => ({ value: p.id, label: p.name })), { value: CUSTOM_PRINTER, label: t('export.printer.custom') }]
@@ -68,7 +69,7 @@ export function ExportPanel({ model, busy, name }: { model: ModelResult | null; 
             const partLabel = t(`export.partName.${p.label}`, { defaultValue: p.label })
             return (
               <Button key={p.label} compact className="h-7 px-2 text-xs" disabled={disabled} aria-label={t('export.part', { label: partLabel })}
-                onClick={() => { const built = buildExport([p], s, `${name}_${p.label}`); logBuilt(built.files.length, 1, p.oversize ? 1 : 0); built.files.forEach((f) => download(f.blob, f.name)) }}>
+                onClick={() => { const built = buildExport([p], s, `${name}_${p.label}`); logBuilt(built.files.length, 1, p.oversize ? 1 : 0); onExport?.(`${name}_${p.label}`); built.files.forEach((f) => download(f.blob, f.name)) }}>
                 {p.oversize && <span aria-hidden className="text-error">!</span>}{partLabel}
               </Button>
             )

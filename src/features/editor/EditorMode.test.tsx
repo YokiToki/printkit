@@ -10,6 +10,11 @@ vi.mock('../viewport/Viewport', () => ({
   Viewport: () => <div data-testid="viewport" />,
 }))
 
+vi.mock('../../app/useModel', () => ({
+  useModel: () => ({ model: null, busy: false, pending: false, error: null }),
+  getModelClient: () => ({ registerMesh: () => {}, generate: async () => null }),
+}))
+
 describe('EditorMode', () => {
   beforeEach(() => {
     localStorage.clear()

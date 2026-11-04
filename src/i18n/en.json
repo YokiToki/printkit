@@ -1490,7 +1490,11 @@
       "transformed": "Transformed {{name}}",
       "deleted": "Deleted {{count}} objects",
       "duplicated": "Duplicated {{name}}",
-      "exported": "Exported {{name}}"
+      "exported": "Exported {{name}}",
+      "step": "{{name}}",
+      "undoStep": "Undo: {{name}}",
+      "redoStep": "Redo: {{name}}",
+      "openMesh": "Open mesh: {{name}}"
     }
   },
   "agent": {

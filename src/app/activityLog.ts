@@ -2,8 +2,8 @@ import { useSyncExternalStore } from 'react'
 import { clearJobReports } from './resources/jobs'
 
 export type LogLevel = 'info' | 'warn' | 'error'
-export type LogSource = 'model' | 'photo' | 'image' | 'storage' | 'export' | 'ai' | 'agent' | 'app'
-export const LOG_SOURCES: LogSource[] = ['model', 'photo', 'image', 'storage', 'export', 'ai', 'agent', 'app']
+export type LogSource = 'editor' | 'model' | 'photo' | 'image' | 'storage' | 'export' | 'ai' | 'agent' | 'app'
+export const LOG_SOURCES: LogSource[] = ['editor', 'model', 'photo', 'image', 'storage', 'export', 'ai', 'agent', 'app']
 export type JobState = 'running' | 'done' | 'failed' | 'cancelled'
 export type LogParams = Record<string, string | number>
 

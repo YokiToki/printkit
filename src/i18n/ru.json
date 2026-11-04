@@ -1490,7 +1490,11 @@
       "transformed": "Трансформирован {{name}}",
       "deleted": "Удалено объектов: {{count}}",
       "duplicated": "Дублирован {{name}}",
-      "exported": "Экспортирован {{name}}"
+      "exported": "Экспортирован {{name}}",
+      "step": "{{name}}",
+      "undoStep": "Отмена: {{name}}",
+      "redoStep": "Повтор: {{name}}",
+      "openMesh": "Незамкнутая сетка: {{name}}"
     }
   },
   "agent": {

@@ -17,8 +17,8 @@
 
 ## 4. Compact Export Panel and Sidebar Reset Button
 
-- [ ] 4.1 Update the "Start over" / "Начать заново" button in `Workspace.tsx` to an icon-only button with tooltip (`title`) and `aria-label`, matching the adjacent collapse button. Verify with `npx vitest run src/app/startOver.test.tsx`.
-- [ ] 4.2 Streamline `ExportPanel.tsx` and reduce `Workspace.tsx` footer padding to `px-3 py-2.5` for a compact footprint while preserving format toggle, printer selector, primary download button, and status indicator. Verify with `npx vitest run src/features/export/ExportPanel.test.tsx`.
+- [x] 4.1 Update the "Start over" / "Начать заново" button in `Workspace.tsx` to an icon-only button with tooltip (`title`) and `aria-label`, matching the adjacent collapse button. Verify with `npx vitest run src/app/startOver.test.tsx`.
+- [x] 4.2 Streamline `ExportPanel.tsx` and reduce `Workspace.tsx` footer padding to `px-3 py-2.5` for a compact footprint while preserving format toggle, printer selector, primary download button, and status indicator. Verify with `npx vitest run src/features/export/ExportPanel.test.tsx`.
 
 ## 5. Better-* Visual & Ergonomic Polish
 

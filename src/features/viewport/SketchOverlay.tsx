@@ -19,6 +19,7 @@ export interface SketchOverlayProps {
   onHoverConstraint?: (id: string | null) => void
   onPinDimension?: (curveId: string) => void
   onSubmitDraftInput?: (val1: number, val2: number) => void
+  onCancelStage?: () => void
 }
 
 function getConstraintPosition(
@@ -111,6 +112,7 @@ export function SketchOverlay({
   onHoverConstraint,
   onPinDimension,
   onSubmitDraftInput,
+  onCancelStage,
 }: SketchOverlayProps) {
   const { sketch, conflicts, selection } = config
   const { unit } = useUnit()
@@ -198,8 +200,26 @@ export function SketchOverlay({
     } else if (e.key === 'Enter') {
       e.preventDefault()
       handleCommitDraft()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      onCancelStage?.()
     }
   }
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isInteractiveDrawing) {
+          e.preventDefault()
+          e.stopPropagation()
+          onCancelStage?.()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isInteractiveDrawing, onCancelStage])
 
   // Calculate guideline projection points
   let stage0Points: { cur: { x: number; y: number }; yAx: { x: number; y: number }; xAx: { x: number; y: number } } | null = null

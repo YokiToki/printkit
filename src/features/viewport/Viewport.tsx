@@ -80,6 +80,7 @@ export interface ViewportProps {
   onSketchSelect?: (hit: ScreenPickResult | null, additive: boolean) => void
   onSketchSelectBox?: (box: { points: string[]; curves: string[] }, additive: boolean) => void
   onSubmitDraftInput?: (val1: number, val2: number) => void
+  onCancelSketchStage?: () => void
   onUpdateConstraint?: (id: string, value: number) => void
   onDeleteConstraint?: (id: string) => void
   onSelectConstraint?: (id: string) => void
@@ -198,6 +199,7 @@ export function Viewport({
   onSketchSelect,
   onSketchSelectBox,
   onSubmitDraftInput,
+  onCancelSketchStage,
   onUpdateConstraint,
   onDeleteConstraint,
   onSelectConstraint,
@@ -227,6 +229,7 @@ export function Viewport({
     onSketchSelect,
     onSketchSelectBox,
     onSubmitDraftInput,
+    onCancelSketchStage,
     onUpdateConstraint,
     onDeleteConstraint,
     onSelectConstraint,
@@ -241,6 +244,7 @@ export function Viewport({
     onSketchSelect,
     onSketchSelectBox,
     onSubmitDraftInput,
+    onCancelSketchStage,
     onUpdateConstraint,
     onDeleteConstraint,
     onSelectConstraint,
@@ -532,22 +536,37 @@ export function Viewport({
     let fitted = false
     let lastViewSig = ''
     let lastRot: [number, number] = [Number.NaN, Number.NaN]
+    let saved3DCameraState: {
+      position: [number, number, number]
+      target: [number, number, number]
+      up: [number, number, number]
+    } | null = null
+
     api.current = {
       fit,
       setViewFace(face: ViewFace) {
+        const prevEnabled = controls.enabled
+        controls.enabled = true
         const dist = camera.position.distanceTo(controls.target)
         const pos = standardViewPosition(
           face,
           [controls.target.x, controls.target.y, controls.target.z],
-          dist
+          dist,
         )
+        camera.up.set(0, 0, 1)
         camera.position.set(pos[0], pos[1], pos[2])
+        camera.lookAt(controls.target)
+        controls.update()
+        controls.enabled = prevEnabled
       },
       orbit(dx: number, dy: number) {
+        const prevEnabled = controls.enabled
+        controls.enabled = true
         const elH = el.clientHeight || 400
         controls.rotateLeft((2 * Math.PI * dx) / elH)
         controls.rotateUp((2 * Math.PI * dy) / elH)
         controls.update()
+        controls.enabled = prevEnabled
       },
       updateScene(sc) {
         applyScene(sc)
@@ -560,8 +579,49 @@ export function Viewport({
           sketchGridGroup.clear()
           sketchViewKey = ''
           controls.enableRotate = true
+          controls.enabled = true
+
+          // Восстанавливаем 3D-камеру сцены с Z-up (0, 0, 1)
+          camera.up.set(0, 0, 1)
+          if (saved3DCameraState) {
+            camera.position.set(...saved3DCameraState.position)
+            controls.target.set(...saved3DCameraState.target)
+            saved3DCameraState = null
+          } else {
+            const dist = camera.position.distanceTo(controls.target) || 200
+            camera.position.set(dist * 0.5, -dist * 0.7, dist * 0.5)
+            camera.lookAt(controls.target)
+          }
+
+          // Предотвращаем сингулярность полюса OrbitControls: камера не должна смотреть строго параллельно оси Z
+          const dist = camera.position.distanceTo(controls.target)
+          const dx = camera.position.x - controls.target.x
+          const dy = camera.position.y - controls.target.y
+          if (Math.hypot(dx, dy) < 1e-3) {
+            camera.position.set(
+              controls.target.x + dist * 0.5,
+              controls.target.y - dist * 0.7,
+              controls.target.z + dist * 0.5,
+            )
+          }
+          camera.lookAt(controls.target)
+          controls.update()
+
+          // Сбрасываем подпись вида, чтобы ViewCube пересчитал свою ориентацию на следующем кадре
+          lastRot = [Number.NaN, Number.NaN]
+          lastViewSig = ''
           return
         }
+
+        // Сохраняем 3D-камеру перед входом в эскиз
+        if (!saved3DCameraState) {
+          saved3DCameraState = {
+            position: [camera.position.x, camera.position.y, camera.position.z],
+            target: [controls.target.x, controls.target.y, controls.target.z],
+            up: [camera.up.x, camera.up.y, camera.up.z],
+          }
+        }
+
         controls.enableRotate = false
         sketchContentGroup.add(buildSketchContent(s))
         // камера и сетка меняются только при входе в эскиз или смене плоскости: правка эскиза не должна сбрасывать вид
@@ -1005,9 +1065,46 @@ export function Viewport({
       }
     }
 
+    const onWheel = (e: WheelEvent) => {
+      if (!sketchRef.current) return
+      e.preventDefault()
+      e.stopPropagation()
+
+      const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87
+      const dist = camera.position.distanceTo(controls.target)
+      const newDist = Math.max(5, Math.min(25000, dist * zoomFactor))
+      const factor = newDist / dist
+
+      const planePtBefore = sketchPlanePoint(e)
+      if (planePtBefore) {
+        const frame = planeFrame(sketchRef.current.plane)
+        const worldP = new THREE.Vector3(
+          frame.origin[0] + planePtBefore.x * frame.xDir[0] + planePtBefore.y * frame.yDir[0],
+          frame.origin[1] + planePtBefore.x * frame.xDir[1] + planePtBefore.y * frame.yDir[1],
+          frame.origin[2] + planePtBefore.x * frame.xDir[2] + planePtBefore.y * frame.yDir[2],
+        )
+        const newTarget = controls.target.clone().add(worldP.clone().sub(controls.target).multiplyScalar(1 - factor))
+        const camDir = camera.position.clone().sub(controls.target).normalize()
+        controls.target.copy(newTarget)
+        camera.position.copy(newTarget).addScaledVector(camDir, newDist)
+      } else {
+        const camDir = camera.position.clone().sub(controls.target).normalize()
+        camera.position.copy(controls.target).addScaledVector(camDir, newDist)
+      }
+
+      controls.update()
+
+      const newCoords = sketchPlanePoint(e)
+      if (newCoords) {
+        callbacksRef.current.onSketchPointer?.('move', newCoords, sketchMods(e), e as unknown as PointerEvent)
+      }
+      setViewTick((v) => v + 1)
+    }
+
     renderer.domElement.addEventListener('pointerdown', onPointerDown)
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
+    el.addEventListener('wheel', onWheel, { passive: false })
 
     const tmp = new THREE.Vector3()
     const renderMon = createRenderMonitor(renderer as unknown as RendererLike)
@@ -1086,6 +1183,7 @@ export function Viewport({
       renderer.domElement.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+      el.removeEventListener('wheel', onWheel)
       transformControls.dispose()
       controls.dispose()
       renderer.dispose()
@@ -1140,6 +1238,7 @@ export function Viewport({
           onHoverConstraint={onHoverConstraint}
           onPinDimension={onPinDimension}
           onSubmitDraftInput={onSubmitDraftInput}
+          onCancelStage={onCancelSketchStage}
         />
       )}
 

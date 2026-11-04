@@ -37,6 +37,7 @@ export function ViewCube({ rotation = [0, 0, 0], onSelectFace, onOrbit }: ViewCu
   ]
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation()
     if (e.button !== 0) return
     dragRef.current = {
       startX: e.clientX,
@@ -51,6 +52,7 @@ export function ViewCube({ rotation = [0, 0, 0], onSelectFace, onOrbit }: ViewCu
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return
+    e.stopPropagation()
     const dist = Math.hypot(e.clientX - dragRef.current.startX, e.clientY - dragRef.current.startY)
     if (dist > 3) {
       if (!dragRef.current.captured) {
@@ -71,7 +73,9 @@ export function ViewCube({ rotation = [0, 0, 0], onSelectFace, onOrbit }: ViewCu
   }
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (dragRef.current?.captured) {
+    if (!dragRef.current) return
+    e.stopPropagation()
+    if (dragRef.current.captured) {
       try {
         if (e.currentTarget.hasPointerCapture(e.pointerId)) {
           e.currentTarget.releasePointerCapture(e.pointerId)

@@ -721,6 +721,29 @@ export function EditorMode() {
     }
   }
 
+  const handleCancelSketchStage = () => {
+    if (sketchToolState.stage > 0) {
+      setSketchToolState((prev) => ({
+        ...prev,
+        stage: 0,
+        startPt: undefined,
+        secondPt: undefined,
+        preview: undefined,
+      }))
+    } else if (
+      sketchToolState.selectedPointIds.length > 0 ||
+      sketchToolState.selectedCurveIds.length > 0
+    ) {
+      setSketchToolState((prev) => ({
+        ...prev,
+        selectedPointIds: [],
+        selectedCurveIds: [],
+      }))
+    } else if (sketchToolState.tool !== 'select') {
+      setSketchToolState(initialToolState('select', sketchToolState.construction))
+    }
+  }
+
   const handleSketchBoxSelect = (box: { points: string[]; curves: string[] }, additive: boolean) => {
     setSketchToolState((prev) => ({
       ...prev,
@@ -953,27 +976,7 @@ export function EditorMode() {
         id: 'sketch-esc',
         key: 'Escape',
         labelKey: 'editor.toolbar.select',
-        action: () => {
-          if (sketchToolState.stage > 0) {
-            setSketchToolState((prev) => ({
-              ...prev,
-              stage: 0,
-              startPt: undefined,
-              preview: undefined,
-            }))
-          } else if (
-            sketchToolState.selectedPointIds.length > 0 ||
-            sketchToolState.selectedCurveIds.length > 0
-          ) {
-            setSketchToolState((prev) => ({
-              ...prev,
-              selectedPointIds: [],
-              selectedCurveIds: [],
-            }))
-          } else if (sketchToolState.tool !== 'select') {
-            setSketchToolState(initialToolState('select', sketchToolState.construction))
-          }
-        },
+        action: handleCancelSketchStage,
       },
       {
         id: 'sketch-delete',
@@ -1279,6 +1282,7 @@ export function EditorMode() {
               onSketchSelect={handleSketchSelect}
               onSketchSelectBox={handleSketchBoxSelect}
               onSubmitDraftInput={handleDraftInputSubmit}
+              onCancelSketchStage={handleCancelSketchStage}
               onUpdateConstraint={(id, val) => {
                 if (activeSketchId) {
                   dispatch('Update Constraint', (prev) =>

@@ -46,8 +46,8 @@
 
 ## 8. Strings and persistence
 
-- [ ] 8.1 Strings for everything above in `en.json` and `ru.json`, including `sketch.error.*`, `sketch.warning.*`, constraint and tool names, `log.editor.sketch.*` (key-parity test must pass).
-- [ ] 8.2 Persistence: sketches and features in `editor.scene`, old scenes of `39` load unchanged, deleted sketch handling, reload test with a plate, a hole and a failed feature.
+- [x] 8.1 Strings for everything above in `en.json` and `ru.json`, including `sketch.error.*`, `sketch.warning.*`, constraint and tool names, `log.editor.sketch.*` (key-parity test must pass).
+- [x] 8.2 Persistence: sketches and features in `editor.scene`, old scenes of `39` load unchanged, deleted sketch handling, reload test with a plate, a hole and a failed feature.
 
 ## 9. Version
 

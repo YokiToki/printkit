@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { log } from '../app/activityLog'
 import type { MeshStore } from '../features/cutout/meshStore'
+import type { Feature, RevolveFeature } from '../geometry/features/evaluate'
 import {
   createEmptyScene,
   DEFAULT_TRANSFORM,
@@ -85,6 +86,91 @@ function normaliseSource(raw: unknown, objectName: string): ObjectSource | null 
       kind: 'primitive',
       shape,
       params,
+    }
+  }
+
+  if (s.kind === 'feature') {
+    const rawFeatures = Array.isArray(s.features) ? s.features : []
+    const features: Feature[] = []
+    for (const rf of rawFeatures) {
+      if (!rf || typeof rf !== 'object') continue
+      const f = rf as Record<string, unknown>
+      const kind = f.kind
+      const sketch =
+        typeof f.sketch === 'string'
+          ? f.sketch
+          : typeof f.sketchId === 'string'
+            ? f.sketchId
+            : ''
+      const op = f.op === 'join' || f.op === 'cut' || f.op === 'intersect' ? f.op : 'new'
+      const id = typeof f.id === 'string' && f.id ? f.id : crypto.randomUUID()
+
+      if (kind === 'extrude') {
+        const side = f.side === 'symmetric' || f.side === 'two' ? f.side : 'one'
+        const d1 = num(f.d1, 10)
+        const d2 = f.d2 !== undefined ? num(f.d2, 10) : undefined
+        const top =
+          f.top && typeof f.top === 'object' && (f.top as { kind?: string }).kind
+            ? {
+                kind: (f.top as { kind: 'chamfer' | 'fillet' }).kind,
+                size: num((f.top as { size?: unknown }).size, 1),
+              }
+            : undefined
+        const bottom =
+          f.bottom && typeof f.bottom === 'object' && (f.bottom as { kind?: string }).kind
+            ? {
+                kind: (f.bottom as { kind: 'chamfer' | 'fillet' }).kind,
+                size: num((f.bottom as { size?: unknown }).size, 1),
+              }
+            : undefined
+
+        features.push({
+          id,
+          kind: 'extrude',
+          sketch,
+          op,
+          side,
+          d1,
+          ...(d2 !== undefined ? { d2 } : {}),
+          ...(top ? { top } : {}),
+          ...(bottom ? { bottom } : {}),
+          ...(f.regions ? { regions: f.regions as 'all' | string[] } : {}),
+        })
+      } else if (kind === 'revolve') {
+        const angle = num(f.angle, 360)
+        let axis: RevolveFeature['axis'] = { kind: 'planeAxis', axis: 'y' }
+        if (f.axis && typeof f.axis === 'object') {
+          const a = f.axis as Record<string, unknown>
+          if (a.kind === 'line') {
+            axis = {
+              kind: 'line',
+              curve: typeof a.curve === 'string' ? a.curve : (typeof a.curveId === 'string' ? a.curveId : ''),
+            }
+          } else if (a.kind === 'planeAxis') {
+            axis = { kind: 'planeAxis', axis: a.axis === 'x' ? 'x' : 'y' }
+          }
+        }
+
+        features.push({
+          id,
+          kind: 'revolve',
+          sketch,
+          op,
+          axis,
+          angle,
+          ...(f.regions ? { regions: f.regions as 'all' | string[] } : {}),
+        })
+      }
+    }
+
+    if (features.length === 0) {
+      log.warn('storage', 'log.editor.unknownSource', { name: objectName })
+      return null
+    }
+
+    return {
+      kind: 'feature',
+      features,
     }
   }
 

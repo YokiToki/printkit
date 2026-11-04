@@ -158,4 +158,122 @@ describe('editor/sceneStore', () => {
     expect(await store.load('mesh-unused-1')).toBeUndefined()
     expect(await store.load('mesh-unused-2')).toBeUndefined()
   })
+
+  it('preserves sketches and feature bodies during round trip through localStorage', () => {
+    const docWithFeatures: SceneDoc = {
+      schema: 1,
+      objects: [
+        {
+          id: 'body-1',
+          name: 'Feature Body',
+          visible: true,
+          locked: false,
+          color: 1,
+          source: {
+            kind: 'feature',
+            features: [
+              {
+                id: 'feat-extrude-1',
+                kind: 'extrude',
+                sketch: 'sk-1',
+                op: 'new',
+                side: 'one',
+                d1: 20,
+                top: { kind: 'chamfer', size: 1.5 },
+              },
+            ],
+          },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+      ],
+      sketches: [
+        {
+          id: 'sk-1',
+          name: 'Sketch 1',
+          plane: { base: 'XY', offset: 5 },
+          visible: true,
+          points: {
+            p1: { x: 0, y: 0 },
+            p2: { x: 50, y: 0 },
+          },
+          curves: {
+            l1: { id: 'l1', kind: 'line', a: 'p1', b: 'p2', construction: false },
+          },
+          constraints: [],
+        },
+      ],
+    }
+
+    savePersistedScene(docWithFeatures, 'sketch-test.scene')
+    const loaded = loadPersistedScene('sketch-test.scene')
+
+    expect(loaded.sketches).toHaveLength(1)
+    expect(loaded.sketches![0].id).toBe('sk-1')
+    expect(loaded.objects).toHaveLength(1)
+    expect(loaded.objects[0].source.kind).toBe('feature')
+    const feat = (loaded.objects[0].source as { kind: 'feature'; features: any[] }).features[0]
+    expect(feat.kind).toBe('extrude')
+    expect(feat.d1).toBe(20)
+    expect(feat.top).toEqual({ kind: 'chamfer', size: 1.5 })
+  })
+
+  it('loads old scenes of change 39 unchanged', () => {
+    const oldScene39 = {
+      schema: 1,
+      objects: [
+        {
+          id: 'box-old',
+          name: 'Old Box',
+          visible: true,
+          locked: false,
+          color: 0,
+          source: {
+            kind: 'primitive',
+            shape: 'box',
+            params: { width: 30, depth: 30, height: 10 },
+          },
+          transform: { position: [10, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+      ],
+    }
+
+    const loaded = migrateScene(oldScene39)
+    expect(loaded.objects).toHaveLength(1)
+    expect(loaded.objects[0].id).toBe('box-old')
+    expect(loaded.sketches).toBeUndefined()
+  })
+
+  it('handles deleted sketch reference in features without crashing upon reload', () => {
+    const raw = {
+      schema: 1,
+      objects: [
+        {
+          id: 'body-orphaned',
+          name: 'Orphaned Body',
+          visible: true,
+          locked: false,
+          color: 0,
+          source: {
+            kind: 'feature',
+            features: [
+              {
+                id: 'feat-1',
+                kind: 'extrude',
+                sketch: 'deleted-sketch-id',
+                op: 'new',
+                side: 'one',
+                d1: 15,
+              },
+            ],
+          },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+      ],
+      sketches: [],
+    }
+
+    const loaded = migrateScene(raw)
+    expect(loaded.objects).toHaveLength(1)
+    expect(loaded.objects[0].source.kind).toBe('feature')
+  })
 })

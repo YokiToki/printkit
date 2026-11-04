@@ -6,11 +6,11 @@ Defines the application layout, mode navigation and shared UI controls that ever
 ## Requirements
 
 ### Requirement: Mode navigation
-Inside Gridfinity Master the app SHALL offer three modes — Box, Baseplate and Cutout — selectable from the top bar, each reachable by its own URL path under `/gridfinity`. The top bar SHALL show the product switcher, the mode switcher, unit and language selectors, and the GitHub link, and SHALL NOT show separate buttons for AI models or agents.
+Inside any product (Gridfinity, Keychain, Rack) the app SHALL display breadcrumb navigation in the top bar reflecting the site hierarchy: `PrintKit / <Product> / <Mode>` (e.g. `PrintKit / Gridfinity / Box`), always in English regardless of the selected interface language. The first crumb (`PrintKit`) SHALL link to the root start page `/` on all pages. When navigating inside a mode, the product crumb SHALL link to that product's mode chooser page (e.g. `/gridfinity`). The top bar SHALL NOT show separate product switcher or mode switcher button groups, and SHALL NOT show separate buttons for AI models or agents.
 
 #### Scenario: Switch mode
-- **WHEN** the user selects Baseplate in the mode switcher
-- **THEN** the URL path changes to the Gridfinity baseplate route and the baseplate parameter panel is shown
+- **WHEN** the user selects a mode or product crumb in the breadcrumb trail
+- **THEN** the URL path changes to the selected route and the corresponding view is shown
 
 #### Scenario: Direct link
 - **WHEN** the user opens the Gridfinity baseplate URL directly
@@ -23,6 +23,18 @@ Inside Gridfinity Master the app SHALL offer three modes — Box, Baseplate and 
 #### Scenario: Header controls
 - **WHEN** the user views the top bar
 - **THEN** no standalone buttons for AI models or browser agents are present in the bar
+
+#### Scenario: Breadcrumbs on mode page
+- **WHEN** the user is on the Box mode page (`/gridfinity/box`)
+- **THEN** the header shows breadcrumbs `PrintKit / Gridfinity / Box` in English, where `PrintKit` links to `/`, `Gridfinity` links to `/gridfinity`, and `Box` is the current page
+
+#### Scenario: Breadcrumbs on product start page
+- **WHEN** the user is on the Gridfinity chooser page (`/gridfinity`)
+- **THEN** the header shows breadcrumbs `PrintKit / Gridfinity` in English, where `PrintKit` links to `/` and `Gridfinity` is current
+
+#### Scenario: Always in English
+- **WHEN** the user switches the interface language to Russian
+- **THEN** the header breadcrumbs continue to display `PrintKit / Gridfinity / Box` in English
 
 ### Requirement: Start page
 The app SHALL open on a start page at the root path that lets the user choose Gridfinity Master, Keychain Master or Rack Master, each as a card with an icon, a short localized description and a link. Gridfinity Master SHALL have its own start page at `/gridfinity` where the user chooses Box, Baseplate or Cutout, and Rack Master SHALL have its own start page at `/rack` where the user chooses among its modes. Choice cards SHALL have a width of 360 px and a fixed height of 470 px, and their tags SHALL stay strictly within card bounds without overflowing.
@@ -114,14 +126,14 @@ Parameter panels SHALL be composed from shared controls: numeric field with unit
 - **THEN** the section's accessible name also states that its settings were changed, so the state is not conveyed by colour alone
 
 ### Requirement: Product sections
-The app SHALL be organised into product sections, Gridfinity Master, Keychain Master and Rack Master, each with its own routes, localized name and description, and its own persisted state. Language and display units SHALL be shared by all sections.
+The app SHALL be organised into product sections: Gridfinity, Keychain, and Rack (without the "Master" suffix), each with its own routes, localized description, and persisted state. Language and display units SHALL be shared by all sections.
 
 #### Scenario: Switch product
-- **WHEN** the user selects Keychain Master in the product switcher
-- **THEN** the keychain route opens, the top bar shows Keychain Master as the active product and the Gridfinity mode switcher is hidden
+- **WHEN** the user selects Keychain on the start page
+- **THEN** the keychain route opens and the breadcrumb shows Keychain as the active product
 
 #### Scenario: Products do not share parameters
-- **WHEN** the user changes baseplate parameters, opens Keychain Master and returns
+- **WHEN** the user changes baseplate parameters, opens Keychain and returns
 - **THEN** the baseplate parameters are unchanged
 
 #### Scenario: Global settings
@@ -199,7 +211,7 @@ Keychain Master SHALL be organised into modes like Gridfinity Master: a mode cho
 - **THEN** the Keychain Master mode chooser is shown
 
 ### Requirement: Start over
-Every mode panel (box, baseplate, cutout, keychain image, keychain shape) SHALL have a "Start over" button, reachable while all sections are collapsed. Activating it SHALL ask for confirmation and, once confirmed, return all parameters of that mode to their defaults. It SHALL NOT change the parameters of other modes, the language, the display units or the export settings.
+Every mode panel (box, baseplate, cutout, keychain image, keychain shape) SHALL have a "Start over" button in its header strip, reachable while all sections are collapsed, rendered as an icon button without text label. Activating it SHALL ask for confirmation and, once confirmed, return all parameters of that mode to their defaults. It SHALL NOT change the parameters of other modes, the language, the display units or the export settings.
 
 #### Scenario: Confirmed
 - **WHEN** the user changes several settings in the baseplate mode, presses Start over and confirms
@@ -222,14 +234,14 @@ Every mode panel (box, baseplate, cutout, keychain image, keychain shape) SHALL 
 - **THEN** the mode opens with its default parameters
 
 ### Requirement: Beta notice
-The site SHALL show a "beta" label next to the site name and SHALL give a disclaimer that the functionality is not fully tested: dimensions, fit and print settings may be wrong, the user should check the model and test-print a small part, and there is no warranty. The disclaimer SHALL be reachable from the label and repeated in the footer, in every language of the site.
+The site SHALL show a beta badge as a Tabler icon button placed before "PrintKit" in the top bar. Activating the icon button SHALL open a disclaimer popover stating that the functionality is not fully tested: dimensions, fit and print settings may be wrong, the user should check the model and test-print a small part, and there is no warranty. The disclaimer SHALL be reachable from the icon button and repeated in the footer, in every language of the site.
 
 #### Scenario: Label
 - **WHEN** any page of the site is shown
-- **THEN** the top bar shows the beta label next to the site name
+- **THEN** the top bar shows the beta icon button positioned immediately before "PrintKit"
 
 #### Scenario: Disclaimer from the label
-- **WHEN** the user selects the label
+- **WHEN** the user selects the beta icon button
 - **THEN** the disclaimer text is shown and can be dismissed with Escape or by selecting outside it
 
 #### Scenario: Footer
@@ -238,7 +250,7 @@ The site SHALL show a "beta" label next to the site name and SHALL give a discla
 
 #### Scenario: Language
 - **WHEN** the interface language is Russian
-- **THEN** the label and the disclaimer are in Russian
+- **THEN** the disclaimer popover and footer display translated text
 
 ### Requirement: Version
 The site SHALL show its version in semantic versioning form (`MAJOR.MINOR.PATCH`), read from the project's single version number, in the footer and in the beta notice. The current release is 1.0.0. The version SHALL be raised for every change to the site: the minor number for a new feature, the patch number for a fix or rework, the major number for an incompatible change.
@@ -300,4 +312,3 @@ The start-page illustrations and the logo in the top bar SHALL take the hue of t
 #### Scenario: Token driven
 - **WHEN** a hue token changes
 - **THEN** the illustrations of that product change with it without regenerating the image files
-

@@ -19,4 +19,18 @@ describe('editor/ViewCube', () => {
     fireEvent.click(frontBtn)
     expect(onSelect).toHaveBeenCalledWith('front')
   })
+
+  it('triggers onOrbit when dragged and does not trigger onSelectFace', () => {
+    const onSelect = vi.fn()
+    const onOrbit = vi.fn()
+    render(<ViewCube onSelectFace={onSelect} onOrbit={onOrbit} />)
+
+    const cube = screen.getByTestId('view-cube')
+    fireEvent.pointerDown(cube, { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+    fireEvent.pointerMove(cube, { clientX: 120, clientY: 110, pointerId: 1 })
+    fireEvent.pointerUp(cube, { clientX: 120, clientY: 110, pointerId: 1 })
+
+    expect(onOrbit).toHaveBeenCalledWith(20, 10)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
 })

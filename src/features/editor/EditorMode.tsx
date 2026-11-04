@@ -23,8 +23,6 @@ import { useEditorModel } from './useEditorModel'
 import { Outliner } from './Outliner'
 import { Properties } from './Properties'
 import { Toolbar, EditorDropZone, type TransformTool } from './Toolbar'
-import { ViewCube } from './ViewCube'
-import { VIEW_DIRECTIONS, type ViewFace } from './viewCommands'
 import { useHotkeys, type HotkeyDef } from './useHotkeys'
 import { loadEditorUi, saveEditorUi } from './editorUiStore'
 import { importFiles } from './importFiles'
@@ -593,19 +591,6 @@ export function EditorMode() {
               <IconLayoutSidebarRightExpand size={16} />
             </button>
           )}
-
-          {/* ViewCube overlay */}
-          <div className="absolute top-3 right-12 z-20">
-            <ViewCube
-              rotation={cameraRotation}
-              onSelectFace={(face: ViewFace) => {
-                const dir = VIEW_DIRECTIONS[face]
-                if (dir) {
-                  // Standard view face clicked
-                }
-              }}
-            />
-          </div>
 
           {/* Viewport wrapped with file drop zone */}
           <EditorDropZone onDropFiles={(files) => handleImportFiles(files, 'mm')}>

@@ -75,6 +75,7 @@ interface Api {
   setPlate: (p: BuildPlate | null) => void
   fit: () => void
   setViewFace: (face: ViewFace) => void
+  orbit: (dx: number, dy: number) => void
   updateScene: (sc: ViewportSceneConfig | undefined) => void
 }
 
@@ -473,6 +474,12 @@ export function Viewport({
         )
         camera.position.set(pos[0], pos[1], pos[2])
       },
+      orbit(dx: number, dy: number) {
+        const elH = el.clientHeight || 400
+        controls.rotateLeft((2 * Math.PI * dx) / elH)
+        controls.rotateUp((2 * Math.PI * dy) / elH)
+        controls.update()
+      },
       updateScene(sc) {
         applyScene(sc)
       },
@@ -603,16 +610,35 @@ export function Viewport({
     let mouseDownPos = { x: 0, y: 0 }
     let isDragging = false
     let isBoxSelecting = false
+    let isPointerDownOnCanvas = false
 
     const onPointerDown = (e: MouseEvent) => {
       if (e.button !== 0) return
+      isPointerDownOnCanvas = true
       mouseDownPos = { x: e.clientX, y: e.clientY }
       isDragging = false
       isBoxSelecting = false
+
+      // In Editor scene mode: Left Click without Option/Alt is for selection/box-select only, not rotation
+      if (sceneRef.current && !e.altKey) {
+        controls.enabled = false
+      } else {
+        controls.enabled = true
+      }
     }
 
     const onPointerMove = (e: MouseEvent) => {
-      if (e.buttons !== 1) return
+      if (!isPointerDownOnCanvas) return
+      if (e.buttons !== 1) {
+        isPointerDownOnCanvas = false
+        if (isBoxSelecting) {
+          isBoxSelecting = false
+          setBoxSelectRect(null)
+        }
+        controls.enabled = true
+        return
+      }
+
       const dx = e.clientX - mouseDownPos.x
       const dy = e.clientY - mouseDownPos.y
       if (Math.hypot(dx, dy) > 5) {
@@ -620,20 +646,24 @@ export function Viewport({
         if (!transformControls.dragging && !e.altKey && sceneRef.current) {
           isBoxSelecting = true
           controls.enabled = false
+          const rect = el.getBoundingClientRect()
           setBoxSelectRect({
-            x0: mouseDownPos.x - el.getBoundingClientRect().left,
-            y0: mouseDownPos.y - el.getBoundingClientRect().top,
-            x1: e.clientX - el.getBoundingClientRect().left,
-            y1: e.clientY - el.getBoundingClientRect().top,
+            x0: mouseDownPos.x - rect.left,
+            y0: mouseDownPos.y - rect.top,
+            x1: e.clientX - rect.left,
+            y1: e.clientY - rect.top,
           })
         }
       }
     }
 
     const onPointerUp = (e: MouseEvent) => {
+      if (!isPointerDownOnCanvas) return
+      isPointerDownOnCanvas = false
+      controls.enabled = true
+
       if (isBoxSelecting) {
         isBoxSelecting = false
-        controls.enabled = true
         const rect = boxSelectRectRef.current
         setBoxSelectRect(null)
         if (rect && sceneRef.current) {
@@ -806,6 +836,7 @@ export function Viewport({
           <ViewCube
             rotation={cameraRotation}
             onSelectFace={(face) => api.current?.setViewFace(face)}
+            onOrbit={(dx, dy) => api.current?.orbit(dx, dy)}
           />
         </div>
       )}

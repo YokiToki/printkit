@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ViewFace } from './viewCommands'
 
@@ -5,13 +6,16 @@ export interface ViewCubeProps {
   /** Углы поворота камеры (в градусах) для синхронизации ориентации кубика: [pitch, yaw, roll] */
   rotation?: [number, number, number]
   onSelectFace: (face: ViewFace) => void
+  onOrbit?: (dx: number, dy: number) => void
 }
 
 /**
  * DOM+CSS 3D-куб для интерактивной ориентации и быстрого выбора стандартных видов.
+ * Поддерживает как клик по граням, так и прямое вращение камеры перетаскиванием (drag).
  */
-export function ViewCube({ rotation = [0, 0, 0], onSelectFace }: ViewCubeProps) {
+export function ViewCube({ rotation = [0, 0, 0], onSelectFace, onOrbit }: ViewCubeProps) {
   const { t } = useTranslation()
+  const dragRef = useRef<{ startX: number; startY: number; lastX: number; lastY: number; moved: boolean } | null>(null)
 
   const [pitch, yaw] = rotation
 
@@ -24,10 +28,52 @@ export function ViewCube({ rotation = [0, 0, 0], onSelectFace }: ViewCubeProps) 
     { face: 'left', transform: 'rotateY(-90deg) translateZ(36px)', labelKey: 'editor.view.left' },
   ]
 
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    dragRef.current = { startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY, moved: false }
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      // Ignored in test environments
+    }
+  }
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return
+    const dist = Math.hypot(e.clientX - dragRef.current.startX, e.clientY - dragRef.current.startY)
+    if (dist > 3) {
+      dragRef.current.moved = true
+      const dx = e.clientX - dragRef.current.lastX
+      const dy = e.clientY - dragRef.current.lastY
+      dragRef.current.lastX = e.clientX
+      dragRef.current.lastY = e.clientY
+      onOrbit?.(dx, dy)
+    }
+  }
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (dragRef.current) {
+      try {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+          e.currentTarget.releasePointerCapture(e.pointerId)
+        }
+      } catch {
+        // Ignored
+      }
+    }
+    setTimeout(() => {
+      dragRef.current = null
+    }, 50)
+  }
+
   return (
     <div
       data-testid="view-cube"
-      className="relative select-none pointer-events-auto"
+      className="relative select-none pointer-events-auto cursor-grab active:cursor-grabbing touch-none"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       style={{
         width: 80,
         height: 80,
@@ -48,6 +94,7 @@ export function ViewCube({ rotation = [0, 0, 0], onSelectFace }: ViewCubeProps) 
             data-testid={`view-cube-${face}`}
             onClick={(e) => {
               e.stopPropagation()
+              if (dragRef.current?.moved) return
               onSelectFace(face)
             }}
             className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold uppercase tracking-wider

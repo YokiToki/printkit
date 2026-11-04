@@ -143,6 +143,31 @@ describe('editor/primitives', () => {
     // Open mesh part was passed through without throwing
     const meshPart = res.parts.find((p) => p.label === 'mesh-obj')
     expect(meshPart).toBeDefined()
+
+    // Subsequent generate calls reuse cached primitive and registered mesh without detachment
+    const res2 = await generate('editor', {
+      objects: [
+        {
+          id: 'box-obj-2',
+          source: {
+            kind: 'primitive',
+            shape: 'box',
+            params: { width: 10, depth: 10, height: 10 },
+          },
+        },
+        {
+          id: 'mesh-obj-2',
+          source: {
+            kind: 'mesh',
+            meshId: 'open-mesh-1',
+            unit: 'mm',
+          },
+        },
+      ],
+    })
+    expect(res2.parts).toHaveLength(2)
+    expect(res2.parts[0].mesh.vertProperties.byteLength).toBeGreaterThan(0)
+    expect(res2.parts[1].mesh.vertProperties.byteLength).toBeGreaterThan(0)
     expect(meshPart!.mesh.triVerts).toHaveLength(3)
     expect(meshPart!.mesh.min).toEqual([0, 0, 0])
     expect(meshPart!.mesh.max).toEqual([10, 10, 0])

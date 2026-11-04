@@ -22,6 +22,14 @@ export interface EditorModelParams {
 /** Кэш полигональных сеток примитивов по (форма, параметры). */
 export const primitiveMeshCache = new Map<string, MeshData>()
 
+function copyMeshData(m: MeshData): MeshData {
+  return {
+    ...m,
+    vertProperties: new Float32Array(m.vertProperties),
+    triVerts: new Uint32Array(m.triVerts),
+  }
+}
+
 /** Параметры по режимам. Новые режимы (box, cutout) добавляются сюда. */
 export interface ModeParams {
   baseplate: BaseplateGeometry
@@ -134,7 +142,7 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
             col: 0,
             row: 0,
             oversize: false,
-            mesh,
+            mesh: copyMeshData(mesh),
           })
         } else if (obj.source.kind === 'mesh') {
           const indexed = meshRegistry.get(obj.source.meshId)
@@ -164,7 +172,7 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
               col: 0,
               row: 0,
               oversize: false,
-              mesh,
+              mesh: copyMeshData(mesh),
             })
           }
         }

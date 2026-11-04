@@ -29,6 +29,29 @@ import { importFiles } from './importFiles'
 import { getModelClient } from '../../app/useModel'
 import { EditorExportFooter } from './EditorExportFooter'
 import { log } from '../../app/activityLog'
+import { SketchToolbar } from './sketch/SketchToolbar'
+import { ConstraintPanel } from './sketch/ConstraintPanel'
+import {
+  initialToolState,
+  sketchToolReducer,
+  type SketchTool,
+  type ToolState,
+} from './sketch/toolStateMachine'
+import { dof as computeDof } from '../../editor/sketch/dof'
+import {
+  addSketchCommand,
+  updateSketchInDoc,
+  deleteSketchCommand,
+  renameSketchCommand,
+  toggleSketchVisibleCommand,
+  updateDimensionCommand,
+  deleteConstraintCommand,
+  deleteSelectionCommand,
+  dragPointCommand,
+} from './sketch/sketchCommands'
+import { newId, type PlaneDefinition, type Constraint } from '../../editor/sketch/model'
+import type { ScreenPickResult } from '../viewport/sketchPicking'
+import type { ViewportSketchConfig } from '../viewport/sketchMesh'
 import type { MeshData } from '../../geometry/mesh'
 
 export function EditorMode() {
@@ -63,6 +86,25 @@ export function EditorMode() {
   // Camera viewcube rotation
   const [cameraRotation, setCameraRotation] = useState<[number, number, number]>([0, 0, 0])
   const fitRef = useRef<() => void>(() => {})
+
+  // Sketch mode state
+  const [activeSketchId, setActiveSketchId] = useState<string | null>(null)
+  const activeSketch = useMemo(
+    () => doc.sketches?.find((s) => s.id === activeSketchId),
+    [doc.sketches, activeSketchId],
+  )
+  const [sketchToolState, setSketchToolState] = useState<ToolState>(initialToolState('select'))
+
+  const dofInfo = useMemo(() => {
+    if (!activeSketch) return { dof: 0, conflicts: [], redundant: [], entityStatus: {} }
+    const res = computeDof(activeSketch)
+    return {
+      dof: res.dof,
+      conflicts: res.conflictingConstraints,
+      redundant: res.redundantConstraints,
+      entityStatus: { ...res.pointStatus, ...res.curveStatus },
+    }
+  }, [activeSketch])
 
   // Load saved UI settings
   useEffect(() => {
@@ -412,8 +454,6 @@ export function EditorMode() {
     [selection, doc.objects, undo, redo, canUndo, canRedo, projection]
   )
 
-  useHotkeys(hotkeyCommands)
-
   // Viewport scene descriptor
   const viewportScene = useMemo((): ViewportSceneConfig => {
     const matrices: Record<string, Matrix4Tuple> = {}
@@ -437,6 +477,333 @@ export function EditorMode() {
       projection,
     }
   }, [doc.objects, selection, tool, snap, snapStepMm, snapStepDeg, projection])
+
+  // Sketch Viewport config
+  const viewportSketch = useMemo((): ViewportSketchConfig | null => {
+    if (!activeSketch) return null
+    return {
+      plane: activeSketch.plane,
+      sketch: activeSketch,
+      selection: {
+        points: sketchToolState.selectedPointIds,
+        curves: sketchToolState.selectedCurveIds,
+      },
+      preview: sketchToolState.preview,
+      tool: sketchToolState.tool,
+      dofStatus: {
+        points: dofInfo.entityStatus,
+        curves: dofInfo.entityStatus,
+      },
+      conflicts: {
+        constraints: dofInfo.conflicts,
+      },
+    }
+  }, [activeSketch, sketchToolState, dofInfo])
+
+  // Sketch add handler
+  const handleAddSketch = (plane: PlaneDefinition) => {
+    const existingNames = (doc.sketches ?? []).map((s) => s.name)
+    const name = newName(t('sketch.defaultName', 'Sketch'), existingNames)
+    let newSketchId = ''
+    dispatch('Add Sketch', (prev) => {
+      const res = addSketchCommand(prev, name, plane)
+      newSketchId = res.sketchId
+      return res.doc
+    })
+    setActiveSketchId(newSketchId)
+    setSketchToolState(initialToolState('select'))
+  }
+
+  // Sketch constraint addition
+  const handleAddConstraint = (kind: Constraint['kind']) => {
+    if (!activeSketch) return
+    const pts = sketchToolState.selectedPointIds
+    const crvs = sketchToolState.selectedCurveIds
+    let refs: string[] = []
+    let value: number | undefined = undefined
+
+    if (kind === 'horizontal' || kind === 'vertical') {
+      if (crvs.length === 1) refs = [crvs[0]]
+      else if (pts.length === 2) refs = [pts[0], pts[1]]
+    } else if (kind === 'coincident') {
+      if (pts.length >= 2) refs = [pts[0], pts[1]]
+      else if (pts.length === 1 && crvs.length === 1) refs = [pts[0], crvs[0]]
+    } else if (kind === 'parallel' || kind === 'perpendicular' || kind === 'equal') {
+      if (crvs.length === 2) refs = [crvs[0], crvs[1]]
+    } else if (kind === 'tangent') {
+      if (crvs.length === 2) refs = [crvs[0], crvs[1]]
+    } else if (kind === 'distance') {
+      if (pts.length === 2) {
+        refs = [pts[0], pts[1]]
+        const p1 = activeSketch.points[pts[0]]
+        const p2 = activeSketch.points[pts[1]]
+        if (p1 && p2) value = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+      } else if (crvs.length === 1) {
+        refs = [crvs[0]]
+        const c = activeSketch.curves[crvs[0]]
+        if (c && c.kind === 'line') {
+          const p1 = activeSketch.points[c.a]
+          const p2 = activeSketch.points[c.b]
+          if (p1 && p2) value = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+        }
+      }
+    } else if (kind === 'radius') {
+      if (crvs.length === 1) {
+        refs = [crvs[0]]
+        const c = activeSketch.curves[crvs[0]]
+        if (c && c.kind === 'circle') value = c.r
+        else if (c && c.kind === 'arc') {
+          const p1 = activeSketch.points[c.c]
+          const p2 = activeSketch.points[c.a]
+          if (p1 && p2) value = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+        }
+      }
+    } else if (kind === 'fixed') {
+      if (pts.length === 1) refs = [pts[0]]
+    }
+
+    if (refs.length > 0) {
+      const newCon: Constraint = {
+        id: newId('con'),
+        kind,
+        refs,
+        value,
+      }
+      dispatch(`Add ${kind} constraint`, (prev) =>
+        updateSketchInDoc(prev, activeSketch.id, (s) => ({
+          ...s,
+          constraints: [...s.constraints, newCon],
+        })),
+      )
+    }
+  }
+
+  // Sketch pointer and select interactions
+  const dragPointRef = useRef<string | null>(null)
+  const handleSketchSelect = (hit: ScreenPickResult | null, additive: boolean) => {
+    if (!hit) {
+      if (!additive) {
+        setSketchToolState((prev) => ({
+          ...prev,
+          selectedPointIds: [],
+          selectedCurveIds: [],
+        }))
+      }
+      return
+    }
+    if (hit.kind === 'point') {
+      setSketchToolState((prev) => ({
+        ...prev,
+        selectedPointIds: additive
+          ? prev.selectedPointIds.includes(hit.id)
+            ? prev.selectedPointIds.filter((id) => id !== hit.id)
+            : [...prev.selectedPointIds, hit.id]
+          : [hit.id],
+        selectedCurveIds: additive ? prev.selectedCurveIds : [],
+      }))
+    } else if (hit.kind === 'curve') {
+      setSketchToolState((prev) => ({
+        ...prev,
+        selectedPointIds: additive ? prev.selectedPointIds : [],
+        selectedCurveIds: additive
+          ? prev.selectedCurveIds.includes(hit.id)
+            ? prev.selectedCurveIds.filter((id) => id !== hit.id)
+            : [...prev.selectedCurveIds, hit.id]
+          : [hit.id],
+      }))
+    }
+  }
+
+  const handleSketchPointer = (
+    kind: 'down' | 'move' | 'up' | 'click' | 'dblclick',
+    pos: { x: number; y: number },
+    mods: { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean },
+  ) => {
+    if (!activeSketch) return
+    if (kind === 'move' && sketchToolState.tool === 'select' && dragPointRef.current) {
+      dispatch(
+        'Drag Point',
+        (prev) => dragPointCommand(prev, activeSketch.id, dragPointRef.current!, pos),
+        'sketch-drag-point',
+      )
+      return
+    }
+    if (kind === 'up' && dragPointRef.current) {
+      dragPointRef.current = null
+      return
+    }
+    if (sketchToolState.tool === 'select' && kind === 'down') {
+      for (const [pId, pt] of Object.entries(activeSketch.points)) {
+        if (Math.hypot(pt.x - pos.x, pt.y - pos.y) < 2) {
+          dragPointRef.current = pId
+          break
+        }
+      }
+    }
+
+    const type = kind === 'down' ? 'down' : kind === 'move' ? 'move' : 'up'
+    const res = sketchToolReducer(activeSketch, sketchToolState, {
+      type,
+      pos,
+      shift: mods.shift,
+      ctrl: mods.ctrl,
+      alt: mods.alt,
+    })
+    setSketchToolState(res.state)
+    if (res.sketch !== activeSketch) {
+      dispatch(
+        res.command?.label ?? 'Sketch Edit',
+        (prev) => updateSketchInDoc(prev, activeSketch.id, () => res.sketch),
+        res.command?.mergeKey,
+      )
+    }
+  }
+
+  // Sketch hotkeys
+  const sketchHotkeyCommands: HotkeyDef[] = useMemo(
+    () => [
+      {
+        id: 'sketch-select',
+        key: 's',
+        labelKey: 'editor.toolbar.select',
+        action: () => setSketchToolState(initialToolState('select', sketchToolState.construction)),
+      },
+      {
+        id: 'sketch-line',
+        key: 'l',
+        labelKey: 'sketch.tool.line',
+        action: () => setSketchToolState(initialToolState('line', sketchToolState.construction)),
+      },
+      {
+        id: 'sketch-rect',
+        key: 'r',
+        labelKey: 'sketch.tool.rect2pt',
+        action: () => setSketchToolState(initialToolState('rect-2pt', sketchToolState.construction)),
+      },
+      {
+        id: 'sketch-circle',
+        key: 'c',
+        labelKey: 'sketch.tool.circle',
+        action: () => setSketchToolState(initialToolState('circle', sketchToolState.construction)),
+      },
+      {
+        id: 'sketch-arc',
+        key: 'a',
+        labelKey: 'sketch.tool.arc3pt',
+        action: () => setSketchToolState(initialToolState('arc-3pt', sketchToolState.construction)),
+      },
+      {
+        id: 'sketch-toggle-construction',
+        key: 'x',
+        labelKey: 'sketch.toggleConstruction',
+        action: () => {
+          setSketchToolState((prev) => ({ ...prev, construction: !prev.construction }))
+        },
+      },
+      {
+        id: 'sketch-esc',
+        key: 'Escape',
+        labelKey: 'editor.toolbar.select',
+        action: () => {
+          if (sketchToolState.stage > 0) {
+            setSketchToolState((prev) => ({
+              ...prev,
+              stage: 0,
+              startPt: undefined,
+              preview: undefined,
+            }))
+          } else if (
+            sketchToolState.selectedPointIds.length > 0 ||
+            sketchToolState.selectedCurveIds.length > 0
+          ) {
+            setSketchToolState((prev) => ({
+              ...prev,
+              selectedPointIds: [],
+              selectedCurveIds: [],
+            }))
+          } else if (sketchToolState.tool !== 'select') {
+            setSketchToolState(initialToolState('select', sketchToolState.construction))
+          }
+        },
+      },
+      {
+        id: 'sketch-delete',
+        key: 'Delete',
+        labelKey: 'editor.outliner.delete',
+        action: () => {
+          if (
+            activeSketch &&
+            (sketchToolState.selectedPointIds.length > 0 || sketchToolState.selectedCurveIds.length > 0)
+          ) {
+            dispatch(
+              'Delete Selection',
+              (prev) =>
+                deleteSelectionCommand(
+                  prev,
+                  activeSketch.id,
+                  sketchToolState.selectedCurveIds,
+                  sketchToolState.selectedPointIds,
+                ),
+            )
+            setSketchToolState((prev) => ({
+              ...prev,
+              selectedPointIds: [],
+              selectedCurveIds: [],
+            }))
+          }
+        },
+      },
+      {
+        id: 'sketch-backspace',
+        key: 'Backspace',
+        labelKey: 'editor.outliner.delete',
+        action: () => {
+          if (
+            activeSketch &&
+            (sketchToolState.selectedPointIds.length > 0 || sketchToolState.selectedCurveIds.length > 0)
+          ) {
+            dispatch(
+              'Delete Selection',
+              (prev) =>
+                deleteSelectionCommand(
+                  prev,
+                  activeSketch.id,
+                  sketchToolState.selectedCurveIds,
+                  sketchToolState.selectedPointIds,
+                ),
+            )
+            setSketchToolState((prev) => ({
+              ...prev,
+              selectedPointIds: [],
+              selectedCurveIds: [],
+            }))
+          }
+        },
+      },
+      {
+        id: 'sketch-undo',
+        key: 'z',
+        ctrl: true,
+        labelKey: 'common.reset',
+        action: () => {
+          if (canUndo) undo()
+        },
+      },
+      {
+        id: 'sketch-redo',
+        key: 'z',
+        ctrl: true,
+        shift: true,
+        labelKey: 'common.reset',
+        action: () => {
+          if (canRedo) redo()
+        },
+      },
+    ],
+    [activeSketch, sketchToolState, canUndo, canRedo, undo, redo, dispatch],
+  )
+
+  useHotkeys(activeSketch ? sketchHotkeyCommands : hotkeyCommands)
 
   // Viewport picking & gizmo callbacks
   const handlePick = (label: string | null, additive: boolean) => {
@@ -502,20 +869,39 @@ export function EditorMode() {
   return (
     <div data-testid="editor-mode" className="flex flex-col flex-1 min-h-0 w-full h-full bg-bg">
       {/* Top Toolbar */}
-      <Toolbar
-        tool={tool}
-        onToolChange={handleToolChange}
-        snap={snap}
-        onSnapChange={handleSnapChange}
-        snapStepMm={snapStepMm}
-        snapStepDeg={snapStepDeg}
-        onSnapStepChange={handleSnapStepChange}
-        projection={projection}
-        onProjectionChange={handleProjectionChange}
-        onFit={() => fitRef.current()}
-        onAddPrimitive={handleAddPrimitive}
-        onImportFiles={handleImportFiles}
-      />
+      {activeSketch ? (
+        <SketchToolbar
+          tool={sketchToolState.tool}
+          onToolChange={(tool) => setSketchToolState(initialToolState(tool, sketchToolState.construction))}
+          construction={sketchToolState.construction}
+          onToggleConstruction={() =>
+            setSketchToolState((prev) => ({ ...prev, construction: !prev.construction }))
+          }
+          onAddConstraint={handleAddConstraint}
+          onFinish={() => {
+            setActiveSketchId(null)
+          }}
+          sketchName={activeSketch.name}
+          dof={dofInfo.dof}
+          hasConflict={dofInfo.conflicts.length > 0}
+        />
+      ) : (
+        <Toolbar
+          tool={tool}
+          onToolChange={handleToolChange}
+          snap={snap}
+          onSnapChange={handleSnapChange}
+          snapStepMm={snapStepMm}
+          snapStepDeg={snapStepDeg}
+          onSnapStepChange={handleSnapStepChange}
+          projection={projection}
+          onProjectionChange={handleProjectionChange}
+          onFit={() => fitRef.current()}
+          onAddPrimitive={handleAddPrimitive}
+          onImportFiles={handleImportFiles}
+          onAddSketch={handleAddSketch}
+        />
+      )}
 
       {/* Main Workspace Area */}
       <div className="relative flex flex-1 min-h-0 w-full overflow-hidden">
@@ -542,6 +928,8 @@ export function EditorMode() {
             <Outliner
               objects={doc.objects}
               selection={selection}
+              sketches={doc.sketches}
+              activeSketchId={activeSketchId}
               onSelect={setSelection}
               onToggleVisible={handleToggleVisible}
               onToggleLock={handleToggleLocked}
@@ -560,6 +948,22 @@ export function EditorMode() {
                   objects: prev.objects.map((o) => ({ ...o, visible: true })),
                 }))
               }
+              onEditSketch={(id) => {
+                setActiveSketchId(id)
+                setSketchToolState(initialToolState('select'))
+              }}
+              onToggleSketchVisible={(id) =>
+                dispatch('Toggle Sketch Visibility', (prev) => toggleSketchVisibleCommand(prev, id))
+              }
+              onRenameSketch={(id, name) =>
+                dispatch('Rename Sketch', (prev) => renameSketchCommand(prev, id, name))
+              }
+              onDeleteSketch={(id) => {
+                dispatch('Delete Sketch', (prev) => deleteSketchCommand(prev, id))
+                if (activeSketchId === id) {
+                  setActiveSketchId(null)
+                }
+              }}
               healthMap={healthMap}
             />
           </div>
@@ -598,6 +1002,7 @@ export function EditorMode() {
             <Viewport
               model={model}
               scene={viewportScene}
+              sketch={viewportSketch}
               onPick={handlePick}
               onBoxSelect={handleBoxSelect}
               onGizmoChange={handleGizmoChange}
@@ -605,6 +1010,22 @@ export function EditorMode() {
               onCameraChange={setCameraRotation}
               onFitReady={(fit) => {
                 fitRef.current = fit
+              }}
+              onSketchPointer={handleSketchPointer}
+              onSketchSelect={handleSketchSelect}
+              onUpdateConstraint={(id, val) => {
+                if (activeSketchId) {
+                  dispatch('Update Constraint', (prev) =>
+                    updateDimensionCommand(prev, activeSketchId, id, val),
+                  )
+                }
+              }}
+              onDeleteConstraint={(id) => {
+                if (activeSketchId) {
+                  dispatch('Delete Constraint', (prev) =>
+                    deleteConstraintCommand(prev, activeSketchId, id),
+                  )
+                }
               }}
             />
           </EditorDropZone>
@@ -614,7 +1035,7 @@ export function EditorMode() {
           <ActivityLogPanel />
         </main>
 
-        {/* Right: Properties (desktop collapsible) */}
+        {/* Right: Properties / Constraints (desktop collapsible) */}
         <aside
           data-testid="editor-properties-panel"
           className={`hidden md:flex flex-col flex-none border-l border-border bg-surface-1 transition-[width] duration-150 ${
@@ -622,7 +1043,9 @@ export function EditorMode() {
           }`}
         >
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <span className="font-semibold text-xs text-text">{t('editor.properties.transform')}</span>
+            <span className="font-semibold text-xs text-text">
+              {activeSketch ? activeSketch.name : t('editor.properties.transform')}
+            </span>
             <button
               type="button"
               data-testid="properties-collapse-btn"
@@ -634,23 +1057,47 @@ export function EditorMode() {
             </button>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <Properties
-              objects={doc.objects}
-              selection={selection}
-              onUpdateObject={handleUpdateObject}
-              onUpdateTransform={handleUpdateTransform}
-              onUpdatePrimitiveParams={handleUpdatePrimitiveParams}
-              healthMap={healthMap}
-              meshes={meshesMap}
-            />
+            {activeSketch ? (
+              <ConstraintPanel
+                sketch={activeSketch}
+                selectedCurveIds={sketchToolState.selectedCurveIds}
+                selectedPointIds={sketchToolState.selectedPointIds}
+                conflicts={{
+                  constraints: dofInfo.conflicts,
+                  redundant: dofInfo.redundant,
+                }}
+                onUpdateConstraint={(id, val) =>
+                  dispatch('Update Constraint', (prev) =>
+                    updateDimensionCommand(prev, activeSketch.id, id, val),
+                  )
+                }
+                onDeleteConstraint={(id) =>
+                  dispatch('Delete Constraint', (prev) =>
+                    deleteConstraintCommand(prev, activeSketch.id, id),
+                  )
+                }
+              />
+            ) : (
+              <Properties
+                objects={doc.objects}
+                selection={selection}
+                onUpdateObject={handleUpdateObject}
+                onUpdateTransform={handleUpdateTransform}
+                onUpdatePrimitiveParams={handleUpdatePrimitiveParams}
+                healthMap={healthMap}
+                meshes={meshesMap}
+              />
+            )}
           </div>
-          <EditorExportFooter
-            doc={doc}
-            selection={selection}
-            meshes={meshesMap}
-            healthMap={healthMap}
-            busy={pending}
-          />
+          {!activeSketch && (
+            <EditorExportFooter
+              doc={doc}
+              selection={selection}
+              meshes={meshesMap}
+              healthMap={healthMap}
+              busy={pending}
+            />
+          )}
         </aside>
 
         {/* Mobile bottom drawer buttons (below 768px) */}
@@ -674,7 +1121,7 @@ export function EditorMode() {
             className="pointer-events-auto inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-surface-1/95 px-4 text-xs font-medium text-text shadow-float cursor-pointer backdrop-blur-xs"
           >
             <IconAdjustmentsHorizontal size={16} />
-            <span>{t('editor.properties.transform')}</span>
+            <span>{activeSketch ? activeSketch.name : t('editor.properties.transform')}</span>
           </button>
         </div>
 
@@ -699,7 +1146,11 @@ export function EditorMode() {
 
             <div className="flex flex-none items-center justify-between pr-2 pb-2 pl-4 border-b border-border">
               <b className="text-[14px]">
-                {mobileDrawer === 'outliner' ? t('editor.outliner.title') : t('editor.properties.transform')}
+                {mobileDrawer === 'outliner'
+                  ? t('editor.outliner.title')
+                  : activeSketch
+                    ? activeSketch.name
+                    : t('editor.properties.transform')}
               </b>
               <button
                 type="button"
@@ -717,6 +1168,8 @@ export function EditorMode() {
                 <Outliner
                   objects={doc.objects}
                   selection={selection}
+                  sketches={doc.sketches}
+                  activeSketchId={activeSketchId}
                   onSelect={setSelection}
                   onToggleVisible={handleToggleVisible}
                   onToggleLock={handleToggleLocked}
@@ -735,7 +1188,43 @@ export function EditorMode() {
                       objects: prev.objects.map((o) => ({ ...o, visible: true })),
                     }))
                   }
+                  onEditSketch={(id) => {
+                    setActiveSketchId(id)
+                    setSketchToolState(initialToolState('select'))
+                  }}
+                  onToggleSketchVisible={(id) =>
+                    dispatch('Toggle Sketch Visibility', (prev) => toggleSketchVisibleCommand(prev, id))
+                  }
+                  onRenameSketch={(id, name) =>
+                    dispatch('Rename Sketch', (prev) => renameSketchCommand(prev, id, name))
+                  }
+                  onDeleteSketch={(id) => {
+                    dispatch('Delete Sketch', (prev) => deleteSketchCommand(prev, id))
+                    if (activeSketchId === id) {
+                      setActiveSketchId(null)
+                    }
+                  }}
                   healthMap={healthMap}
+                />
+              ) : activeSketch ? (
+                <ConstraintPanel
+                  sketch={activeSketch}
+                  selectedCurveIds={sketchToolState.selectedCurveIds}
+                  selectedPointIds={sketchToolState.selectedPointIds}
+                  conflicts={{
+                    constraints: dofInfo.conflicts,
+                    redundant: dofInfo.redundant,
+                  }}
+                  onUpdateConstraint={(id, val) =>
+                    dispatch('Update Constraint', (prev) =>
+                      updateDimensionCommand(prev, activeSketch.id, id, val),
+                    )
+                  }
+                  onDeleteConstraint={(id) =>
+                    dispatch('Delete Constraint', (prev) =>
+                      deleteConstraintCommand(prev, activeSketch.id, id),
+                    )
+                  }
                 />
               ) : (
                 <>

@@ -13,6 +13,7 @@ import {
   IconChevronDown,
 } from '@tabler/icons-react'
 import type { PrimitiveShape } from '../../editor/scene'
+import type { PlaneDefinition } from '../../editor/sketch/model'
 import { loadEditorUi, saveEditorUi } from './editorUiStore'
 
 export type TransformTool = 'select' | 'translate' | 'rotate' | 'scale'
@@ -30,6 +31,7 @@ export interface ToolbarProps {
   onFit: () => void
   onAddPrimitive: (shape: PrimitiveShape) => void
   onImportFiles: (files: File[], unit: 'mm' | 'in') => void
+  onAddSketch?: (plane: PlaneDefinition) => void
 }
 
 const PRIMITIVE_LIST: PrimitiveShape[] = ['box', 'cylinder', 'sphere', 'cone', 'torus', 'wedge']
@@ -47,6 +49,7 @@ export function Toolbar({
   onFit,
   onAddPrimitive,
   onImportFiles,
+  onAddSketch,
 }: ToolbarProps) {
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -145,8 +148,53 @@ export function Toolbar({
                 />
                 <div
                   data-testid="toolbar-add-menu"
-                  className="absolute left-0 top-full mt-1 z-40 min-w-36 rounded-card border border-border bg-surface-1 py-1 shadow-float"
+                  className="absolute left-0 top-full mt-1 z-40 min-w-44 rounded-card border border-border bg-surface-1 py-1 shadow-float"
                 >
+                  <div className="px-3 py-1 text-[10px] font-semibold text-text-subtle uppercase tracking-wider">
+                    {t('sketch.menu.title', 'Sketch')}
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="toolbar-add-sketch-xy"
+                    onClick={() => {
+                      onAddSketch?.({ base: 'XY', offset: 0 })
+                      setAddMenuOpen(false)
+                    }}
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs text-text hover:bg-surface-3 cursor-pointer"
+                  >
+                    <span>{t('sketch.plane.xy', 'Sketch (XY Top)')}</span>
+                    <span className="font-mono text-text-subtle text-[10px]">XY</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="toolbar-add-sketch-xz"
+                    onClick={() => {
+                      onAddSketch?.({ base: 'XZ', offset: 0 })
+                      setAddMenuOpen(false)
+                    }}
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs text-text hover:bg-surface-3 cursor-pointer"
+                  >
+                    <span>{t('sketch.plane.xz', 'Sketch (XZ Front)')}</span>
+                    <span className="font-mono text-text-subtle text-[10px]">XZ</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="toolbar-add-sketch-yz"
+                    onClick={() => {
+                      onAddSketch?.({ base: 'YZ', offset: 0 })
+                      setAddMenuOpen(false)
+                    }}
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs text-text hover:bg-surface-3 cursor-pointer"
+                  >
+                    <span>{t('sketch.plane.yz', 'Sketch (YZ Right)')}</span>
+                    <span className="font-mono text-text-subtle text-[10px]">YZ</span>
+                  </button>
+
+                  <div className="h-px bg-border my-1" />
+
+                  <div className="px-3 py-1 text-[10px] font-semibold text-text-subtle uppercase tracking-wider">
+                    {t('editor.toolbar.primitives', 'Primitives')}
+                  </div>
                   {PRIMITIVE_LIST.map((shape) => (
                     <button
                       key={shape}

@@ -91,4 +91,34 @@ describe('EditorMode', () => {
     await user.click(mobilePropertiesBtn)
     expect(screen.getByTestId('mobile-drawer')).toBeInTheDocument()
   })
+
+  it('adds a sketch, enters sketch mode, and finishes sketch', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+
+    // Initially 3D Toolbar is present
+    expect(screen.getByTestId('toolbar-add-button')).toBeInTheDocument()
+
+    // Click Add menu
+    await user.click(screen.getByTestId('toolbar-add-button'))
+
+    // Click Add Sketch (XY)
+    const addSketchBtn = screen.getByTestId('toolbar-add-sketch-xy')
+    await user.click(addSketchBtn)
+
+    // Now SketchToolbar is displayed
+    expect(screen.getByTestId('sketch-tool-finish')).toBeInTheDocument()
+    expect(screen.getByTestId('sketch-tool-line')).toBeInTheDocument()
+    expect(screen.getByTestId('sketch-dof-status')).toBeInTheDocument()
+
+    // Properties panel shows ConstraintPanel
+    expect(screen.getByTestId('constraint-panel')).toBeInTheDocument()
+
+    // Finish sketch
+    await user.click(screen.getByTestId('sketch-tool-finish'))
+
+    // Returned to 3D Toolbar and 3D Properties
+    expect(screen.getByTestId('toolbar-add-button')).toBeInTheDocument()
+    expect(screen.queryByTestId('sketch-tool-finish')).not.toBeInTheDocument()
+  })
 })

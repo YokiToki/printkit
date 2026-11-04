@@ -28,10 +28,10 @@
 
 ## 5. Sketch UI (no artboard exists: built from `ui/` components and tokens; compare with the wireframes in `design.md`)
 
-- [ ] 5.1 Sketch mode shell: Add → Sketch with plane choice, enter/finish, tool bar swap, status line (`Sketch 1 · n DoF`), "Sketches" group in the outliner (rename, show/hide, edit, delete with the dependency confirmation). Component tests for each action; compare at 1280 px and 390 px, en and ru.
-- [ ] 5.2 Tool state machines and `SketchToolbar`: Select, Line, Rectangle▾, Circle, Arc▾, Slot, Polygon, Fillet, Chamfer, Trim, Mirror, Construction, Dimension, Constraints▾; typed values while drawing; hotkeys of Decision 14 through the registry of `39`; inference glyph next to the cursor. Test the state machines as pure reducers (event sequences → patches) and the toolbar enabling rules.
-- [ ] 5.3 `ConstraintPanel` in Properties: selected curve, constraint list with delete and hover highlight, dimension list with `LengthField` / `NumberField` (angle in degrees), conflict and redundancy marks, "Fix" actions. `stepperAssert` passes. Component test: editing a dimension solves and is one history step; conflict is named.
-- [ ] 5.4 All sketch commands through `dispatch(label, patch, mergeKey)`; drag and typed values merge; undo restores positions without solving. Test: each command undoable, merge, redo cleared.
+- [x] 5.1 Sketch mode shell: Add → Sketch with plane choice, enter/finish, tool bar swap, status line (`Sketch 1 · n DoF`), "Sketches" group in the outliner (rename, show/hide, edit, delete with the dependency confirmation). Component tests for each action; compare at 1280 px and 390 px, en and ru.
+- [x] 5.2 Tool state machines and `SketchToolbar`: Select, Line, Rectangle▾, Circle, Arc▾, Slot, Polygon, Fillet, Chamfer, Trim, Mirror, Construction, Dimension, Constraints▾; typed values while drawing; hotkeys of Decision 14 through the registry of `39`; inference glyph next to the cursor. Test the state machines as pure reducers (event sequences → patches) and the toolbar enabling rules.
+- [x] 5.3 `ConstraintPanel` in Properties: selected curve, constraint list with delete and hover highlight, dimension list with `LengthField` / `NumberField` (angle in degrees), conflict and redundancy marks, "Fix" actions. `stepperAssert` passes. Component test: editing a dimension solves and is one history step; conflict is named.
+- [x] 5.4 All sketch commands through `dispatch(label, patch, mergeKey)`; drag and typed values merge; undo restores positions without solving. Test: each command undoable, merge, redo cleared.
 
 ## 6. Feature UI
 

@@ -454,3 +454,5 @@ export function analyzeDof(sketch: Sketch): DofAnalysis {
     conflictingConstraints,
   }
 }
+
+export const dof = analyzeDof

@@ -11,13 +11,21 @@ import {
   IconEyeCheck,
   IconFocusCentered,
   IconDotsVertical,
+  IconPencil,
+  IconChevronDown,
+  IconChevronRight,
+  IconLine,
 } from '@tabler/icons-react'
 import type { EditorObject } from '../../editor/scene'
+import type { Sketch } from '../../editor/sketch/model'
 import type { MeshHealth } from '../../editor/health'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 
 export interface OutlinerProps {
   objects: EditorObject[]
   selection: string[]
+  sketches?: Sketch[]
+  activeSketchId?: string | null
   onSelect: (ids: string[], additive?: boolean) => void
   onToggleVisible: (id: string) => void
   onToggleLock: (id: string) => void
@@ -26,12 +34,18 @@ export interface OutlinerProps {
   onDelete: (ids: string[]) => void
   onIsolate: (id: string) => void
   onShowAll: () => void
+  onEditSketch?: (id: string) => void
+  onToggleSketchVisible?: (id: string) => void
+  onRenameSketch?: (id: string, name: string) => void
+  onDeleteSketch?: (id: string) => void
   healthMap?: Map<string, MeshHealth>
 }
 
 export function Outliner({
   objects,
   selection,
+  sketches = [],
+  activeSketchId,
   onSelect,
   onToggleVisible,
   onToggleLock,
@@ -40,12 +54,25 @@ export function Outliner({
   onDelete,
   onIsolate,
   onShowAll,
+  onEditSketch,
+  onToggleSketchVisible,
+  onRenameSketch,
+  onDeleteSketch,
   healthMap,
 }: OutlinerProps) {
   const { t } = useTranslation()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const editInputRef = useRef<HTMLInputElement>(null)
+
+  const [editingSketchId, setEditingSketchId] = useState<string | null>(null)
+  const [editSketchName, setEditSketchName] = useState('')
+  const editSketchInputRef = useRef<HTMLInputElement>(null)
+
+  const [confirmDeleteSketchId, setConfirmDeleteSketchId] = useState<string | null>(null)
+
+  const [sketchesOpen, setSketchesOpen] = useState(true)
+  const [bodiesOpen, setBodiesOpen] = useState(true)
 
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)
 
@@ -55,6 +82,27 @@ export function Outliner({
       editInputRef.current.select()
     }
   }, [editingId])
+
+  useEffect(() => {
+    if (editingSketchId && editSketchInputRef.current) {
+      editSketchInputRef.current.focus()
+      editSketchInputRef.current.select()
+    }
+  }, [editingSketchId])
+
+  const handleDeleteSketchClick = (sketchId: string) => {
+    // Check if any object depends on this sketch
+    const hasDependency = objects.some(
+      (o) =>
+        o.source.kind === 'feature' &&
+        o.source.features.some((f) => f.sketch === sketchId || f.sketchId === sketchId),
+    )
+    if (hasDependency) {
+      setConfirmDeleteSketchId(sketchId)
+    } else {
+      onDeleteSketch?.(sketchId)
+    }
+  }
 
   useEffect(() => {
     const handleOutsideClick = () => setContextMenu(null)
@@ -119,17 +167,161 @@ export function Outliner({
         <span className="text-text-muted text-[11px]">{objects.length}</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
-        {objects.length === 0 ? (
-          <div className="p-4 text-center text-text-muted italic">
-            {t('editor.outliner.empty')}
+      <div className="flex-1 overflow-y-auto p-1 space-y-2">
+        {/* Sketches section */}
+        {sketches.length > 0 && (
+          <div className="flex flex-col space-y-0.5">
+            <button
+              type="button"
+              data-testid="outliner-sketches-toggle"
+              onClick={() => setSketchesOpen(!sketchesOpen)}
+              className="flex items-center justify-between px-2 py-1 text-text-muted hover:text-text font-semibold uppercase text-[10px] tracking-wider cursor-pointer"
+            >
+              <div className="flex items-center gap-1">
+                {sketchesOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
+                <span>{t('sketch.outliner.sketches', 'Sketches')}</span>
+              </div>
+              <span className="font-mono text-[10px]">{sketches.length}</span>
+            </button>
+
+            {sketchesOpen &&
+              sketches.map((sk) => {
+                const isEditingThisSketch = activeSketchId === sk.id
+                const isRenaming = editingSketchId === sk.id
+
+                return (
+                  <div
+                    key={sk.id}
+                    data-testid={`outliner-sketch-row-${sk.id}`}
+                    onDoubleClick={() => onEditSketch?.(sk.id)}
+                    className={`group flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
+                      isEditingThisSketch
+                        ? 'bg-accent-muted/40 text-text font-medium ring-1 ring-accent'
+                        : 'text-text-muted hover:bg-surface-2 hover:text-text'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      {/* Visibility Toggle */}
+                      <button
+                        type="button"
+                        data-testid={`outliner-toggle-sketch-vis-${sk.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onToggleSketchVisible?.(sk.id)
+                        }}
+                        className="p-0.5 text-text-muted hover:text-text rounded cursor-pointer shrink-0"
+                        title={sk.visible ? t('editor.outliner.hide') : t('editor.outliner.show')}
+                      >
+                        {sk.visible ? <IconEye size={14} /> : <IconEyeOff size={14} />}
+                      </button>
+
+                      <IconLine size={14} className="text-accent shrink-0" />
+
+                      {isRenaming ? (
+                        <input
+                          ref={editSketchInputRef}
+                          type="text"
+                          value={editSketchName}
+                          onChange={(e) => setEditSketchName(e.target.value)}
+                          onBlur={() => {
+                            if (editSketchName.trim()) {
+                              onRenameSketch?.(sk.id, editSketchName.trim())
+                            }
+                            setEditingSketchId(null)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (editSketchName.trim()) {
+                                onRenameSketch?.(sk.id, editSketchName.trim())
+                              }
+                              setEditingSketchId(null)
+                            } else if (e.key === 'Escape') {
+                              setEditingSketchId(null)
+                            }
+                          }}
+                          className="h-5 px-1 py-0 text-xs bg-bg border border-accent rounded text-text outline-none w-full"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span
+                          className="truncate flex-1"
+                          onDoubleClick={(e) => {
+                            e.stopPropagation()
+                            setEditingSketchId(sk.id)
+                            setEditSketchName(sk.name)
+                          }}
+                        >
+                          {sk.name}
+                        </span>
+                      )}
+
+                      {isEditingThisSketch && (
+                        <span className="text-[10px] px-1 py-0.2 bg-accent/20 text-accent font-medium rounded shrink-0">
+                          Editing
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <button
+                        type="button"
+                        data-testid={`outliner-edit-sketch-${sk.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onEditSketch?.(sk.id)
+                        }}
+                        title={t('sketch.outliner.edit', 'Edit Sketch')}
+                        className="p-1 hover:text-accent rounded cursor-pointer"
+                      >
+                        <IconPencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={`outliner-delete-sketch-${sk.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteSketchClick(sk.id)
+                        }}
+                        title={t('common.delete', 'Delete')}
+                        className="p-1 hover:text-(--color-error-text) rounded cursor-pointer"
+                      >
+                        <IconTrash size={13} />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
           </div>
-        ) : (
-          objects.map((obj, index) => {
-            const isSelected = selection.includes(obj.id)
-            const health = healthMap?.get(obj.id)
-            const isMissingMesh = obj.source.kind === 'mesh' && !health
-            const isOpen = health && !health.closed
+        )}
+
+        {/* Bodies / Objects section */}
+        <div className="flex flex-col space-y-0.5">
+          {sketches.length > 0 && (
+            <button
+              type="button"
+              data-testid="outliner-bodies-toggle"
+              onClick={() => setBodiesOpen(!bodiesOpen)}
+              className="flex items-center justify-between px-2 py-1 text-text-muted hover:text-text font-semibold uppercase text-[10px] tracking-wider cursor-pointer"
+            >
+              <div className="flex items-center gap-1">
+                {bodiesOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
+                <span>{t('sketch.outliner.bodies', 'Bodies')}</span>
+              </div>
+              <span className="font-mono text-[10px]">{objects.length}</span>
+            </button>
+          )}
+
+          {bodiesOpen && (
+            objects.length === 0 ? (
+              <div className="p-4 text-center text-text-muted italic">
+                {t('editor.outliner.empty')}
+              </div>
+            ) : (
+              objects.map((obj, index) => {
+                const isSelected = selection.includes(obj.id)
+                const health = healthMap?.get(obj.id)
+                const isMissingMesh = obj.source.kind === 'mesh' && !health
+                const isOpen = health && !health.closed
 
             return (
               <div
@@ -225,7 +417,8 @@ export function Outliner({
               </div>
             )
           })
-        )}
+        ))}
+      </div>
       </div>
 
       {/* Context Menu Popover */}
@@ -286,6 +479,26 @@ export function Outliner({
             <span>{t('editor.outliner.delete')}</span>
           </button>
         </div>
+      )}
+
+      {/* Confirm delete sketch dialog */}
+      {confirmDeleteSketchId && (
+        <ConfirmDialog
+          title={t('sketch.delete.confirmTitle', 'Delete sketch?')}
+          confirmLabel={t('common.delete', 'Delete')}
+          cancelLabel={t('common.cancel', 'Cancel')}
+          danger
+          onConfirm={() => {
+            onDeleteSketch?.(confirmDeleteSketchId)
+            setConfirmDeleteSketchId(null)
+          }}
+          onCancel={() => setConfirmDeleteSketchId(null)}
+        >
+          {t(
+            'sketch.delete.confirmMessage',
+            'Bodies and features using this sketch will fail to rebuild. Are you sure you want to delete it?',
+          )}
+        </ConfirmDialog>
       )}
     </div>
   )

@@ -175,4 +175,55 @@ describe('editor/Outliner', () => {
     fireEvent.keyDown(row1, { key: 'Delete' })
     expect(onDelete).toHaveBeenCalledWith(['obj-1'])
   })
+
+  it('renders sketches group and supports edit, visibility toggle and delete', () => {
+    const onEditSketch = vi.fn()
+    const onToggleSketchVisible = vi.fn()
+    const onDeleteSketch = vi.fn()
+
+    const sketch = {
+      id: 'sk-1',
+      name: 'Sketch 1',
+      plane: { base: 'XY' as const, offset: 0 },
+      visible: true,
+      points: {},
+      curves: {},
+      constraints: [],
+    }
+
+    render(
+      <Outliner
+        objects={[obj1]}
+        selection={[]}
+        sketches={[sketch]}
+        activeSketchId="sk-1"
+        onSelect={vi.fn()}
+        onToggleVisible={vi.fn()}
+        onToggleLock={vi.fn()}
+        onRename={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onIsolate={vi.fn()}
+        onShowAll={vi.fn()}
+        onEditSketch={onEditSketch}
+        onToggleSketchVisible={onToggleSketchVisible}
+        onDeleteSketch={onDeleteSketch}
+      />
+    )
+
+    expect(screen.getByText('Sketch 1')).toBeInTheDocument()
+    expect(screen.getByText('Editing')).toBeInTheDocument()
+
+    // Toggle visibility
+    fireEvent.click(screen.getByTestId('outliner-toggle-sketch-vis-sk-1'))
+    expect(onToggleSketchVisible).toHaveBeenCalledWith('sk-1')
+
+    // Edit sketch
+    fireEvent.click(screen.getByTestId('outliner-edit-sketch-sk-1'))
+    expect(onEditSketch).toHaveBeenCalledWith('sk-1')
+
+    // Delete sketch (no dependent bodies, so direct delete)
+    fireEvent.click(screen.getByTestId('outliner-delete-sketch-sk-1'))
+    expect(onDeleteSketch).toHaveBeenCalledWith('sk-1')
+  })
 })

@@ -2,8 +2,8 @@
 
 ## 1. Product Names and Branding Cleanup
 
-- [ ] 1.1 Remove "Master" suffix from `products.*.name` in `src/i18n/en.json` and `src/i18n/ru.json` ("Gridfinity", "Keychain", "Rack") and update corresponding tests in `Header.test.tsx`, `StartPage.test.tsx`, and `i18n.test.ts`. Verify with `npx vitest run src/app/Header.test.tsx src/app/StartPage.test.tsx src/i18n/i18n.test.ts`.
-- [ ] 1.2 Update references to "Master" in `StartPage.tsx` and comments so product names are clean and consistent. Verify `npm test` passes for start page tests.
+- [x] 1.1 Remove "Master" suffix from `products.*.name` in `src/i18n/en.json` and `src/i18n/ru.json` ("Gridfinity", "Keychain", "Rack") and update corresponding tests in `Header.test.tsx`, `StartPage.test.tsx`, and `i18n.test.ts`. Verify with `npx vitest run src/app/Header.test.tsx src/app/StartPage.test.tsx src/i18n/i18n.test.ts`.
+- [x] 1.2 Update references to "Master" in `StartPage.tsx` and comments so product names are clean and consistent. Verify `npm test` passes for start page tests.
 
 ## 2. Beta Badge Icon and Placement
 

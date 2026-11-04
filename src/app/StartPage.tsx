@@ -21,7 +21,7 @@ function relativeTime(ms: number, lng: string, justNow: string) {
 
 const PATHS = PRODUCTS.map((p) => p.path)
 
-/** Корневая страница: выбор продукта (Gridfinity Master или Keychain Master). Вьюпорт здесь не монтируется и геометрия не считается. */
+/** Корневая страница: выбор продукта (Gridfinity, Keychain или Rack). Вьюпорт здесь не монтируется и геометрия не считается. */
 export function StartPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()

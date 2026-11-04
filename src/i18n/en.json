@@ -606,19 +606,19 @@
   "products": {
     "label": "Product",
     "gridfinity": {
-      "name": "Gridfinity Master",
+      "name": "Gridfinity",
       "desc": "Parametric Gridfinity bins, baseplates and tool cutouts, with pockets traced from a photo.",
       "tag1": "bins · baseplates",
       "tag2": "tool cutouts"
     },
     "keychain": {
-      "name": "Keychain Master",
+      "name": "Keychain",
       "desc": "Turn a picture or a plain shape into a relief keychain: silhouette, height pattern, text, ring mount, two halves with pins.",
       "tag1": "image → relief",
       "tag2": "shapes · text"
     },
     "rack": {
-      "name": "Rack Master",
+      "name": "Rack",
       "desc": "Parts for a 10-inch rack: panels with patterns, enclosures around a device and shelves, with standard ear holes.",
       "tag1": "1–10 U",
       "tag2": "cases · shelves"

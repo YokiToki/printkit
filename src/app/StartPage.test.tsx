@@ -29,9 +29,9 @@ describe('StartPage (выбор продукта)', () => {
     renderAt('/')
     expect(screen.getByTestId('card-gridfinity')).toHaveAttribute('href', '/gridfinity')
     expect(screen.getByTestId('card-keychain')).toHaveAttribute('href', '/keychain')
-    expect(screen.getByTestId('card-keychain')).toHaveTextContent('Keychain Master')
+    expect(screen.getByTestId('card-keychain')).toHaveTextContent('Keychain')
     expect(screen.getByTestId('card-rack')).toHaveAttribute('href', '/rack')
-    expect(screen.getByTestId('card-rack')).toHaveTextContent('Rack Master')
+    expect(screen.getByTestId('card-rack')).toHaveTextContent('Rack')
   })
   it('карточки имеют фиксированную ширину 360 px, высоту 470 px и теги не выходят за пределы (38b)', async () => {
     for (const lang of ['en', 'ru']) {
@@ -94,7 +94,7 @@ describe('StartPage (выбор продукта)', () => {
   it('«Продолжить» после Keychain без режима (старая запись) ведёт на выбор режима', () => {
     recordSession(null, '1 emblem', 'keychain')
     renderAt('/')
-    const link = screen.getByText(/Continue: Keychain Master 1 emblem/).closest('a')!
+    const link = screen.getByText(/Continue: Keychain 1 emblem/).closest('a')!
     expect(link).toHaveAttribute('href', '/keychain')
   })
 })

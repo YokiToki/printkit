@@ -2,8 +2,8 @@
 
 ## 1. Spikes (decide before building)
 
-- [ ] 1.1 Solver: in a throwaway test file, implement a Levenberg–Marquardt solver for 6 constraint kinds (coincident, horizontal, distance, radius, tangent line–circle, angle) and compare it with `planegcs` on three reference sketches (rounded rectangle, slot, bracket with 4 holes, 200 entities): solve time, nearest-solution behaviour when a dimension changes, DoF and conflict reporting, licence, WASM size. Record the numbers and the decision in `design.md` (Decision 3, Open Questions). If neither is acceptable, stop for `/opsx:update`.
-- [ ] 1.2 Edge break: build the mitre-offset loft (chamfer and fillet) on a rounded rectangle with a hole and a slot, check `expectValidSolid`, volume against the analytic value and collapse limits; record in `design.md` (Decision 8) how much ships (chamfer and fillet, or chamfer on convex profiles only).
+- [x] 1.1 Solver: in a throwaway test file, implement a Levenberg–Marquardt solver for 6 constraint kinds (coincident, horizontal, distance, radius, tangent line–circle, angle) and compare it with `planegcs` on three reference sketches (rounded rectangle, slot, bracket with 4 holes, 200 entities): solve time, nearest-solution behaviour when a dimension changes, DoF and conflict reporting, licence, WASM size. Record the numbers and the decision in `design.md` (Decision 3, Open Questions). If neither is acceptable, stop for `/opsx:update`.
+- [x] 1.2 Edge break: build the mitre-offset loft (chamfer and fillet) on a rounded rectangle with a hole and a slot, check `expectValidSolid`, volume against the analytic value and collapse limits; record in `design.md` (Decision 8) how much ships (chamfer and fillet, or chamfer on convex profiles only).
 
 ## 2. Sketch data and solver (React-free, `src/editor/sketch/`)
 

@@ -11,10 +11,28 @@ import type { TextRaster, TextRegistry } from './text'
 import { buildCutout, buildCutoutTools, type CutoutParams, type MeshRegistry } from './cutout'
 import type { IndexedMesh } from './stl-import'
 import { getWasm } from './wasm'
-import { meshOf, type MeshData } from './mesh'
+import { meshBounds, meshOf, type MeshData } from './mesh'
+import { buildPrimitiveManifold } from '../editor/primitives'
+import type { ObjectSource } from '../editor/scene'
+
+export interface EditorModelParams {
+  objects: { id: string; source: ObjectSource }[]
+}
+
+/** Кэш полигональных сеток примитивов по (форма, параметры). */
+export const primitiveMeshCache = new Map<string, MeshData>()
 
 /** Параметры по режимам. Новые режимы (box, cutout) добавляются сюда. */
-export interface ModeParams { baseplate: BaseplateGeometry; box: BoxParams; cutout: CutoutParams; keychain: KeychainParams; rackPanel: RackPanelParams; rackCase: RackCaseParams; rackShelf: RackShelfParams }
+export interface ModeParams {
+  baseplate: BaseplateGeometry
+  box: BoxParams
+  cutout: CutoutParams
+  keychain: KeychainParams
+  rackPanel: RackPanelParams
+  rackCase: RackCaseParams
+  rackShelf: RackShelfParams
+  editor: EditorModelParams
+}
 
 /** Импортированные сетки этого потока (воркера): вырезы ссылаются на них по id. */
 export const meshRegistry: MeshRegistry = new Map()
@@ -92,6 +110,66 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
       const built = await buildRackShelf(params as RackShelfParams, wasmUrl)
       const rack = { ...(built.error ? { error: built.error } : {}), warnings: built.warnings }
       try { return { parts: built.solid ? [{ label: 'shelf', col: 0, row: 0, oversize: false, mesh: meshOf(built.solid) }] : [], rack } } finally { built.solid?.delete() }
+    }
+    case 'editor': {
+      const p = params as EditorModelParams
+      const w = await getWasm(wasmUrl)
+      const parts: PartMesh[] = []
+
+      for (const obj of p.objects) {
+        if (obj.source.kind === 'primitive') {
+          const cacheKey = `${obj.source.shape}:${JSON.stringify(obj.source.params)}`
+          let mesh = primitiveMeshCache.get(cacheKey)
+          if (!mesh) {
+            const m = buildPrimitiveManifold(w, obj.source.shape, obj.source.params)
+            try {
+              mesh = meshOf(m)
+              primitiveMeshCache.set(cacheKey, mesh)
+            } finally {
+              m.delete()
+            }
+          }
+          parts.push({
+            label: obj.id,
+            col: 0,
+            row: 0,
+            oversize: false,
+            mesh,
+          })
+        } else if (obj.source.kind === 'mesh') {
+          const indexed = meshRegistry.get(obj.source.meshId)
+          if (indexed) {
+            const b = meshBounds(indexed.vertProperties)
+            let vol = 0
+            const tris = indexed.triVerts
+            const verts = indexed.vertProperties
+            for (let t = 0; t < tris.length; t += 3) {
+              const a = tris[t] * 3, b = tris[t + 1] * 3, c = tris[t + 2] * 3
+              vol +=
+                (verts[a] * (verts[b + 1] * verts[c + 2] - verts[b + 2] * verts[c + 1]) -
+                  verts[a + 1] * (verts[b] * verts[c + 2] - verts[b + 2] * verts[c]) +
+                  verts[a + 2] * (verts[b] * verts[c + 1] - verts[b + 1] * verts[c])) /
+                6
+            }
+            const mesh: MeshData = {
+              vertProperties: indexed.vertProperties,
+              triVerts: indexed.triVerts,
+              numProp: 3,
+              min: b.min,
+              max: b.max,
+              volume: Math.abs(vol),
+            }
+            parts.push({
+              label: obj.id,
+              col: 0,
+              row: 0,
+              oversize: false,
+              mesh,
+            })
+          }
+        }
+      }
+      return { parts }
     }
     default:
       throw new Error(`Unknown mode: ${String(mode)}`)

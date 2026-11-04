@@ -11,9 +11,9 @@
 
 ## 2. Geometry and worker
 
-- [ ] 2.1 `src/editor/primitives.ts`: descriptors for box, cylinder, sphere, cone, torus, wedge (parameters, defaults, limits as i18n keys, mm). `geometry/model.ts`: `ModeParams.editor = {objects: {id, source}[]}` and `generate('editor', params)` builds primitive meshes with Manifold (96 segments) and passes imported meshes through from `meshRegistry` without requiring a solid; returns one part per object labelled by id; cache by (shape, params). Test with `expectValidSolid` for every primitive (volume against the formula, bbox) and a pass-through of an open mesh.
-- [ ] 2.2 Import pipeline `features/editor/importFiles.ts`: `parseStl` → weld only (no orientation flip) → `orientVertices`-style centring and drop to bed, unit choice, several files with 10 mm spacing, store in `meshStore`, register in the worker, log entries (names and sizes only). Test: binary and ASCII fixtures, inches, bad file does not stop the others, size notice thresholds.
-- [ ] 2.3 `useEditorModel(doc)`: calls `useModel('editor', …)` with the descriptions only (no matrices), so a transform change never regenerates; returns parts keyed by object id. Test: moving an object does not start a model job, changing a primitive parameter rebuilds only that object.
+- [x] 2.1 `src/editor/primitives.ts`: descriptors for box, cylinder, sphere, cone, torus, wedge (parameters, defaults, limits as i18n keys, mm). `geometry/model.ts`: `ModeParams.editor = {objects: {id, source}[]}` and `generate('editor', params)` builds primitive meshes with Manifold (96 segments) and passes imported meshes through from `meshRegistry` without requiring a solid; returns one part per object labelled by id; cache by (shape, params). Test with `expectValidSolid` for every primitive (volume against the formula, bbox) and a pass-through of an open mesh.
+- [x] 2.2 Import pipeline `features/editor/importFiles.ts`: `parseStl` → weld only (no orientation flip) → `orientVertices`-style centring and drop to bed, unit choice, several files with 10 mm spacing, store in `meshStore`, register in the worker, log entries (names and sizes only). Test: binary and ASCII fixtures, inches, bad file does not stop the others, size notice thresholds.
+- [x] 2.3 `useEditorModel(doc)`: calls `useModel('editor', …)` with the descriptions only (no matrices), so a transform change never regenerates; returns parts keyed by object id. Test: moving an object does not start a model job, changing a primitive parameter rebuilds only that object.
 
 ## 3. Viewport extension
 

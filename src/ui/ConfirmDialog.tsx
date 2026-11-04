@@ -35,11 +35,11 @@ export function ConfirmDialog({ title, children, confirmLabel, cancelLabel, dang
   }, [onCancel])
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" data-testid="confirm-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel() }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overscroll-contain" data-testid="confirm-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel() }}>
       <div ref={root} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={bodyId}
-        className="flex w-full max-w-sm flex-col gap-3 rounded-card border border-border-strong bg-surface-1 p-4 shadow-float">
-        <h2 id={titleId} className="m-0 text-[15px] font-semibold">{title}</h2>
-        <p id={bodyId} className="m-0 text-sm text-text-muted">{children}</p>
+        className="flex w-full max-w-sm flex-col gap-3 rounded-card border border-border-strong bg-surface-1 p-4 shadow-float overscroll-contain">
+        <h2 id={titleId} className="m-0 text-[15px] font-semibold text-balance">{title}</h2>
+        <p id={bodyId} className="m-0 text-sm text-text-muted text-pretty">{children}</p>
         <div className="flex justify-end gap-2">
           <button ref={cancel} type="button" onClick={onCancel}
             className="inline-flex h-9 cursor-pointer items-center justify-center rounded-control border border-border-strong bg-surface-2 px-3.5 font-medium text-text hover:bg-surface-3">{cancelLabel}</button>

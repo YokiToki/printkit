@@ -22,9 +22,9 @@
 
 ## 5. Better-* Visual & Ergonomic Polish
 
-- [ ] 5.1 In `src/app/Logo.tsx`, replace stroke `#161A1F` with `var(--color-surface-1)` and in `src/app/StartLayout.tsx` replace hardcoded hex background gradients with semantic theme tokens (`better-colors`). Verify with `npx vitest run src/app/Logo.test.tsx`.
-- [ ] 5.2 In `src/app/StartLayout.tsx` and dialogs, add `text-balance` to headings and `text-pretty` to descriptions (`better-typography`).
-- [ ] 5.3 In `src/ui/Button.tsx`, add tactile press scaling `active:scale-[0.97] transition-transform duration-150` and add `overscroll-contain` to `src/ui/ConfirmDialog.tsx` (`better-ui`). Verify with `npx vitest run src/ui/controls.test.tsx`.
+- [x] 5.1 In `src/app/Logo.tsx`, replace stroke `#161A1F` with `var(--color-surface-1)` and in `src/app/StartLayout.tsx` replace hardcoded hex background gradients with semantic theme tokens (`better-colors`). Verify with `npx vitest run src/app/Logo.test.tsx`.
+- [x] 5.2 In `src/app/StartLayout.tsx` and dialogs, add `text-balance` to headings and `text-pretty` to descriptions (`better-typography`).
+- [x] 5.3 In `src/ui/Button.tsx`, add tactile press scaling `active:scale-[0.97] transition-transform duration-150` and add `overscroll-contain` to `src/ui/ConfirmDialog.tsx` (`better-ui`). Verify with `npx vitest run src/ui/controls.test.tsx`.
 
 ## 6. Version Bump
 

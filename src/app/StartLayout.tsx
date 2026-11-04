@@ -11,7 +11,7 @@ export function StartLayout({ tagline, title, after, children }: { tagline: stri
       <div aria-hidden className="pointer-events-none absolute inset-0 [background-image:repeating-linear-gradient(30deg,rgba(124,156,255,.09)_0_1px,transparent_1px_56px),repeating-linear-gradient(150deg,rgba(124,156,255,.09)_0_1px,transparent_1px_56px)] [mask-image:radial-gradient(ellipse_at_50%_55%,#000_15%,transparent_70%)]" />
       <div className="relative flex flex-col items-center gap-3 text-center">
         <span className="rounded-xl border border-border-strong bg-surface-1/80 px-2.5 py-1 font-mono text-xs text-text-muted">{tagline}</span>
-        <h1 className="m-0 font-display text-[38px] leading-[1.1] font-semibold tracking-tighter">{title}</h1>
+        <h1 className="m-0 font-display text-[38px] leading-[1.1] font-semibold tracking-tighter text-balance">{title}</h1>
       </div>
       {children}
       {after}
@@ -25,7 +25,7 @@ export function ChoiceCard({ to, testId, index, art, name, desc, tags }: { to: s
   const { t } = useTranslation()
   const tag = 'inline-flex h-[22px] max-w-[130px] items-center rounded-full bg-surface-3 px-2 font-mono text-xs text-text-muted truncate'
   return (
-    <Link to={to} data-testid={testId} aria-label={t('start.open', { name })} className="group relative flex h-[470px] w-[360px] max-w-full flex-col gap-3.5 rounded-2xl border border-border bg-gradient-to-b from-[#1a1f26] to-[#14181d] p-5 text-text no-underline transition-all hover:-translate-y-1 hover:border-accent hover:shadow-[0_0_0_1px_var(--color-accent),0_24px_60px_-20px_rgba(124,156,255,.5)] focus-visible:-translate-y-1 focus-visible:border-accent">
+    <Link to={to} data-testid={testId} aria-label={t('start.open', { name })} className="group relative flex h-[470px] w-[360px] max-w-full flex-col gap-3.5 rounded-2xl border border-border bg-gradient-to-b from-surface-2 to-surface-1 p-5 text-text no-underline transition-all hover:-translate-y-1 hover:border-accent hover:shadow-[0_0_0_1px_var(--color-accent),0_24px_60px_-20px_rgba(124,156,255,.5)] focus-visible:-translate-y-1 focus-visible:border-accent">
       <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-card border border-border bg-[radial-gradient(ellipse_at_50%_60%,#222a36_0%,#0e1115_75%)]">
         <span className="absolute top-2.5 left-3 font-mono text-xs text-text-subtle">{String(index).padStart(2, '0')}</span>
         <kbd aria-hidden className="absolute top-2.5 right-3 inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-xs border border-b-2 border-border-strong bg-surface-1 px-1.5 font-mono text-xs text-text-muted">{index}</kbd>
@@ -34,7 +34,7 @@ export function ChoiceCard({ to, testId, index, art, name, desc, tags }: { to: s
       {/* текст занимает место четырёх строк описания у всех карточек: рамка рисунка (flex-1) одной высоты на любой странице и в любом языке */}
       <div className="min-h-[114px]">
         <div className="font-display text-xl font-semibold tracking-tight">{name}</div>
-        <div className="mt-1.5 text-sm text-text-muted">{desc}</div>
+        <div className="mt-1.5 text-sm text-text-muted text-pretty">{desc}</div>
       </div>
       <div data-testid="choice-card-tags" className="flex min-w-0 items-center gap-1.5 overflow-hidden">
         {tags.map((x) => <span key={x} title={x} className={tag}>{x}</span>)}<span className="flex-1" />

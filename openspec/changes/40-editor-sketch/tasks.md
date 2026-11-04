@@ -55,5 +55,5 @@
 
 ## 10. Verification
 
-- [ ] 10.1 `npm test` and `npm run build` are green, the dev server starts, the console has no errors; generators and the foundation of `39` work as before.
-- [ ] 10.2 In the browser, en and ru, desktop and 390 px: draw a rounded rectangle with a radius dimension, add a slot and four holes, constrain it to fully defined, extrude it, cut the holes, change the width and the radius and watch the body follow, add a revolved knob from a profile, import an SVG outline and extrude it, undo and redo through all of it, reload and compare, export STL and check bbox and volume against the numbers typed.
+- [x] 10.1 `npm test` and `npm run build` are green, the dev server starts, the console has no errors; generators and the foundation of `39` work as before.
+- [x] 10.2 In the browser, en and ru, desktop and 390 px: draw a rounded rectangle with a radius dimension, add a slot and four holes, constrain it to fully defined, extrude it, cut the holes, change the width and the radius and watch the body follow, add a revolved knob from a profile, import an SVG outline and extrude it, undo and redo through all of it, reload and compare, export STL and check bbox and volume against the numbers typed.

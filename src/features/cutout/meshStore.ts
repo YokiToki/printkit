@@ -9,6 +9,7 @@ export interface MeshStore {
   save(id: string, mesh: IndexedMesh): Promise<void>
   load(id: string): Promise<IndexedMesh | undefined>
   remove(id: string): Promise<void>
+  keys?(): Promise<string[]>
   /** true — данные переживут перезагрузку страницы. */
   readonly persistent: boolean
 }
@@ -22,6 +23,7 @@ class MemoryStore implements MeshStore {
   async save(id: string, mesh: IndexedMesh) { this.m.set(id, mesh) }
   async load(id: string) { return this.m.get(id) }
   async remove(id: string) { this.m.delete(id) }
+  async keys() { return Array.from(this.m.keys()) }
 }
 
 const req = <T>(r: IDBRequest<T>) => new Promise<T>((resolve, reject) => { r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error) })
@@ -37,6 +39,15 @@ class IdbStore implements MeshStore {
     try { return ((await req(this.tx('readonly').get(id))) as IndexedMesh | undefined) ?? (await this.fallback.load(id)) } catch { return this.fallback.load(id) }
   }
   async remove(id: string) { try { await req(this.tx('readwrite').delete(id)) } catch { /* ignore */ } await this.fallback.remove(id) }
+  async keys() {
+    try {
+      const keys = await req(this.tx('readonly').getAllKeys())
+      const set = new Set([...keys.map(String), ...(await this.fallback.keys())])
+      return Array.from(set)
+    } catch {
+      return this.fallback.keys()
+    }
+  }
 }
 
 /** Открывает IndexedDB (без аргумента — глобальную, null — без неё); при отсутствии или ошибке возвращает хранилище в памяти. */

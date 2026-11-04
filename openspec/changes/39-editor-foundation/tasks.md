@@ -2,12 +2,12 @@
 
 ## 1. Document core (React-free, `src/editor/`)
 
-- [ ] 1.1 `scene.ts`: types (`EditorObject`, `Transform`, sources `mesh` | `primitive`, `SceneDoc {schema: 1, objects}`), `matrixOf(transform)`, `newName` (unique "Box", "Box 2"), reducers (add, remove, update, duplicate, reorder). Test: matrix of identity / translate / rotate / scale, composition order, unique names, duplicate shares the mesh id.
-- [ ] 1.2 `transform.ts`: `boundsOf(object)`, `selectionBounds`, `dropToBed`, `centerOnBed`, `mirror` (with winding flag), `scaleToSize` (proportion lock, keeps centre), `snapValue`, `snapAngle`, `rotateAbout(pivot)`. Test: each against a known box, mirror twice is identity, snap steps.
-- [ ] 1.3 `history.ts`: `History<T>` with `push(label, before, after, mergeKey?)`, `undo`, `redo`, merge window 800 ms, capacity 100, `clear`. Test: undo/redo order, discard of redo after a new push, merge of continuous edits, capacity.
-- [ ] 1.4 `health.ts`: `meshHealth(mesh)` → `{triangles, openEdges, nonManifoldEdges, degenerate, volume, closed}` and `isSolid`. Test with fixtures from `geometry/stl-fixtures.ts`: closed cube, cube with a missing triangle, flipped cube (negative volume), degenerate triangle.
-- [ ] 1.5 `geometry/mesh.ts`: `applyMatrix(mesh, m)` (positions, winding corrected when the determinant is negative) and `meshBounds`. Test: translation, rotation 90°, mirror winding, bbox and volume preserved by rigid transforms.
-- [ ] 1.6 `sceneStore.ts`: `useScene` persistence with `usePersistedState`-style key `editor.scene`, `migrateScene` normalising every field (corrupt or partial data never crashes), mesh garbage collection at load. Test: round trip, corrupt JSON, unknown source kind dropped with a log entry, missing numbers get defaults.
+- [x] 1.1 `scene.ts`: types (`EditorObject`, `Transform`, sources `mesh` | `primitive`, `SceneDoc {schema: 1, objects}`), `matrixOf(transform)`, `newName` (unique "Box", "Box 2"), reducers (add, remove, update, duplicate, reorder). Test: matrix of identity / translate / rotate / scale, composition order, unique names, duplicate shares the mesh id.
+- [x] 1.2 `transform.ts`: `boundsOf(object)`, `selectionBounds`, `dropToBed`, `centerOnBed`, `mirror` (with winding flag), `scaleToSize` (proportion lock, keeps centre), `snapValue`, `snapAngle`, `rotateAbout(pivot)`. Test: each against a known box, mirror twice is identity, snap steps.
+- [x] 1.3 `history.ts`: `History<T>` with `push(label, before, after, mergeKey?)`, `undo`, `redo`, merge window 800 ms, capacity 100, `clear`. Test: undo/redo order, discard of redo after a new push, merge of continuous edits, capacity.
+- [x] 1.4 `health.ts`: `meshHealth(mesh)` → `{triangles, openEdges, nonManifoldEdges, degenerate, volume, closed}` and `isSolid`. Test with fixtures from `geometry/stl-fixtures.ts`: closed cube, cube with a missing triangle, flipped cube (negative volume), degenerate triangle.
+- [x] 1.5 `geometry/mesh.ts`: `applyMatrix(mesh, m)` (positions, winding corrected when the determinant is negative) and `meshBounds`. Test: translation, rotation 90°, mirror winding, bbox and volume preserved by rigid transforms.
+- [x] 1.6 `sceneStore.ts`: `useScene` persistence with `usePersistedState`-style key `editor.scene`, `migrateScene` normalising every field (corrupt or partial data never crashes), mesh garbage collection at load. Test: round trip, corrupt JSON, unknown source kind dropped with a log entry, missing numbers get defaults.
 
 ## 2. Geometry and worker
 

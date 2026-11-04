@@ -6,13 +6,16 @@ After `40` a body built from sketches keeps a short list of features, and `39` o
 
 ## What Changes
 
-- **Operation stack.** Every object gets an ordered `stack` of operations applied to its source (imported mesh, primitive, or a sketch-built base). Each operation can be edited, reordered by drag, suppressed (eye), deleted, applied (baked into the result) or the whole stack flattened. A rollback marker shows the object as it was after a chosen step. The sketch features Extrude and Revolve of `40` become stack operations; stored scenes of `40` are migrated automatically.
+- **Operation stack.** Every object gets an ordered `stack` of operations applied to its source (imported mesh, primitive, or a sketch-built base). Each operation can be edited, reordered by drag, suppressed (eye), deleted, applied (baked into the result) or the whole stack flattened.
+- **Prefix cache evaluator (`Builder` / `KeptBuild`).** Operations are evaluated in the worker with immutable prefix nodes; editing operation $k$ takes steps $1…k-1$ instantly from the cache and recomputes only $k…n$.
+- **Interactive Rollback Bar.** A draggable divider line in the feature list. Dragging it rolls back the 3D model to that step; new features are inserted at the rollback bar position. A step-by-step **Playback** mode allows walking through the modeling history.
+- **Model parameters and expressions.** A global table of named variables (`parameters.ts`) with dimensional checking (`expression.ts`, lengths, angles, unitless scalars). Feature inputs and sketch dimensions can reference parameters by name (e.g. `wallThickness + 0.4`), with formulas evaluated on rebuild.
 - **Booleans between objects.** Union, Subtract and Intersect with one or more *tool* objects, in the target's local space. Tools stay in the scene (hidden or shown as translucent ghosts) and keep their own transform and stack, so moving the tool moves the cut. A **Combine** command (select several objects → Union / Subtract / Intersect) creates the operation in one step. Requires closed solids; open meshes are refused with the reason and a pointer to repair (`42`).
 - **Mirror** (about a plane through the object origin, a bounding-box centre plane or a plane along an axis; merged or kept as separate shells).
 - **Linear and circular patterns** of the body so far, with count, spacing or total length, axis from a world axis, a sketch line or the object origin. A pattern on a *tool* object followed by a Subtract gives hole arrays.
-- **Offset** (grow or shrink by a distance) for clearances and wall changes, and **Hollow** (shell with a wall thickness and optional drain holes), both built with Minkowski offsets of Manifold.
-- **Dependency graph.** Objects can depend on other objects as tools; cycles are refused; a deleted tool turns the operation into a failed one without losing the rest; the worker evaluates the graph in order with a per-prefix cache so editing step *k* recomputes only steps *k…n*.
-- **Display of tools and export.** Objects used as tools are drawn as ghosts when visible, are not exported unless selected explicitly, and the outliner shows the relation (tool icon, "used by").
+- **Offset** (grow or shrink by a distance) for clearances and wall changes, and **Hollow** (shell with a wall thickness and optional drain holes).
+- **Dependency graph.** Objects can depend on other objects as tools; cycles are refused; a deleted tool turns the operation into a failed one without losing the rest.
+- **Display of tools and grips.** Interactive 3D grips and ghost previews in the viewport while configuring operations. Objects used as tools are drawn as ghosts when visible, are not exported unless selected explicitly, and the outliner shows the relation (tool icon, "used by").
 
 ## Capabilities
 

@@ -135,6 +135,13 @@ Standing on the shoulders of:
 - [19 inch vs 10 inch rack dimensions](https://commons.wikimedia.org/wiki/File:19_inch_vs_10_inch_correct_rack_dimensions.svg) (Wikimedia Commons): standard 10-inch rack dimensions
 - [Keystone blank](https://makerworld.com/ru/models/1111789-keystone-blank) and [Keystone for other models](https://makerworld.com/ru/models/1135286-keystone-for-other-models) (MakerWorld): reference models for the keystone jack mount of the rack enclosure; only their dimensions were measured, no geometry is copied
 - [openscad-agent](https://github.com/iancanderson/openscad-agent): an agent-driven workflow for printable models, an inspiration for building this with an AI agent
+- [ScanRuler](https://github.com/CNCKitchen/scanruler) by Stefan Hermann (CNC Kitchen): architectural and UX inspiration for Free Editor:
+  - 2D sketch constraint solver architecture based on weighted Levenberg–Marquardt optimization (soft/hard equation weighting, degrees of freedom analysis).
+  - Topological naming engine utilizing geometric fingerprints (`FaceFingerprint` and `EdgeFingerprint`) for stable face and edge references across rebuilds.
+  - Non-destructive operation stack with immutable prefix caching (`Builder` / `KeptBuild`) and interactive Rollback Bar.
+  - 3D viewport interaction patterns: CAD Box Select (Window vs Crossing), HUD Context Chips ("object first, verb second"), in-situ vector sketching (`Line2`), and live 3D grips.
+  - Mesh decimation algorithms using `meshoptimizer` with pinned boundary vertices and Moving Least Squares (MLS) edge-preserving smoothing.
+  - Standard hole and helical screw thread tools, and safe ZIP project archiving (`.pkit`) with ZipSlip protection using `fflate`.
 - [manifold](https://github.com/elalish/manifold): the geometry kernel; [three.js](https://threejs.org): the preview
 - [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) (MIT): runs the optional neural networks in the browser
 

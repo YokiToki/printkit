@@ -6,19 +6,25 @@ Until now the editor works on whole objects. Direct modelling — "grab this fac
 
 ## What Changes
 
-- **Selection modes** Object / Face / Edge, switchable on the tool bar and by `1`/`2`/`3` held with Ctrl (or the mode buttons). In Face mode a click selects a *face region*: a flat region (coplanar, tolerance 1°) or, when the surface is smooth, a smooth patch (triangles joined with dihedral below a threshold, default 30°); Shift adds regions, double click grows to tangent-connected regions. In Edge mode a click selects a *feature edge chain*: sharp edges (dihedral above the threshold) joined through vertices of degree two; chains classify as straight, circular (circle fit within tolerance) or free.
-- **Push / Pull.** Drag or type a distance on a selected planar face: positive pulls the face out (adds a prism of the face outline), negative pushes it in (subtracts). Works for faces with holes, for several faces of the same normal, and on sketch-built and imported bodies alike. Non-planar faces are refused with the reason.
-- **Fillet and Chamfer of edges.** Convex and concave straight edges between two planar faces, and circular edge loops (the top rim of a cylinder, a hole's edge), with a radius or distance; built as swept/revolved tool profiles combined by Boolean. Corners where several selected edges meet are filled with an acceptable blend (mitre-joined tools, not a rolling-ball); free-form and curved-surface edges are refused with the reason.
-- **Sketch on face.** A planar face (or a flat region of an imported mesh) becomes a sketch plane with an origin at the picked point, the x direction along the longest straight edge or a world axis; **Project edges** brings the face outline, selected edges and circles (recognised from circular chains) into the sketch as geometry or construction. The sketch's plane stores a face reference that is re-resolved when the body changes; if it cannot be resolved the sketch keeps its last frame and shows a "detached" warning.
-- **Stack operations.** Push/Pull, Fillet and Chamfer are operations of the stack of `41` with stored face/edge *references* (point, normal, kind) rather than triangle indices, re-resolved at evaluation time; a reference that does not resolve to exactly one element fails the operation with the reason.
-- **Highlighting and feedback.** Hovered and selected faces/edges are highlighted, selection size is shown in the status bar (n faces, area, length), and the available operations follow the selection.
+- **Topological Naming Engine (`FaceFingerprint` / `EdgeFingerprint`).** Faces and edges are stored by geometric fingerprints (surface kind, centroid, normal/axis direction, area or length, radius, creating feature id) rather than volatile mesh indices. When rebuilding earlier steps, faces and edges are re-matched with tolerance, preventing downstream operations from breaking.
+- **Selection modes & CAD Box Select.** Object / Face / Edge modes. Clicking selects faces or edges; CAD Box Select enables window picking: dragging to the right selects only elements fully enclosed (Window), dragging to the left selects anything touched (Crossing).
+- **HUD Context Chips.** Clicking a face or edge spawns floating interactive badges directly beside the 3D cursor in the viewport:
+  - *Planar face:* area, normal direction, buttons for *Sketch on face*, *Push / Pull*, *Hole here*, *Hide body*.
+  - *Cylindrical face:* radius, diameter, axis, button for *Thread*.
+  - *Edges:* length, radius, buttons for *Fillet* and *Chamfer* with the count of picked edges.
+  - *Two elements (Ctrl+click):* distance $\Delta X, \Delta Y, \Delta Z$, angle or axis-to-axis spacing.
+- **Push / Pull.** Drag with live 3D grips or type a distance on a selected planar face: positive pulls the face out, negative pushes it in. Works for sketch-built solids and imported bodies alike.
+- **Fillet and Chamfer of edges.** Real 3D fillet and chamfer on edges of CAD solids: convex and concave edges, cylindrical top/bottom rims, variable radius, and angled chamfers, with live ghost preview and rollback tracking.
+- **Sketch on face & Project edges.** A planar face becomes a sketch plane with origin and local axes aligned to face geometry; *Project edges* brings face outlines and selected edges into the sketch as fixed references.
+- **Stack operations.** Push/Pull, Fillet and Chamfer are operations of the stack of `41` with stored topological fingerprints, re-resolved at evaluation time.
 
 ## Capabilities
 
 ### New Capabilities
-- `editor-subelement-selection`: face and edge modes, recognition, highlighting, references.
-- `editor-face-ops`: Push/Pull, sketch on face, project edges.
-- `editor-edge-ops`: Fillet and Chamfer of straight and circular edges.
+- `editor-topological-naming`: geometric fingerprints for faces and edges, tolerance matching across rebuilds.
+- `editor-subelement-selection`: face and edge modes, CAD box select (window/crossing), HUD context chips.
+- `editor-face-ops`: Push/Pull with 3D grips, sketch on face, project edges.
+- `editor-edge-ops`: 3D Fillet and Chamfer on CAD solid edges.
 
 ### Modified Capabilities
 

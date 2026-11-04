@@ -6,10 +6,11 @@ Two of the most common reasons to open a model in an editor before printing are 
 
 ## What Changes
 
-- **Plane Cut.** A cutting plane defined by an axis and position, by the gizmo (any orientation), by a picked flat face, or by three points. Modes: keep both parts (as separate objects), keep one side, slice into N equal parts along an axis. The parts are *derived*: they keep a reference to the source object and the cut definition, so editing the plane or the source updates them (rule 2a). The cut faces are capped automatically (closed solids).
+- **Plane Cut.** A cutting plane defined by an axis and position, by the gizmo (any orientation), by a picked flat face, or by three points. Works on polygon meshes (`Manifold.splitByPlane`) and CAD solids (`split` via cutting half-space). Modes: keep both parts (as separate objects), keep one side, slice into N equal parts along an axis. The parts are *derived*: they keep a reference to the source object and the cut definition, so editing the plane or the source updates them (rule 2a). Cut faces are capped automatically (closed solids).
 - **Split to bed.** One command computes the cuts needed so every part fits the printer bed of the export settings (bed minus margin), spread evenly, with a per-axis override and manual adjustment of each cut position; parts are labelled A1, B1… like the baseplate.
 - **Connectors on cut faces.** Alignment pegs (cylindrical peg + socket with clearance), through-holes for filament or pins, magnet pockets, and dovetails, using the presets of `06a` (filament 1.75 → Ø1.9, pins 2/3 mm, magnets 3 × 2 and 2.8 × 0.75, dovetail clearance). Placement is automatic over the cut section (inset, even spacing, never closer than a margin to the outline) with click-to-move, add and remove in the preview; each connector is checked to lie inside both parts for its full depth.
 - **Hole tool.** Click a surface to place a hole along the surface normal: simple, counterbore, countersink, magnet pocket, screw clearance and heat-insert pocket (M2–M5 and common magnet sizes from presets, with tolerance), blind or through, offsets typed numerically, arrays through the patterns of `41`. A hole is a stack operation with a stored position in object-local space.
+- **Thread tool (`ThreadTool`).** Real helical screw threads on cylindrical faces or hole walls. Standards: ISO Metric coarse/fine (M2 to M20), Unified Imperial (UNC/UNF, e.g. 1/4"-20), lead screw profiles. Options: internal (tapped bore) or external (threaded rod/bolt), thread pitch, length, lead-in 45° chamfer, and 3D printing clearance tolerance offsets.
 - **Text on a face.** Emboss or engrave text at a picked surface point with font, size, spacing, depth/height and rotation, using the font list and rasteriser of Keychain (`19`) and the exact outline tracing, as a stack operation.
 - **Plan checks.** Parts that still exceed the bed are marked; connectors that collide or leave a part produce warnings with keys, like the baseplate's `connector.*`.
 
@@ -18,7 +19,7 @@ Two of the most common reasons to open a model in an editor before printing are 
 ### New Capabilities
 - `editor-plane-cut`: Plane Cut, split to bed, derived parts.
 - `editor-cut-connectors`: pegs, pins, magnets, dovetails on cut faces, placement and checks.
-- `editor-holes-text`: hole tool with presets and text on faces.
+- `editor-holes-threads-text`: hole tool with presets, thread tool with metric/imperial standards, and text on faces.
 
 ### Modified Capabilities
 

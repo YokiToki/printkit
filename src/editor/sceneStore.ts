@@ -92,6 +92,8 @@ function normaliseSource(raw: unknown, objectName: string): ObjectSource | null 
   return null
 }
 
+import { migrateSketches } from './sketch/migrate'
+
 export function migrateScene(raw: unknown): SceneDoc {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return createEmptyScene()
@@ -128,9 +130,12 @@ export function migrateScene(raw: unknown): SceneDoc {
     })
   }
 
+  const sketches = migrateSketches(data.sketches)
+
   return {
     schema: 1,
     objects,
+    ...(sketches.length > 0 ? { sketches } : {}),
   }
 }
 

@@ -40,9 +40,12 @@ export interface EditorObject {
   transform: Transform
 }
 
+import type { Sketch } from './sketch/model'
+
 export interface SceneDoc {
   schema: 1
   objects: EditorObject[]
+  sketches?: Sketch[]
 }
 
 export const createEmptyScene = (): SceneDoc => ({

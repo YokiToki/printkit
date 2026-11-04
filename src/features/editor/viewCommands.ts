@@ -86,8 +86,8 @@ export function fitCameraToBounds(
   const radius = 0.5 * Math.hypot(dx, dy, dz)
 
   const radFov = (fovDeg * Math.PI) / 180
-  const dist = (Math.max(radius, 10) / Math.sin(radFov / 2)) * 1.15
-  const orthoH = Math.max(radius, 10) * 2 * 1.15
+  const dist = (Math.max(radius, 0.5) / Math.sin(radFov / 2)) * 1.15
+  const orthoH = Math.max(radius, 0.5) * 2 * 1.15
 
   return {
     target,

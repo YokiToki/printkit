@@ -13,12 +13,14 @@ import type { EditorObject } from '../../editor/scene'
 import {
   boundsOf,
   centerOnBed,
+  defaultPrimitiveBounds,
   dropToBed,
   mirror,
   scaleToSize,
   selectionBounds,
   type Bounds3,
 } from '../../editor/transform'
+import type { MeshData } from '../../geometry/mesh'
 import { PRIMITIVE_DESCRIPTORS } from '../../editor/primitives'
 import type { MeshHealth } from '../../editor/health'
 import { LengthField } from '../../ui/LengthField'
@@ -35,6 +37,7 @@ export interface PropertiesProps {
   onUpdateTransform: (id: string, newTransform: EditorObject['transform'], mergeKey?: string) => void
   onUpdatePrimitiveParams: (id: string, params: Record<string, number>, mergeKey?: string) => void
   healthMap?: Map<string, MeshHealth>
+  meshes?: Record<string, MeshData>
 }
 
 export function Properties({
@@ -44,6 +47,7 @@ export function Properties({
   onUpdateTransform,
   onUpdatePrimitiveParams,
   healthMap,
+  meshes,
 }: PropertiesProps) {
   const { t } = useTranslation()
   const { unit } = useUnit()
@@ -51,10 +55,21 @@ export function Properties({
 
   const selectedObjects = objects.filter((o) => selection.includes(o.id))
 
+  const getLocalBounds = (o: EditorObject): Bounds3 | undefined => {
+    if (o.source.kind === 'primitive') {
+      return defaultPrimitiveBounds(o)
+    }
+    const m = meshes?.[o.id]
+    if (m) {
+      return { min: m.min, max: m.max }
+    }
+    return undefined
+  }
+
   // 1. Ничего не выбрано: сводка по всей сцене
   if (selectedObjects.length === 0) {
     const visibleObjects = objects.filter((o) => o.visible)
-    const bounds = selectionBounds(visibleObjects)
+    const bounds = selectionBounds(visibleObjects, getLocalBounds)
     const dim = (idx: 0 | 1 | 2) =>
       bounds ? formatLength(bounds.max[idx] - bounds.min[idx], unit) : '–'
 
@@ -83,7 +98,7 @@ export function Properties({
 
   // 2. Выбрано несколько объектов: общая трансформация
   if (selectedObjects.length > 1) {
-    const bounds = selectionBounds(selectedObjects)!
+    const bounds = selectionBounds(selectedObjects, getLocalBounds)!
     const sizeX = bounds.max[0] - bounds.min[0]
     const sizeY = bounds.max[1] - bounds.min[1]
     const sizeZ = bounds.max[2] - bounds.min[2]
@@ -103,7 +118,8 @@ export function Properties({
 
     const handleScaleSize = (axis: 'x' | 'y' | 'z', newSize: number) => {
       for (const obj of selectedObjects) {
-        const scaled = scaleToSize(obj, axis, newSize, proportionsLocked)
+        const lb = getLocalBounds(obj)
+        const scaled = scaleToSize(obj, axis, newSize, proportionsLocked, lb)
         onUpdateTransform(obj.id, scaled.transform, 'multi-size')
       }
     }
@@ -151,7 +167,7 @@ export function Properties({
                 type="button"
                 onClick={() => {
                   for (const obj of selectedObjects) {
-                    const dropped = dropToBed(obj)
+                    const dropped = dropToBed(obj, getLocalBounds(obj))
                     onUpdateTransform(obj.id, dropped.transform)
                   }
                 }}
@@ -169,14 +185,15 @@ export function Properties({
 
   // 3. Выбран ровно один объект
   const obj = selectedObjects[0]
-  const bounds: Bounds3 = boundsOf(obj)
+  const lb = getLocalBounds(obj)
+  const bounds: Bounds3 = boundsOf(obj, lb)
   const sizeX = bounds.max[0] - bounds.min[0]
   const sizeY = bounds.max[1] - bounds.min[1]
   const sizeZ = bounds.max[2] - bounds.min[2]
   const health = healthMap?.get(obj.id)
 
   const handleSizeChange = (axis: 'x' | 'y' | 'z', newSize: number) => {
-    const scaled = scaleToSize(obj, axis, newSize, proportionsLocked)
+    const scaled = scaleToSize(obj, axis, newSize, proportionsLocked, lb)
     onUpdateTransform(obj.id, scaled.transform, `scale-${axis}`)
   }
 
@@ -333,7 +350,7 @@ export function Properties({
             <button
               type="button"
               data-testid="property-drop-bed"
-              onClick={() => onUpdateTransform(obj.id, dropToBed(obj).transform)}
+              onClick={() => onUpdateTransform(obj.id, dropToBed(obj, lb).transform)}
               className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded bg-surface-2 hover:bg-surface-3 text-text cursor-pointer border border-border"
             >
               <IconArrowDownBar size={14} />
@@ -342,7 +359,7 @@ export function Properties({
             <button
               type="button"
               data-testid="property-center-bed"
-              onClick={() => onUpdateTransform(obj.id, centerOnBed(obj).transform)}
+              onClick={() => onUpdateTransform(obj.id, centerOnBed(obj, lb).transform)}
               className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded bg-surface-2 hover:bg-surface-3 text-text cursor-pointer border border-border"
             >
               <IconFocusCentered size={14} />
@@ -351,7 +368,7 @@ export function Properties({
             <button
               type="button"
               data-testid="property-mirror-x"
-              onClick={() => onUpdateTransform(obj.id, mirror(obj, 'x').object.transform)}
+              onClick={() => onUpdateTransform(obj.id, mirror(obj, 'x', lb).object.transform)}
               className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded bg-surface-2 hover:bg-surface-3 text-text cursor-pointer border border-border"
             >
               <IconFlipHorizontal size={14} />
@@ -360,7 +377,7 @@ export function Properties({
             <button
               type="button"
               data-testid="property-mirror-y"
-              onClick={() => onUpdateTransform(obj.id, mirror(obj, 'y').object.transform)}
+              onClick={() => onUpdateTransform(obj.id, mirror(obj, 'y', lb).object.transform)}
               className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded bg-surface-2 hover:bg-surface-3 text-text cursor-pointer border border-border"
             >
               <IconFlipVertical size={14} />

@@ -211,7 +211,7 @@ export function Viewport({
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x0e1013)
 
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 20000)
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20000)
     camera.up.set(0, 0, 1)
     camera.position.set(160, -220, 160)
 
@@ -221,8 +221,8 @@ export function Viewport({
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
     controls.maxPolarAngle = Math.PI // камера может уйти под плоскость XY и смотреть на низ модели; ось Z остаётся вверху
-    controls.minDistance = 30
-    controls.maxDistance = 1500
+    controls.minDistance = 0.5
+    controls.maxDistance = 20000
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x8794a8, 1.4))
     const sun = new THREE.DirectionalLight(0xffffff, 1.6)
@@ -452,7 +452,7 @@ export function Viewport({
       const dir = camera.position.clone().sub(controls.target).normalize()
       controls.target.set(0, 0, 0)
       camera.position.copy(dir.multiplyScalar(dist))
-      controls.minDistance = Math.max(radius * 0.35, 15)
+      controls.minDistance = 0.5
     }
 
     const view = (dir: THREE.Vector3) => {

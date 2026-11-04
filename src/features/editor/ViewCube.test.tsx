@@ -33,4 +33,26 @@ describe('editor/ViewCube', () => {
     expect(onOrbit).toHaveBeenCalledWith(20, 10)
     expect(onSelect).not.toHaveBeenCalled()
   })
+
+  it('does not acquire pointer capture on pointerdown before drag threshold', () => {
+    const onSelect = vi.fn()
+    render(<ViewCube onSelectFace={onSelect} />)
+
+    const cube = screen.getByTestId('view-cube')
+    const captureSpy = vi.fn()
+    cube.setPointerCapture = captureSpy
+
+    // Pointerdown without move should NOT set pointer capture (allowing normal child click)
+    fireEvent.pointerDown(cube, { clientX: 100, clientY: 100, button: 0, pointerId: 1 })
+    expect(captureSpy).not.toHaveBeenCalled()
+
+    // Move < 3px should NOT set pointer capture either
+    fireEvent.pointerMove(cube, { clientX: 101, clientY: 101, pointerId: 1 })
+    expect(captureSpy).not.toHaveBeenCalled()
+
+    // Clicking face directly triggers face selection
+    const rightBtn = screen.getByTestId('view-cube-right')
+    fireEvent.click(rightBtn)
+    expect(onSelect).toHaveBeenCalledWith('right')
+  })
 })

@@ -123,6 +123,7 @@ export function EditorMode() {
         if (obj.source.kind === 'mesh') {
           const mesh = await store.load(obj.source.meshId)
           if (mesh && !cancelled) {
+            getModelClient().registerMesh(obj.source.meshId, mesh)
             nextMap.set(obj.id, meshHealth(mesh))
           }
         }
@@ -640,6 +641,7 @@ export function EditorMode() {
               onUpdateTransform={handleUpdateTransform}
               onUpdatePrimitiveParams={handleUpdatePrimitiveParams}
               healthMap={healthMap}
+              meshes={meshesMap}
             />
           </div>
           <EditorExportFooter
@@ -744,6 +746,7 @@ export function EditorMode() {
                     onUpdateTransform={handleUpdateTransform}
                     onUpdatePrimitiveParams={handleUpdatePrimitiveParams}
                     healthMap={healthMap}
+                    meshes={meshesMap}
                   />
                   <div className="mt-4">
                     <EditorExportFooter

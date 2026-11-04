@@ -152,11 +152,11 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
             const tris = indexed.triVerts
             const verts = indexed.vertProperties
             for (let t = 0; t < tris.length; t += 3) {
-              const a = tris[t] * 3, b = tris[t + 1] * 3, c = tris[t + 2] * 3
+              const ia = tris[t] * 3, ib = tris[t + 1] * 3, ic = tris[t + 2] * 3
               vol +=
-                (verts[a] * (verts[b + 1] * verts[c + 2] - verts[b + 2] * verts[c + 1]) -
-                  verts[a + 1] * (verts[b] * verts[c + 2] - verts[b + 2] * verts[c]) +
-                  verts[a + 2] * (verts[b] * verts[c + 1] - verts[b + 1] * verts[c])) /
+                (verts[ia] * (verts[ib + 1] * verts[ic + 2] - verts[ib + 2] * verts[ic + 1]) -
+                  verts[ia + 1] * (verts[ib] * verts[ic + 2] - verts[ib + 2] * verts[ic]) +
+                  verts[ia + 2] * (verts[ib] * verts[ic + 1] - verts[ib + 1] * verts[ic])) /
                 6
             }
             const mesh: MeshData = {

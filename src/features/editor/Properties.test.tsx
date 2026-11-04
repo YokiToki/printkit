@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Properties } from './Properties'
+import type { MeshData } from '../../geometry/mesh'
 import type { EditorObject } from '../../editor/scene'
 import type { MeshHealth } from '../../editor/health'
 import { UnitProvider } from '../../ui/UnitProvider'
@@ -92,6 +93,7 @@ describe('Properties', () => {
     objects?: EditorObject[]
     selection?: string[]
     healthMap?: Map<string, MeshHealth>
+    meshes?: Record<string, MeshData>
   } = {}) {
     return render(
       <UnitProvider>
@@ -102,6 +104,7 @@ describe('Properties', () => {
           onUpdateTransform={onUpdateTransform}
           onUpdatePrimitiveParams={onUpdatePrimitiveParams}
           healthMap={props.healthMap}
+          meshes={props.meshes}
         />
       </UnitProvider>
     )
@@ -256,5 +259,34 @@ describe('Properties', () => {
   it('passes stepperAssert for single object view', async () => {
     renderProperties({ selection: ['box-1'] })
     await expectAllNumericSteppers()
+  })
+
+  it('displays exact STL mesh bounds when meshes map is provided', async () => {
+    const user = userEvent.setup()
+    const customMesh: MeshData = {
+      vertProperties: new Float32Array(0),
+      triVerts: new Uint32Array(0),
+      numProp: 3,
+      min: [-2.5, -5, 0],
+      max: [2.5, 5, 12],
+      volume: 300,
+    }
+
+    renderProperties({
+      objects: [meshObject],
+      selection: ['mesh-1'],
+      meshes: { 'mesh-1': customMesh },
+    })
+
+    // Expand Transform section
+    await user.click(screen.getByRole('button', { name: /Expand:.*Transform/i }))
+
+    // Size should be: X = 5, Y = 10, Z = 12 (not 20, 20, 20)
+    const sizeX = screen.getByRole('textbox', { name: 'Size X' })
+    const sizeY = screen.getByRole('textbox', { name: 'Size Y' })
+    const sizeZ = screen.getByRole('textbox', { name: 'Size Z' })
+    expect(sizeX).toHaveValue('5')
+    expect(sizeY).toHaveValue('10')
+    expect(sizeZ).toHaveValue('12')
   })
 })

@@ -15,7 +15,15 @@ export interface ViewCubeProps {
  */
 export function ViewCube({ rotation = [0, 0, 0], onSelectFace, onOrbit }: ViewCubeProps) {
   const { t } = useTranslation()
-  const dragRef = useRef<{ startX: number; startY: number; lastX: number; lastY: number; moved: boolean } | null>(null)
+  const dragRef = useRef<{
+    startX: number
+    startY: number
+    lastX: number
+    lastY: number
+    moved: boolean
+    pointerId: number
+    captured: boolean
+  } | null>(null)
 
   const [pitch, yaw] = rotation
 
@@ -30,11 +38,14 @@ export function ViewCube({ rotation = [0, 0, 0], onSelectFace, onOrbit }: ViewCu
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return
-    dragRef.current = { startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY, moved: false }
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId)
-    } catch {
-      // Ignored in test environments
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      moved: false,
+      pointerId: e.pointerId,
+      captured: false,
     }
   }
 
@@ -42,6 +53,14 @@ export function ViewCube({ rotation = [0, 0, 0], onSelectFace, onOrbit }: ViewCu
     if (!dragRef.current) return
     const dist = Math.hypot(e.clientX - dragRef.current.startX, e.clientY - dragRef.current.startY)
     if (dist > 3) {
+      if (!dragRef.current.captured) {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId)
+          dragRef.current.captured = true
+        } catch {
+          // Ignored in test environments
+        }
+      }
       dragRef.current.moved = true
       const dx = e.clientX - dragRef.current.lastX
       const dy = e.clientY - dragRef.current.lastY
@@ -52,7 +71,7 @@ export function ViewCube({ rotation = [0, 0, 0], onSelectFace, onOrbit }: ViewCu
   }
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (dragRef.current) {
+    if (dragRef.current?.captured) {
       try {
         if (e.currentTarget.hasPointerCapture(e.pointerId)) {
           e.currentTarget.releasePointerCapture(e.pointerId)
@@ -104,7 +123,7 @@ export function ViewCube({ rotation = [0, 0, 0], onSelectFace, onOrbit }: ViewCu
               width: 72,
               height: 72,
               transform,
-              backfaceVisibility: 'visible',
+              backfaceVisibility: 'hidden',
             }}
           >
             {t(labelKey)}

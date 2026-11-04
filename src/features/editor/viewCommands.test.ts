@@ -54,4 +54,17 @@ describe('editor/viewCommands', () => {
     expect(fit.distance).toBeGreaterThan(0)
     expect(fit.orthoHeight).toBeGreaterThan(0)
   })
+
+  it('frames small objects (e.g. 1x2 mm cylinder) without clamping distance to large dimensions', () => {
+    const smallBounds = {
+      min: [-0.5, -0.5, 0] as [number, number, number],
+      max: [0.5, 0.5, 2] as [number, number, number],
+    }
+
+    const fit = fitCameraToBounds(smallBounds, 35, 1)
+    expect(fit.target).toEqual([0, 0, 1])
+    // Radius is ~1.22 mm, dist should be around ~4.7 mm, not clamped to 10+ mm (which gave ~38 mm)
+    expect(fit.distance).toBeLessThan(10)
+    expect(fit.orthoHeight).toBeLessThan(5)
+  })
 })

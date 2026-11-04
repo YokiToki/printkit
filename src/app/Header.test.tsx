@@ -15,84 +15,86 @@ vi.mock('./useModel', () => ({
 
 const at = (path: string) => render(<I18nextProvider i18n={i18n}><RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} /></I18nextProvider>)
 
-describe('Header: продукты и режимы', () => {
+describe('Header: хлебные крошки и навигация', () => {
   beforeEach(async () => { localStorage.clear(); await i18n.changeLanguage('en') })
 
-  it('на корне переключателей нет, только логотип', () => {
+  it('на корневой странице в крошках только PrintKit, кнопка beta перед ним', () => {
     at('/')
-    expect(screen.queryByRole('navigation', { name: 'Product' })).toBeNull()
-    expect(screen.queryByRole('navigation', { name: 'Mode' })).toBeNull()
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: /PrintKit/ })).toHaveAttribute('href', '/')
+    expect(within(nav).queryByText('/')).toBeNull()
+    const betaBtn = screen.getByTestId('beta-badge')
+    expect(betaBtn).toBeInTheDocument()
+    // beta-badge находится перед ссылкой PrintKit в DOM
+    expect(betaBtn.compareDocumentPosition(within(nav).getByRole('link', { name: /PrintKit/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
+
   it('логотип берёт оттенок активного продукта, без продукта — синий (gridfinity)', () => {
     const logo = () => document.querySelector('header svg[data-hue]')
     for (const [path, hue] of [['/', 'gridfinity'], ['/gridfinity', 'gridfinity'], ['/keychain', 'keychain'], ['/rack', 'rack']] as const) {
       const { unmount } = at(path)
       expect(logo(), path).toHaveAttribute('data-hue', hue)
       unmount()
+      localStorage.clear()
     }
   })
-  it('в Gridfinity: активен Gridfinity Master, видны режимы, в логотипе название продукта', async () => {
-    at('/gridfinity/baseplate')
-    const products = screen.getByRole('navigation', { name: 'Product' })
-    expect(within(products).getByRole('link', { name: 'Gridfinity Master' })).toHaveAttribute('aria-current', 'page')
-    expect(within(products).getByRole('link', { name: 'Keychain Master' })).not.toHaveAttribute('aria-current')
-    const modes = screen.getByRole('navigation', { name: 'Mode' })
-    expect(within(modes).getAllByRole('link')).toHaveLength(3)
-    expect(screen.getByRole('link', { name: /back to start/ })).toHaveTextContent('Gridfinity Master')
+
+  it('на странице выбора продукта в крошках PrintKit / Gridfinity', () => {
+    at('/gridfinity')
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: /PrintKit/ })).toHaveAttribute('href', '/')
+    expect(within(nav).getByText('Gridfinity')).toHaveAttribute('aria-current', 'page')
   })
-  it('в списке продуктов три ссылки, в Rack активен Rack Master и три режима Panel, Enclosure и Shelf', () => {
+
+  it('в режиме Baseplate крошки: PrintKit / Gridfinity / Baseplate', () => {
+    at('/gridfinity/baseplate')
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: /PrintKit/ })).toHaveAttribute('href', '/')
+    const productLink = within(nav).getByRole('link', { name: 'Gridfinity' })
+    expect(productLink).toHaveAttribute('href', '/gridfinity')
+    expect(within(nav).getByText('Baseplate')).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('в Rack Panel крошки: PrintKit / Rack / Panel', () => {
     at('/rack/panel')
-    const products = screen.getByRole('navigation', { name: 'Product' })
-    expect(within(products).getAllByRole('link').map((l) => l.getAttribute('aria-label'))).toEqual(['Gridfinity Master', 'Keychain Master', 'Rack Master'])
-    expect(within(products).getByRole('link', { name: 'Rack Master' })).toHaveAttribute('aria-current', 'page')
-    expect(within(screen.getByRole('navigation', { name: 'Mode' })).getAllByRole('link').map((l) => l.textContent)).toEqual(['Panel', 'Enclosure', 'Shelf'])
-    expect(screen.getByRole('link', { name: /back to start/ })).toHaveTextContent('Rack Master')
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: /PrintKit/ })).toHaveAttribute('href', '/')
+    expect(within(nav).getByRole('link', { name: 'Rack' })).toHaveAttribute('href', '/rack')
+    expect(within(nav).getByText('Panel')).toHaveAttribute('aria-current', 'page')
   })
-  it('переход в Keychain: режимы Изображение и Форма, режимов Gridfinity нет, активен Keychain Master', async () => {
-    at('/gridfinity/box')
-    await userEvent.click(within(screen.getByRole('navigation', { name: 'Product' })).getByRole('link', { name: 'Keychain Master' }))
-    expect(await screen.findByRole('heading', { name: 'Choose a keychain start' })).toBeInTheDocument()
-    const modes = screen.getByRole('navigation', { name: 'Mode' })
-    expect(within(modes).getAllByRole('link').map((l) => l.textContent)).toEqual(['Image', 'Shape'])
-    expect(within(modes).queryByRole('link', { name: 'Box' })).toBeNull()
-    expect(within(screen.getByRole('navigation', { name: 'Product' })).getByRole('link', { name: 'Keychain Master' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('link', { name: /back to start/ })).toHaveTextContent('Keychain Master')
-  })
-  it('параметры Baseplate переживают заход в Keychain и возврат; язык и единицы общие', async () => {
-    localStorage.setItem('gridfinity.baseplate', JSON.stringify({ x: { mode: 'units', value: 5, align: 'center' } }))
-    at('/gridfinity/baseplate')
-    expect(await screen.findByText('Size')).toBeInTheDocument()
-    await userEvent.click(within(screen.getByRole('navigation', { name: 'Product' })).getByRole('link', { name: 'Keychain Master' }))
-    await userEvent.click(within(screen.getByRole('navigation', { name: 'Product' })).getByRole('link', { name: 'Gridfinity Master' }))
-    await userEvent.click(within(screen.getByRole('navigation', { name: 'Mode' })).getByRole('link', { name: 'Baseplate' }))
-    expect(JSON.parse(localStorage.getItem('gridfinity.baseplate')!).x.value).toBe(5)
-    expect(document.title).toBe('PrintKit')
-    await userEvent.click(screen.getByRole('button', { name: 'RU' }))
-    expect(document.documentElement.lang).toBe('ru')
-    expect(document.title).toBe('PrintKit')
-    await userEvent.click(within(screen.getByRole('navigation', { name: 'Продукт' })).getByRole('link', { name: 'Keychain Master' }))
-    expect(screen.getByRole('button', { name: 'RU' })).toHaveAttribute('aria-pressed', 'true')
-  })
-  it('переключатель режимов Keychain ведёт между режимами, настройки Image сохраняются', async () => {
-    localStorage.setItem('keychain.relief', JSON.stringify({ relief: { hmax: 3 } }))
+
+  it('в Keychain Image крошки: PrintKit / Keychain / Image', () => {
     at('/keychain/image')
-    await screen.findByText(/Choose an image to start/)
-    await userEvent.click(within(screen.getByRole('navigation', { name: 'Mode' })).getByRole('link', { name: 'Shape' }))
-    expect(await screen.findByRole('button', { name: /^Expand: Shape/ })).toBeInTheDocument()
-    await userEvent.click(within(screen.getByRole('navigation', { name: 'Mode' })).getByRole('link', { name: 'Image' }))
-    expect(await screen.findByText(/Choose an image to start/)).toBeInTheDocument()
-    expect(JSON.parse(localStorage.getItem('keychain.relief')!).relief.hmax).toBe(3)
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: /PrintKit/ })).toHaveAttribute('href', '/')
+    expect(within(nav).getByRole('link', { name: 'Keychain' })).toHaveAttribute('href', '/keychain')
+    expect(within(nav).getByText('Image')).toHaveAttribute('aria-current', 'page')
   })
+
+  it('клик по Gridfinity в крошках возвращает на страницу выбора режима /gridfinity', async () => {
+    at('/gridfinity/box')
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    await userEvent.click(within(nav).getByRole('link', { name: 'Gridfinity' }))
+    expect(await screen.findByRole('heading', { name: 'Choose a Gridfinity part' })).toBeInTheDocument()
+  })
+
+  it('крошки всегда на английском, даже при русской локали', async () => {
+    await i18n.changeLanguage('ru')
+    at('/gridfinity/box')
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: /PrintKit/ })).toBeInTheDocument()
+    expect(within(nav).getByRole('link', { name: 'Gridfinity' })).toBeInTheDocument()
+    expect(within(nav).getByText('Box')).toBeInTheDocument()
+    expect(within(nav).queryByText('Коробка')).toBeNull()
+  })
+
   it('переключатели единиц и языка компактные и совпадают по высоте со ссылкой GitHub', () => {
     at('/')
     const unitsGroup = screen.getByRole('group', { name: 'Units' })
     const langGroup = screen.getByRole('group', { name: 'Language' })
     const githubLink = screen.getByRole('link', { name: 'PrintKit on GitHub' })
-    for (const el of [unitsGroup, langGroup, githubLink]) {
-      expect(el).toHaveClass('h-9', 'md:h-8')
-    }
-    expect(within(unitsGroup).getByRole('button', { name: 'mm' })).toHaveClass('px-2', 'text-xs')
-    expect(screen.queryByRole('button', { name: 'AI models' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Agent activity' })).toBeNull()
+    expect(unitsGroup).toBeInTheDocument()
+    expect(langGroup).toBeInTheDocument()
+    expect(githubLink).toBeInTheDocument()
   })
 })

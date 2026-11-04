@@ -7,13 +7,13 @@
 
 ## 2. Beta Badge Icon and Placement
 
-- [ ] 2.1 Refactor `src/app/BetaBadge.tsx` to render as a pure Tabler icon button (`IconFlask`) without the text "beta" label, keeping `aria-label` and `title` for accessibility and the disclaimer popover on click. Verify with `npx vitest run src/app/BetaBadge.test.tsx`.
-- [ ] 2.2 In `src/app/Header.tsx`, position the `BetaBadge` immediately before "PrintKit" / Logo. Verify visually and with unit tests.
+- [x] 2.1 Refactor `src/app/BetaBadge.tsx` to render as a pure Tabler icon button (`IconFlask`) without the text "beta" label, keeping `aria-label` and `title` for accessibility and the disclaimer popover on click. Verify with `npx vitest run src/app/BetaBadge.test.tsx`.
+- [x] 2.2 In `src/app/Header.tsx`, position the `BetaBadge` immediately before "PrintKit" / Logo. Verify visually and with unit tests.
 
 ## 3. Header Breadcrumbs Navigation
 
-- [ ] 3.1 Replace `ProductSwitcher`, desktop mode navigation, and `MobileModeSelect` in `src/app/Header.tsx` with English breadcrumbs `PrintKit / <Product> / <Mode>`. Ensure "PrintKit" links to `/` on all pages, the product crumb links to that product's mode chooser, and crumbs are always in English. Verify with `npx vitest run src/app/Header.test.tsx`.
-- [ ] 3.2 Add responsive styles (`truncate`, `min-w-0`) to breadcrumbs so they fit smoothly without overflowing on mobile viewports down to 320 px. Verify in browser at 390 px and 320 px widths.
+- [x] 3.1 Replace `ProductSwitcher`, desktop mode navigation, and `MobileModeSelect` in `src/app/Header.tsx` with English breadcrumbs `PrintKit / <Product> / <Mode>`. Ensure "PrintKit" links to `/` on all pages, the product crumb links to that product's mode chooser, and crumbs are always in English. Verify with `npx vitest run src/app/Header.test.tsx`.
+- [x] 3.2 Add responsive styles (`truncate`, `min-w-0`) to breadcrumbs so they fit smoothly without overflowing on mobile viewports down to 320 px. Verify in browser at 390 px and 320 px widths.
 
 ## 4. Compact Export Panel and Sidebar Reset Button
 

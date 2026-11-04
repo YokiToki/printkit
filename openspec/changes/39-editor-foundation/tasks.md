@@ -17,10 +17,10 @@
 
 ## 3. Viewport extension
 
-- [ ] 3.1 `Viewport` optional `scene` prop and `onPick` / `onBoxSelect` / `onGizmoChange` / `onGizmoCommit`: per-part matrices, raycast picking (bounding boxes first), locked parts not pickable, hidden parts not drawn. Existing props and behaviour unchanged. Test (three mocked in jsdom as for other viewport tests): matrices applied to groups, picking returns the front-most unlocked part, generator modes render as before.
-- [ ] 3.2 Selection outline (inverted hull in the existing outline colour token) and `TransformControls` attached to a selection pivot, orbit disabled while dragging, snapping from the scene prop, commit on release. Browser check: all three tools on one and on three objects, orbit not disturbed.
-- [ ] 3.3 Box select: drag on empty space draws a rectangle overlay (DOM), orbit stays on right/middle button and on Alt-drag. Test the pure rectangle ↔ bounds intersection helper in `features/editor/boxSelect.ts`.
-- [ ] 3.4 `viewCommands.ts` and `ViewCube`: standard views, perspective ↔ orthographic (target and distance kept), Fit all, Fit selection; ground fade rules of `07a` apply to both cameras. Test the pure camera maths (view direction per face, ortho size from distance and fov); browser check of the cube in both languages.
+- [x] 3.1 `Viewport` optional `scene` prop and `onPick` / `onBoxSelect` / `onGizmoChange` / `onGizmoCommit`: per-part matrices, raycast picking (bounding boxes first), locked parts not pickable, hidden parts not drawn. Existing props and behaviour unchanged. Test (three mocked in jsdom as for other viewport tests): matrices applied to groups, picking returns the front-most unlocked part, generator modes render as before.
+- [x] 3.2 Selection outline (inverted hull in the existing outline colour token) and `TransformControls` attached to a selection pivot, orbit disabled while dragging, snapping from the scene prop, commit on release. Browser check: all three tools on one and on three objects, orbit not disturbed.
+- [x] 3.3 Box select: drag on empty space draws a rectangle overlay (DOM), orbit stays on right/middle button and on Alt-drag. Test the pure rectangle ↔ bounds intersection helper in `features/editor/boxSelect.ts`.
+- [x] 3.4 `viewCommands.ts` and `ViewCube`: standard views, perspective ↔ orthographic (target and distance kept), Fit all, Fit selection; ground fade rules of `07a` apply to both cameras. Test the pure camera maths (view direction per face, ortho size from distance and fov); browser check of the cube in both languages.
 
 ## 4. Editor UI (no artboard exists: built from `ui/` components and `theme.css` tokens; compare with the wireframe in `design.md`)
 

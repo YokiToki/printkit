@@ -35,9 +35,9 @@
 
 ## 6. Feature UI
 
-- [ ] 6.1 `FeatureDialog` for Extrude and Revolve (side panel, not a modal): sketch picker, region picking by clicking in the view, distance fields (`LengthField`), side, operation, top/bottom edge break, axis for Revolve, live preview at coarse quality through the same pipeline, OK/Cancel as one history step. Component tests and a browser check of preview vs result.
-- [ ] 6.2 Feature list under the body (outliner and properties): edit, delete, failed marking with the reason, plain-language error messages from `sketch.error.*` / `sketch.warning.*`. Test: delete recomputes, failed feature marked, later features skipped.
-- [ ] 6.3 Export and measurements: the bodies from features are ordinary editor objects for transform, selection and export (`39`); check bbox and volume from `generate` against the STL of the export.
+- [x] 6.1 `FeatureDialog` for Extrude and Revolve (side panel, not a modal): sketch picker, region picking by clicking in the view, distance fields (`LengthField`), side, operation, top/bottom edge break, axis for Revolve, live preview at coarse quality through the same pipeline, OK/Cancel as one history step. Component tests and a browser check of preview vs result.
+- [x] 6.2 Feature list under the body (outliner and properties): edit, delete, failed marking with the reason, plain-language error messages from `sketch.error.*` / `sketch.warning.*`. Test: delete recomputes, failed feature marked, later features skipped.
+- [x] 6.3 Export and measurements: the bodies from features are ordinary editor objects for transform, selection and export (`39`); check bbox and volume from `generate` against the STL of the export.
 
 ## 7. SVG import
 

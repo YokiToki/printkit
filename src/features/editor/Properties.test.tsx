@@ -289,4 +289,61 @@ describe('Properties', () => {
     expect(sizeY).toHaveValue('10')
     expect(sizeZ).toHaveValue('12')
   })
+
+  it('renders features section for feature objects and triggers edit, delete and add', async () => {
+    const user = userEvent.setup()
+    const onEditFeature = vi.fn()
+    const onDeleteFeature = vi.fn()
+    const onAddFeature = vi.fn()
+
+    const featureObj: EditorObject = {
+      id: 'feat-1',
+      name: 'Extrude 1',
+      visible: true,
+      locked: false,
+      color: 0,
+      source: {
+        kind: 'feature',
+        features: [
+          { kind: 'extrude', sketch: 'sk-1', op: 'new', side: 'one', d1: 15 },
+          { kind: 'extrude', sketch: 'sk-1', op: 'cut', side: 'one', d1: 5 },
+        ],
+      },
+      transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+    }
+
+    render(
+      <UnitProvider>
+        <Properties
+          objects={[featureObj]}
+          selection={['feat-1']}
+          onUpdateObject={vi.fn()}
+          onUpdateTransform={vi.fn()}
+          onUpdatePrimitiveParams={vi.fn()}
+          onEditFeature={onEditFeature}
+          onDeleteFeature={onDeleteFeature}
+          onAddFeature={onAddFeature}
+        />
+      </UnitProvider>
+    )
+
+    // Expand Features section
+    const expandBtn = screen.getByRole('button', { name: /Expand:.*Features/i })
+    await user.click(expandBtn)
+
+    expect(screen.getByTestId('property-feature-row-0')).toBeInTheDocument()
+    expect(screen.getByTestId('property-feature-row-1')).toBeInTheDocument()
+
+    // Edit feature
+    await user.click(screen.getByTestId('property-edit-feature-0'))
+    expect(onEditFeature).toHaveBeenCalledWith('feat-1', 0)
+
+    // Delete feature
+    await user.click(screen.getByTestId('property-delete-feature-1'))
+    expect(onDeleteFeature).toHaveBeenCalledWith('feat-1', 1)
+
+    // Add Extrude
+    await user.click(screen.getByTestId('property-add-extrude-btn'))
+    expect(onAddFeature).toHaveBeenCalledWith('feat-1', 'extrude')
+  })
 })

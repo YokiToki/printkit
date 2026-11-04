@@ -226,4 +226,70 @@ describe('editor/Outliner', () => {
     fireEvent.click(screen.getByTestId('outliner-delete-sketch-sk-1'))
     expect(onDeleteSketch).toHaveBeenCalledWith('sk-1')
   })
+
+  it('renders features under body and supports edit and delete feature', () => {
+    const onEditFeature = vi.fn()
+    const onDeleteFeature = vi.fn()
+
+    const featureObj: EditorObject = {
+      id: 'body-1',
+      name: 'Extrude 1',
+      visible: true,
+      locked: false,
+      color: 0,
+      source: {
+        kind: 'feature',
+        features: [
+          {
+            kind: 'extrude',
+            sketch: 'sk-1',
+            op: 'new',
+            side: 'one',
+            d1: 10,
+          },
+          {
+            kind: 'extrude',
+            sketch: 'sk-1',
+            op: 'cut',
+            side: 'one',
+            d1: 5,
+          },
+        ],
+      },
+      transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+    }
+
+    render(
+      <Outliner
+        objects={[featureObj]}
+        selection={[]}
+        onSelect={vi.fn()}
+        onToggleVisible={vi.fn()}
+        onToggleLock={vi.fn()}
+        onRename={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onIsolate={vi.fn()}
+        onShowAll={vi.fn()}
+        onEditFeature={onEditFeature}
+        onDeleteFeature={onDeleteFeature}
+      />
+    )
+
+    // Expand body
+    const expandBtn = screen.getByTestId('outliner-body-expand-body-1')
+    fireEvent.click(expandBtn)
+
+    // Features are visible
+    expect(screen.getByTestId('outliner-feature-row-body-1-0')).toBeInTheDocument()
+    expect(screen.getByTestId('outliner-feature-row-body-1-1')).toBeInTheDocument()
+
+    // Edit feature
+    fireEvent.click(screen.getByTestId('outliner-edit-feature-body-1-0'))
+    expect(onEditFeature).toHaveBeenCalledWith('body-1', 0)
+
+    // Delete feature
+    fireEvent.click(screen.getByTestId('outliner-delete-feature-body-1-1'))
+    expect(onDeleteFeature).toHaveBeenCalledWith('body-1', 1)
+  })
 })

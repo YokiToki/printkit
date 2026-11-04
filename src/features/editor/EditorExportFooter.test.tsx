@@ -136,4 +136,38 @@ describe('EditorExportFooter', () => {
 
     expect(screen.getByTestId('export-open-mesh-warning')).toBeDefined()
   })
+
+  it('exports a feature-sourced body cleanly', () => {
+    const featObj: EditorObject = {
+      id: 'f1',
+      name: 'Extruded Plate',
+      visible: true,
+      locked: false,
+      color: 0,
+      source: {
+        kind: 'feature',
+        features: [{ kind: 'extrude', sketch: 'sk1', op: 'new', side: 'one', d1: 10 }],
+      },
+      transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+    }
+    const doc = { ...createEmptyScene(), objects: [featObj] }
+    const meshes = { f1: createBoxMesh(0) }
+    const healthMap = { f1: normalHealth }
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <EditorExportFooter
+          doc={doc}
+          selection={['f1']}
+          meshes={meshes}
+          healthMap={healthMap}
+          busy={false}
+        />
+      </I18nextProvider>
+    )
+
+    const btn = screen.getByRole('button', { name: /Download STL/i })
+    expect(btn).not.toBeDisabled()
+    expect(screen.queryByTestId('export-open-mesh-warning')).toBeNull()
+  })
 })

@@ -31,6 +31,8 @@ import { EditorExportFooter } from './EditorExportFooter'
 import { log } from '../../app/activityLog'
 import { SketchToolbar } from './sketch/SketchToolbar'
 import { ConstraintPanel } from './sketch/ConstraintPanel'
+import { FeatureDialog } from './sketch/FeatureDialog'
+import type { Feature } from '../../geometry/features/evaluate'
 import {
   initialToolState,
   sketchToolReducer,
@@ -94,6 +96,13 @@ export function EditorMode() {
     [doc.sketches, activeSketchId],
   )
   const [sketchToolState, setSketchToolState] = useState<ToolState>(initialToolState('select'))
+
+  // Feature dialog state
+  const [activeFeatureDialog, setActiveFeatureDialog] = useState<{
+    kind: 'extrude' | 'revolve'
+    targetObjectId?: string
+    featureIndex?: number
+  } | null>(null)
 
   const dofInfo = useMemo(() => {
     if (!activeSketch) return { dof: 0, conflicts: [], redundant: [], entityStatus: {} }
@@ -317,6 +326,98 @@ export function EditorMode() {
       ...prev,
       objects: prev.objects.map((o) => (ids.includes(o.id) ? centerOnBed(o) : o)),
     }))
+  }
+
+  const handleOpenFeatureDialog = (
+    kind: 'extrude' | 'revolve',
+    targetObjectId?: string,
+    featureIndex?: number,
+  ) => {
+    setActiveFeatureDialog({ kind, targetObjectId, featureIndex })
+  }
+
+  const handleApplyFeature = (
+    feature: Feature,
+    targetObjectId?: string,
+    featureIndex?: number,
+  ) => {
+    if (targetObjectId) {
+      const targetObj = doc.objects.find((o) => o.id === targetObjectId)
+      if (!targetObj) return
+
+      let nextFeatures: Feature[] = []
+      if (targetObj.source.kind === 'feature') {
+        nextFeatures = [...targetObj.source.features]
+        if (featureIndex !== undefined && featureIndex >= 0 && featureIndex < nextFeatures.length) {
+          nextFeatures[featureIndex] = feature
+        } else {
+          nextFeatures.push(feature)
+        }
+      } else {
+        nextFeatures = [feature]
+      }
+
+      dispatch(`Update ${feature.kind}`, (prev) => ({
+        ...prev,
+        objects: prev.objects.map((o) =>
+          o.id === targetObjectId
+            ? { ...o, source: { kind: 'feature', features: nextFeatures } }
+            : o,
+        ),
+      }))
+    } else {
+      const existingNames = doc.objects.map((o) => o.name)
+      const label =
+        feature.kind === 'extrude'
+          ? t('sketch.feature.extrude', 'Extrude')
+          : t('sketch.feature.revolve', 'Revolve')
+      const name = newName(label, existingNames)
+      const newObj: EditorObject = {
+        id: crypto.randomUUID
+          ? crypto.randomUUID()
+          : `body-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name,
+        visible: true,
+        locked: false,
+        color: doc.objects.length % 7,
+        source: {
+          kind: 'feature',
+          features: [feature],
+        },
+        transform: {
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          scale: [1, 1, 1],
+        },
+      }
+
+      dispatch(`Add ${feature.kind}`, (prev) => ({
+        ...prev,
+        objects: [...prev.objects, newObj],
+        sketches: prev.sketches?.map((s) =>
+          s.id === feature.sketch ? { ...s, visible: false } : s,
+        ),
+      }))
+      setSelection([newObj.id])
+    }
+    setActiveFeatureDialog(null)
+  }
+
+  const handleDeleteFeature = (objectId: string, featureIndex: number) => {
+    const targetObj = doc.objects.find((o) => o.id === objectId)
+    if (!targetObj || targetObj.source.kind !== 'feature') return
+
+    const nextFeatures = targetObj.source.features.filter((_, idx) => idx !== featureIndex)
+    if (nextFeatures.length === 0) {
+      handleDelete([objectId])
+    } else {
+      dispatch('Delete Feature', (prev) => ({
+        ...prev,
+        objects: prev.objects.map((o) =>
+          o.id === objectId ? { ...o, source: { kind: 'feature', features: nextFeatures } } : o,
+        ),
+      }))
+    }
   }
 
   // Hotkey commands
@@ -900,6 +1001,8 @@ export function EditorMode() {
           onAddPrimitive={handleAddPrimitive}
           onImportFiles={handleImportFiles}
           onAddSketch={handleAddSketch}
+          hasSketches={(doc.sketches?.length ?? 0) > 0}
+          onOpenFeatureDialog={(k) => handleOpenFeatureDialog(k)}
         />
       )}
 
@@ -964,6 +1067,13 @@ export function EditorMode() {
                   setActiveSketchId(null)
                 }
               }}
+              onEditFeature={(objId, fIdx) => {
+                const obj = doc.objects.find((o) => o.id === objId)
+                if (obj?.source.kind === 'feature') {
+                  handleOpenFeatureDialog(obj.source.features[fIdx].kind, objId, fIdx)
+                }
+              }}
+              onDeleteFeature={handleDeleteFeature}
               healthMap={healthMap}
             />
           </div>
@@ -1044,7 +1154,13 @@ export function EditorMode() {
         >
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <span className="font-semibold text-xs text-text">
-              {activeSketch ? activeSketch.name : t('editor.properties.transform')}
+              {activeFeatureDialog
+                ? activeFeatureDialog.kind === 'extrude'
+                  ? t('sketch.feature.extrude', 'Extrude')
+                  : t('sketch.feature.revolve', 'Revolve')
+                : activeSketch
+                  ? activeSketch.name
+                  : t('editor.properties.transform')}
             </span>
             <button
               type="button"
@@ -1057,7 +1173,25 @@ export function EditorMode() {
             </button>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
-            {activeSketch ? (
+            {activeFeatureDialog ? (
+              <FeatureDialog
+                kind={activeFeatureDialog.kind}
+                sketches={doc.sketches ?? []}
+                objects={doc.objects}
+                targetObjectId={activeFeatureDialog.targetObjectId}
+                featureIndex={activeFeatureDialog.featureIndex}
+                initialFeature={
+                  activeFeatureDialog.targetObjectId && activeFeatureDialog.featureIndex !== undefined
+                    ? (
+                        doc.objects.find((o) => o.id === activeFeatureDialog.targetObjectId)
+                          ?.source as { kind: 'feature'; features: Feature[] }
+                      )?.features?.[activeFeatureDialog.featureIndex]
+                    : undefined
+                }
+                onApply={handleApplyFeature}
+                onCancel={() => setActiveFeatureDialog(null)}
+              />
+            ) : activeSketch ? (
               <ConstraintPanel
                 sketch={activeSketch}
                 selectedCurveIds={sketchToolState.selectedCurveIds}
@@ -1084,12 +1218,20 @@ export function EditorMode() {
                 onUpdateObject={handleUpdateObject}
                 onUpdateTransform={handleUpdateTransform}
                 onUpdatePrimitiveParams={handleUpdatePrimitiveParams}
+                onEditFeature={(objId, fIdx) => {
+                  const obj = doc.objects.find((o) => o.id === objId)
+                  if (obj?.source.kind === 'feature') {
+                    handleOpenFeatureDialog(obj.source.features[fIdx].kind, objId, fIdx)
+                  }
+                }}
+                onDeleteFeature={handleDeleteFeature}
+                onAddFeature={(objId, kind) => handleOpenFeatureDialog(kind, objId)}
                 healthMap={healthMap}
                 meshes={meshesMap}
               />
             )}
           </div>
-          {!activeSketch && (
+          {!activeSketch && !activeFeatureDialog && (
             <EditorExportFooter
               doc={doc}
               selection={selection}
@@ -1148,9 +1290,13 @@ export function EditorMode() {
               <b className="text-[14px]">
                 {mobileDrawer === 'outliner'
                   ? t('editor.outliner.title')
-                  : activeSketch
-                    ? activeSketch.name
-                    : t('editor.properties.transform')}
+                  : activeFeatureDialog
+                    ? activeFeatureDialog.kind === 'extrude'
+                      ? t('sketch.feature.extrude', 'Extrude')
+                      : t('sketch.feature.revolve', 'Revolve')
+                    : activeSketch
+                      ? activeSketch.name
+                      : t('editor.properties.transform')}
               </b>
               <button
                 type="button"
@@ -1204,7 +1350,32 @@ export function EditorMode() {
                       setActiveSketchId(null)
                     }
                   }}
+                  onEditFeature={(objId, fIdx) => {
+                    const obj = doc.objects.find((o) => o.id === objId)
+                    if (obj?.source.kind === 'feature') {
+                      handleOpenFeatureDialog(obj.source.features[fIdx].kind, objId, fIdx)
+                    }
+                  }}
+                  onDeleteFeature={handleDeleteFeature}
                   healthMap={healthMap}
+                />
+              ) : activeFeatureDialog ? (
+                <FeatureDialog
+                  kind={activeFeatureDialog.kind}
+                  sketches={doc.sketches ?? []}
+                  objects={doc.objects}
+                  targetObjectId={activeFeatureDialog.targetObjectId}
+                  featureIndex={activeFeatureDialog.featureIndex}
+                  initialFeature={
+                    activeFeatureDialog.targetObjectId && activeFeatureDialog.featureIndex !== undefined
+                      ? (
+                          doc.objects.find((o) => o.id === activeFeatureDialog.targetObjectId)
+                            ?.source as { kind: 'feature'; features: Feature[] }
+                        )?.features?.[activeFeatureDialog.featureIndex]
+                      : undefined
+                  }
+                  onApply={handleApplyFeature}
+                  onCancel={() => setActiveFeatureDialog(null)}
                 />
               ) : activeSketch ? (
                 <ConstraintPanel
@@ -1234,6 +1405,14 @@ export function EditorMode() {
                     onUpdateObject={handleUpdateObject}
                     onUpdateTransform={handleUpdateTransform}
                     onUpdatePrimitiveParams={handleUpdatePrimitiveParams}
+                    onEditFeature={(objId, fIdx) => {
+                      const obj = doc.objects.find((o) => o.id === objId)
+                      if (obj?.source.kind === 'feature') {
+                        handleOpenFeatureDialog(obj.source.features[fIdx].kind, objId, fIdx)
+                      }
+                    }}
+                    onDeleteFeature={handleDeleteFeature}
+                    onAddFeature={(objId, kind) => handleOpenFeatureDialog(kind, objId)}
                     healthMap={healthMap}
                     meshes={meshesMap}
                   />

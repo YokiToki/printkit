@@ -8,6 +8,11 @@ import {
   IconFlipHorizontal,
   IconFlipVertical,
   IconRotate2,
+  IconBoxModel,
+  IconRotate,
+  IconPencil,
+  IconTrash,
+  IconPlus,
 } from '@tabler/icons-react'
 import type { EditorObject } from '../../editor/scene'
 import {
@@ -38,6 +43,9 @@ export interface PropertiesProps {
   onUpdatePrimitiveParams: (id: string, params: Record<string, number>, mergeKey?: string) => void
   healthMap?: Map<string, MeshHealth>
   meshes?: Record<string, MeshData>
+  onEditFeature?: (objectId: string, featureIndex: number) => void
+  onDeleteFeature?: (objectId: string, featureIndex: number) => void
+  onAddFeature?: (objectId: string, kind: 'extrude' | 'revolve') => void
 }
 
 export function Properties({
@@ -48,6 +56,9 @@ export function Properties({
   onUpdatePrimitiveParams,
   healthMap,
   meshes,
+  onEditFeature,
+  onDeleteFeature,
+  onAddFeature,
 }: PropertiesProps) {
   const { t } = useTranslation()
   const { unit } = useUnit()
@@ -425,6 +436,90 @@ export function Properties({
           </div>
         </Section>
       )}
+
+      {/* Feature List Section */}
+      {obj.source.kind === 'feature' && (() => {
+        const features = obj.source.features
+        return (
+          <Section title={t('sketch.properties.features', 'Features')}>
+            <div className="space-y-2 pt-2">
+              <div className="flex flex-col space-y-1">
+                {features.map((feat, idx) => (
+                  <div
+                    key={feat.id ?? idx}
+                    data-testid={`property-feature-row-${idx}`}
+                    className="flex items-center justify-between p-2 rounded bg-surface-2 border border-border"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {feat.kind === 'extrude' ? (
+                        <IconBoxModel size={16} className="text-accent shrink-0" />
+                      ) : (
+                        <IconRotate size={16} className="text-accent shrink-0" />
+                      )}
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium text-text text-xs truncate">
+                          {feat.kind === 'extrude'
+                            ? t('sketch.feature.extrude', 'Extrude')
+                            : t('sketch.feature.revolve', 'Revolve')}
+                        </span>
+                        <span className="text-[10px] text-text-muted truncate">
+                          {feat.kind === 'extrude'
+                            ? `${feat.d1} mm · ${feat.op}`
+                            : `${feat.angle}° · ${feat.op}`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        data-testid={`property-edit-feature-${idx}`}
+                        onClick={() => onEditFeature?.(obj.id, idx)}
+                        title={t('common.edit', 'Edit')}
+                        className="p-1 hover:text-accent rounded cursor-pointer text-text-muted"
+                      >
+                        <IconPencil size={14} />
+                      </button>
+                      {features.length > 1 && (
+                        <button
+                          type="button"
+                          data-testid={`property-delete-feature-${idx}`}
+                          onClick={() => onDeleteFeature?.(obj.id, idx)}
+                          title={t('common.delete', 'Delete')}
+                          className="p-1 hover:text-error-text rounded cursor-pointer text-text-muted"
+                        >
+                          <IconTrash size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add Feature buttons */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  data-testid="property-add-extrude-btn"
+                  onClick={() => onAddFeature?.(obj.id, 'extrude')}
+                  className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 rounded-control border border-border bg-surface-2 hover:bg-surface-3 text-text cursor-pointer text-xs font-medium"
+                >
+                  <IconPlus size={13} />
+                  <span>{t('sketch.feature.extrude', 'Extrude')}</span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="property-add-revolve-btn"
+                  onClick={() => onAddFeature?.(obj.id, 'revolve')}
+                  className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2 rounded-control border border-border bg-surface-2 hover:bg-surface-3 text-text cursor-pointer text-xs font-medium"
+                >
+                  <IconPlus size={13} />
+                  <span>{t('sketch.feature.revolve', 'Revolve')}</span>
+                </button>
+              </div>
+            </div>
+          </Section>
+        )
+      })()}
 
       {/* Mesh Health block for mesh source */}
       {obj.source.kind === 'mesh' && (

@@ -121,4 +121,29 @@ describe('EditorMode', () => {
     expect(screen.getByTestId('toolbar-add-button')).toBeInTheDocument()
     expect(screen.queryByTestId('sketch-tool-finish')).not.toBeInTheDocument()
   })
+
+  it('extruding a sketch creates a feature body and hides the sketch', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+
+    // Add sketch
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    await user.click(screen.getByTestId('toolbar-add-sketch-xy'))
+    await user.click(screen.getByTestId('sketch-tool-finish'))
+
+    // Now sketch exists -> Open Add menu
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    const extrudeBtn = screen.getByTestId('toolbar-add-extrude')
+    expect(extrudeBtn).toBeInTheDocument()
+    await user.click(extrudeBtn)
+
+    // FeatureDialog is open in properties sidebar
+    expect(screen.getByTestId('feature-dialog')).toBeInTheDocument()
+    const applyBtn = screen.getByTestId('feature-dialog-apply')
+    await user.click(applyBtn)
+
+    // FeatureDialog closed, new body in outliner
+    expect(screen.queryByTestId('feature-dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('Extrude')).toBeInTheDocument()
+  })
 })

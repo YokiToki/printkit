@@ -32,6 +32,8 @@ export interface ToolbarProps {
   onAddPrimitive: (shape: PrimitiveShape) => void
   onImportFiles: (files: File[], unit: 'mm' | 'in') => void
   onAddSketch?: (plane: PlaneDefinition) => void
+  onOpenFeatureDialog?: (kind: 'extrude' | 'revolve') => void
+  hasSketches?: boolean
 }
 
 const PRIMITIVE_LIST: PrimitiveShape[] = ['box', 'cylinder', 'sphere', 'cone', 'torus', 'wedge']
@@ -50,6 +52,8 @@ export function Toolbar({
   onAddPrimitive,
   onImportFiles,
   onAddSketch,
+  onOpenFeatureDialog,
+  hasSketches = false,
 }: ToolbarProps) {
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -189,6 +193,37 @@ export function Toolbar({
                     <span>{t('sketch.plane.yz', 'Sketch (YZ Right)')}</span>
                     <span className="font-mono text-text-subtle text-[10px]">YZ</span>
                   </button>
+
+                  {hasSketches && (
+                    <>
+                      <div className="h-px bg-border my-1" />
+                      <div className="px-3 py-1 text-[10px] font-semibold text-text-subtle uppercase tracking-wider">
+                        {t('sketch.menu.features', 'Features')}
+                      </div>
+                      <button
+                        type="button"
+                        data-testid="toolbar-add-extrude"
+                        onClick={() => {
+                          onOpenFeatureDialog?.('extrude')
+                          setAddMenuOpen(false)
+                        }}
+                        className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs text-text hover:bg-surface-3 cursor-pointer"
+                      >
+                        <span>{t('sketch.feature.extrude', 'Extrude')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="toolbar-add-revolve"
+                        onClick={() => {
+                          onOpenFeatureDialog?.('revolve')
+                          setAddMenuOpen(false)
+                        }}
+                        className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs text-text hover:bg-surface-3 cursor-pointer"
+                      >
+                        <span>{t('sketch.feature.revolve', 'Revolve')}</span>
+                      </button>
+                    </>
+                  )}
 
                   <div className="h-px bg-border my-1" />
 

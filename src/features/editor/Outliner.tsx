@@ -15,6 +15,8 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconLine,
+  IconBoxModel,
+  IconRotate,
 } from '@tabler/icons-react'
 import type { EditorObject } from '../../editor/scene'
 import type { Sketch } from '../../editor/sketch/model'
@@ -38,6 +40,8 @@ export interface OutlinerProps {
   onToggleSketchVisible?: (id: string) => void
   onRenameSketch?: (id: string, name: string) => void
   onDeleteSketch?: (id: string) => void
+  onEditFeature?: (objectId: string, featureIndex: number) => void
+  onDeleteFeature?: (objectId: string, featureIndex: number) => void
   healthMap?: Map<string, MeshHealth>
 }
 
@@ -58,6 +62,8 @@ export function Outliner({
   onToggleSketchVisible,
   onRenameSketch,
   onDeleteSketch,
+  onEditFeature,
+  onDeleteFeature,
   healthMap,
 }: OutlinerProps) {
   const { t } = useTranslation()
@@ -73,6 +79,7 @@ export function Outliner({
 
   const [sketchesOpen, setSketchesOpen] = useState(true)
   const [bodiesOpen, setBodiesOpen] = useState(true)
+  const [expandedBodyIds, setExpandedBodyIds] = useState<Set<string>>(new Set())
 
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)
 
@@ -322,98 +329,177 @@ export function Outliner({
                 const health = healthMap?.get(obj.id)
                 const isMissingMesh = obj.source.kind === 'mesh' && !health
                 const isOpen = health && !health.closed
+                const isFeatureBody = obj.source.kind === 'feature'
+                const features = obj.source.kind === 'feature' ? obj.source.features : []
+                const isExpanded = expandedBodyIds.has(obj.id)
 
             return (
-              <div
-                key={obj.id}
-                tabIndex={0}
-                data-testid={`outliner-row-${obj.id}`}
-                onClick={(e) => handleRowClick(e, obj.id)}
-                onContextMenu={(e) => handleContextMenu(e, obj.id)}
-                onKeyDown={(e) => handleKeyDown(e, index)}
-                className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors outline-none
-                  ${isSelected ? 'bg-surface-3 text-text font-medium ring-1 ring-border-strong' : 'text-text-muted hover:bg-surface-2 hover:text-text'}
-                  ${!obj.visible ? 'opacity-40' : ''}`}
-              >
-                {/* Visibility Toggle */}
-                <button
-                  type="button"
-                  data-testid={`outliner-toggle-vis-${obj.id}`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onToggleVisible(obj.id)
-                  }}
-                  className="p-0.5 text-text-muted hover:text-text rounded cursor-pointer"
-                  title={obj.visible ? t('editor.outliner.hide') : t('editor.outliner.show')}
+              <div key={obj.id} className="flex flex-col space-y-0.5">
+                <div
+                  tabIndex={0}
+                  data-testid={`outliner-row-${obj.id}`}
+                  onClick={(e) => handleRowClick(e, obj.id)}
+                  onContextMenu={(e) => handleContextMenu(e, obj.id)}
+                  onKeyDown={(e) => handleKeyDown(e, index)}
+                  className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors outline-none
+                    ${isSelected ? 'bg-surface-3 text-text font-medium ring-1 ring-border-strong' : 'text-text-muted hover:bg-surface-2 hover:text-text'}
+                    ${!obj.visible ? 'opacity-40' : ''}`}
                 >
-                  {obj.visible ? <IconEye size={14} /> : <IconEyeOff size={14} />}
-                </button>
-
-                {/* Lock Toggle */}
-                <button
-                  type="button"
-                  data-testid={`outliner-toggle-lock-${obj.id}`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onToggleLock(obj.id)
-                  }}
-                  className="p-0.5 text-text-muted hover:text-text rounded cursor-pointer"
-                  title={obj.locked ? t('editor.outliner.unlock') : t('editor.outliner.lock')}
-                >
-                  {obj.locked ? <IconLock size={14} className="text-warn-text" /> : <IconLockOpen size={14} />}
-                </button>
-
-                {/* Object Name or Inline Rename */}
-                <div className="flex-1 min-w-0 flex items-center gap-1.5" onDoubleClick={() => startRename(obj)}>
-                  {editingId === obj.id ? (
-                    <input
-                      ref={editInputRef}
-                      data-testid={`outliner-rename-input-${obj.id}`}
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onBlur={commitRename}
-                      onKeyDown={(e) => {
+                  {/* Feature Body Expand / Collapse */}
+                  {isFeatureBody && (
+                    <button
+                      type="button"
+                      data-testid={`outliner-body-expand-${obj.id}`}
+                      onClick={(e) => {
                         e.stopPropagation()
-                        if (e.key === 'Enter') commitRename()
-                        if (e.key === 'Escape') setEditingId(null)
+                        setExpandedBodyIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(obj.id)) next.delete(obj.id)
+                          else next.add(obj.id)
+                          return next
+                        })
                       }}
-                      className="w-full bg-surface-3 border border-accent rounded px-1 py-0.5 text-xs text-text outline-none"
-                    />
-                  ) : (
-                    <span className="truncate">{obj.name}</span>
+                      className="p-0.5 text-text-muted hover:text-text rounded cursor-pointer"
+                    >
+                      {isExpanded ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
+                    </button>
                   )}
+
+                  {/* Visibility Toggle */}
+                  <button
+                    type="button"
+                    data-testid={`outliner-toggle-vis-${obj.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onToggleVisible(obj.id)
+                    }}
+                    className="p-0.5 text-text-muted hover:text-text rounded cursor-pointer"
+                    title={obj.visible ? t('editor.outliner.hide') : t('editor.outliner.show')}
+                  >
+                    {obj.visible ? <IconEye size={14} /> : <IconEyeOff size={14} />}
+                  </button>
+
+                  {/* Lock Toggle */}
+                  <button
+                    type="button"
+                    data-testid={`outliner-toggle-lock-${obj.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onToggleLock(obj.id)
+                    }}
+                    className="p-0.5 text-text-muted hover:text-text rounded cursor-pointer"
+                    title={obj.locked ? t('editor.outliner.unlock') : t('editor.outliner.lock')}
+                  >
+                    {obj.locked ? <IconLock size={14} className="text-warn-text" /> : <IconLockOpen size={14} />}
+                  </button>
+
+                  {/* Object Name or Inline Rename */}
+                  <div className="flex-1 min-w-0 flex items-center gap-1.5" onDoubleClick={() => startRename(obj)}>
+                    {editingId === obj.id ? (
+                      <input
+                        ref={editInputRef}
+                        data-testid={`outliner-rename-input-${obj.id}`}
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onBlur={commitRename}
+                        onKeyDown={(e) => {
+                          e.stopPropagation()
+                          if (e.key === 'Enter') commitRename()
+                          if (e.key === 'Escape') setEditingId(null)
+                        }}
+                        className="w-full bg-surface-3 border border-accent rounded px-1 py-0.5 text-xs text-text outline-none"
+                      />
+                    ) : (
+                      <span className="truncate">{obj.name}</span>
+                    )}
+                  </div>
+
+                  {/* Mesh Health / Missing Flags */}
+                  {isMissingMesh && (
+                    <span
+                      data-testid={`outliner-flag-missing-${obj.id}`}
+                      className="text-error-text"
+                      title={t('editor.health.missing')}
+                    >
+                      <IconAlertTriangle size={14} />
+                    </span>
+                  )}
+                  {isOpen && (
+                    <span
+                      data-testid={`outliner-flag-open-${obj.id}`}
+                      className="text-warn-text"
+                      title={t('editor.health.open')}
+                    >
+                      <IconAlertTriangle size={14} />
+                    </span>
+                  )}
+
+                  {/* Context Menu Trigger */}
+                  <button
+                    type="button"
+                    data-testid={`outliner-menu-btn-${obj.id}`}
+                    onClick={(e) => handleContextMenu(e, obj.id)}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 text-text-muted hover:text-text rounded cursor-pointer"
+                  >
+                    <IconDotsVertical size={13} />
+                  </button>
                 </div>
 
-                {/* Mesh Health / Missing Flags */}
-                {isMissingMesh && (
-                  <span
-                    data-testid={`outliner-flag-missing-${obj.id}`}
-                    className="text-error-text"
-                    title={t('editor.health.missing')}
-                  >
-                    <IconAlertTriangle size={14} />
-                  </span>
+                {/* Features list under body */}
+                {isFeatureBody && isExpanded && (
+                  <div className="pl-6 flex flex-col space-y-0.5">
+                    {features.map((feat, fIdx) => (
+                      <div
+                        key={feat.id ?? fIdx}
+                        data-testid={`outliner-feature-row-${obj.id}-${fIdx}`}
+                        className="group/feat flex items-center justify-between px-2 py-1 rounded text-text-muted hover:bg-surface-2 hover:text-text cursor-default text-[11px]"
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {feat.kind === 'extrude' ? (
+                            <IconBoxModel size={13} className="text-accent shrink-0" />
+                          ) : (
+                            <IconRotate size={13} className="text-accent shrink-0" />
+                          )}
+                          <span className="truncate">
+                            {feat.kind === 'extrude'
+                              ? t('sketch.feature.extrude', 'Extrude')
+                              : t('sketch.feature.revolve', 'Revolve')}
+                            {` (${feat.op})`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover/feat:opacity-100 transition-opacity shrink-0">
+                          <button
+                            type="button"
+                            data-testid={`outliner-edit-feature-${obj.id}-${fIdx}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onEditFeature?.(obj.id, fIdx)
+                            }}
+                            title={t('common.edit', 'Edit')}
+                            className="p-0.5 hover:text-accent rounded cursor-pointer"
+                          >
+                            <IconPencil size={12} />
+                          </button>
+                          {features.length > 1 && (
+                            <button
+                              type="button"
+                              data-testid={`outliner-delete-feature-${obj.id}-${fIdx}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onDeleteFeature?.(obj.id, fIdx)
+                              }}
+                              title={t('common.delete', 'Delete')}
+                              className="p-0.5 hover:text-error-text rounded cursor-pointer"
+                            >
+                              <IconTrash size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
-                {isOpen && (
-                  <span
-                    data-testid={`outliner-flag-open-${obj.id}`}
-                    className="text-warn-text"
-                    title={t('editor.health.open')}
-                  >
-                    <IconAlertTriangle size={14} />
-                  </span>
-                )}
-
-                {/* Context Menu Trigger */}
-                <button
-                  type="button"
-                  data-testid={`outliner-menu-btn-${obj.id}`}
-                  onClick={(e) => handleContextMenu(e, obj.id)}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 text-text-muted hover:text-text rounded cursor-pointer"
-                >
-                  <IconDotsVertical size={13} />
-                </button>
               </div>
             )
           })

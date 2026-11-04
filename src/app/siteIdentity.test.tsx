@@ -31,12 +31,13 @@ describe('идентичность сайта: ссылка, мотивация,
     }
   })
 
-  it('на корневой странице в шапке названо имя сайта, в разделах — название продукта', () => {
+  it('имя сайта PrintKit есть в шапке на всех страницах в составе хлебных крошек', () => {
     const { unmount } = at('/')
     expect(screen.getByTestId('site-name')).toHaveTextContent('PrintKit')
     unmount()
     at('/keychain')
-    expect(screen.queryByTestId('site-name')).toBeNull()
+    expect(screen.getByTestId('site-name')).toHaveTextContent('PrintKit')
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(/PrintKit.*Keychain/)
   })
 
   it('мотивация только на корневой странице; смена языка меняет текст', async () => {

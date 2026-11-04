@@ -32,6 +32,6 @@
 
 ## 7. Verification
 
-- [ ] 7.1 Run `npm test` and verify all unit and integration test suites pass.
-- [ ] 7.2 Run `npm run build` and verify `tsc --noEmit` and `vite build` complete with zero errors.
-- [ ] 7.3 Browser check: verify breadcrumbs, icon beta badge, compact export block, and reset button across root, Gridfinity, Keychain, and Rack pages in both English and Russian, at desktop and 390 px mobile widths.
+- [x] 7.1 Run `npm test` and verify all unit and integration test suites pass.
+- [x] 7.2 Run `npm run build` and verify `tsc --noEmit` and `vite build` complete with zero errors.
+- [x] 7.3 Browser check: verify breadcrumbs, icon beta badge, compact export block, and reset button across root, Gridfinity, Keychain, and Rack pages in both English and Russian, at desktop and 390 px mobile widths.

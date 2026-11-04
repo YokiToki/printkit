@@ -28,7 +28,7 @@
 
 ## 6. Version Bump
 
-- [ ] 6.1 Bump version to `1.9.3` in `package.json` and add a line to `CHANGELOG.md` naming `38c-header-breadcrumbs-ui-polish`. Verify `npx vitest run src/app/site.test.ts`.
+- [x] 6.1 Bump version to `1.9.3` in `package.json` and add a line to `CHANGELOG.md` naming `38c-header-breadcrumbs-ui-polish`. Verify `npx vitest run src/app/site.test.ts`.
 
 ## 7. Verification
 

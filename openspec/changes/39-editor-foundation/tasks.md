@@ -44,7 +44,7 @@
 
 ## 7. Version
 
-- [ ] 7.1 Bump `package.json` to 1.10.0 and add `1.10.0 — 39-editor-foundation` at the top of `CHANGELOG.md`. Test: `site.test.ts` passes with the new number.
+- [x] 7.1 Bump `package.json` to 1.10.0 and add `1.10.0 — 39-editor-foundation` at the top of `CHANGELOG.md`. Test: `site.test.ts` passes with the new number.
 
 ## 8. Verification
 

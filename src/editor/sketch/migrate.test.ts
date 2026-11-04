@@ -22,7 +22,7 @@ describe('2.6 Sketch Migration and Persistence', () => {
   })
 
   it('normalises numbers and drops constraints with missing refs with a log warning', () => {
-    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => ({} as any))
 
     const raw = {
       id: 's1',

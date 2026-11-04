@@ -33,25 +33,25 @@ export function slotMacro(sketch: Sketch, args: SlotArgs): { sketch: Sketch; cre
   const l2Start = { x: args.p2.x - nx * radius, y: args.p2.y - ny * radius }
   const l2End = { x: args.p1.x - nx * radius, y: args.p1.y - ny * radius }
 
-  const top = addLine(s, l1Start, l1End)
-  s = top.sketch
-  const rightArc = addArc(s, args.p2, top.p2Id, l2Start)
-  s = rightArc.sketch
-  const bottom = addLine(s, rightArc.endId, l2End)
+  const bottom = addLine(s, l2End, l2Start)
   s = bottom.sketch
-  const leftArc = addArc(s, args.p1, bottom.p2Id, top.p1Id)
+  const rightArc = addArc(s, args.p2, bottom.p2Id, l1End)
+  s = rightArc.sketch
+  const top = addLine(s, rightArc.endId, l1Start)
+  s = top.sketch
+  const leftArc = addArc(s, args.p1, top.p2Id, bottom.p1Id)
   s = leftArc.sketch
 
-  createdCurves.push(top.curveId, rightArc.curveId, bottom.curveId, leftArc.curveId)
+  createdCurves.push(bottom.curveId, rightArc.curveId, top.curveId, leftArc.curveId)
 
   s.constraints.push(
-    { id: newId('con'), kind: 'tangent', refs: [top.curveId, rightArc.curveId] },
     { id: newId('con'), kind: 'tangent', refs: [bottom.curveId, rightArc.curveId] },
-    { id: newId('con'), kind: 'tangent', refs: [bottom.curveId, leftArc.curveId] },
+    { id: newId('con'), kind: 'tangent', refs: [top.curveId, rightArc.curveId] },
     { id: newId('con'), kind: 'tangent', refs: [top.curveId, leftArc.curveId] },
+    { id: newId('con'), kind: 'tangent', refs: [bottom.curveId, leftArc.curveId] },
     { id: newId('con'), kind: 'equal', refs: [rightArc.curveId, leftArc.curveId] },
     { id: newId('con'), kind: 'radius', refs: [rightArc.curveId], value: radius },
-    { id: newId('con'), kind: 'distance', refs: [top.p1Id, top.p2Id], value: len },
+    { id: newId('con'), kind: 'distance', refs: [bottom.p1Id, bottom.p2Id], value: len },
   )
 
   return { sketch: s, createdCurves }

@@ -14,13 +14,14 @@ export interface UseEditorModelOptions extends UseModelOptions {}
 export function useEditorModel(doc: SceneDoc, opts: UseEditorModelOptions = {}) {
   const sourcesKey = useMemo(
     () =>
-      JSON.stringify(
-        doc.objects.map((o) => ({
+      JSON.stringify({
+        objects: doc.objects.map((o) => ({
           id: o.id,
           source: o.source,
-        }))
-      ),
-    [doc.objects]
+        })),
+        sketches: doc.sketches,
+      }),
+    [doc.objects, doc.sketches]
   )
 
   const params: EditorModelParams = useMemo(
@@ -29,6 +30,7 @@ export function useEditorModel(doc: SceneDoc, opts: UseEditorModelOptions = {}) 
         id: o.id,
         source: o.source,
       })),
+      sketches: doc.sketches,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sourcesKey]

@@ -28,7 +28,14 @@ export type PrimitiveSource = {
   params: Record<string, number>
 }
 
-export type ObjectSource = MeshSource | PrimitiveSource
+import type { Feature } from '../geometry/features/evaluate'
+
+export type FeatureSource = {
+  kind: 'feature'
+  features: Feature[]
+}
+
+export type ObjectSource = MeshSource | PrimitiveSource | FeatureSource
 
 export interface EditorObject {
   id: string

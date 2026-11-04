@@ -14,13 +14,19 @@ import { getWasm } from './wasm'
 import { meshBounds, meshOf, type MeshData } from './mesh'
 import { buildPrimitiveManifold } from '../editor/primitives'
 import type { ObjectSource } from '../editor/scene'
+import type { Sketch } from '../editor/sketch/model'
+import { evaluateFeatures } from './features/evaluate'
 
 export interface EditorModelParams {
   objects: { id: string; source: ObjectSource }[]
+  sketches?: Sketch[]
+  quality?: 'coarse' | 'fine'
 }
 
 /** Кэш полигональных сеток примитивов по (форма, параметры). */
 export const primitiveMeshCache = new Map<string, MeshData>()
+/** Кэш полигональных сеток тел из фич эскизов. */
+export const featureMeshCache = new Map<string, MeshData>()
 
 function copyMeshData(m: MeshData): MeshData {
   return {
@@ -144,6 +150,37 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
             oversize: false,
             mesh: copyMeshData(mesh),
           })
+        } else if (obj.source.kind === 'feature') {
+          const cacheKey = JSON.stringify({
+            features: obj.source.features,
+            sketches: p.sketches ?? [],
+            quality: p.quality ?? 'fine',
+          })
+          let mesh = featureMeshCache.get(cacheKey)
+          if (!mesh) {
+            const evalRes = await evaluateFeatures(
+              obj.source.features,
+              p.sketches ?? [],
+              p.quality ?? 'fine',
+            )
+            if (evalRes.solid) {
+              try {
+                mesh = meshOf(evalRes.solid)
+                featureMeshCache.set(cacheKey, mesh)
+              } finally {
+                evalRes.solid.delete()
+              }
+            }
+          }
+          if (mesh) {
+            parts.push({
+              label: obj.id,
+              col: 0,
+              row: 0,
+              oversize: false,
+              mesh: copyMeshData(mesh),
+            })
+          }
         } else if (obj.source.kind === 'mesh') {
           const indexed = meshRegistry.get(obj.source.meshId)
           if (indexed) {

@@ -96,7 +96,7 @@ export function Workspace({ panel, footer, model, plate, gap, exportOptions = tr
           </div>
         )}
         <div className="min-h-0 flex-1 overflow-auto" style={{ paddingBottom: footerH }} data-testid="panel-scroller">{panel}{exportOptions && <ExportOptionsSection />}</div>
-        {footer && <div ref={footerRef} className="flex-none border-t border-border bg-surface-1 px-3 py-2.5 shadow-sticky">{footer}</div>}
+        {footer && <div ref={footerRef} className="flex-none border-t border-border bg-surface-1 px-3 py-2 shadow-sticky">{footer}</div>}
       </aside>
       {confirming && onStartOver && (
         <ConfirmDialog title={t('startOver.title')} confirmLabel={t('startOver.confirm')} cancelLabel={t('startOver.cancel')}

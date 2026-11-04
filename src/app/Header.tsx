@@ -26,7 +26,7 @@ const ENGLISH_MODE_NAMES: Record<string, string> = {
   shelf: 'Shelf',
 }
 
-/** Верхняя панель: beta-иконка, логотип и хлебные крошки (PrintKit / Product / Mode), единицы и язык. */
+/** Верхняя панель: логотип, beta-иконка и хлебные крошки (PrintKit / Product / Mode) в шрифте font-display, единицы и язык. */
 export function Header() {
   const { t, i18n } = useTranslation()
   const { pathname } = useLocation()
@@ -39,13 +39,15 @@ export function Header() {
   const modeName = mode ? (ENGLISH_MODE_NAMES[mode.id] ?? mode.id) : null
 
   return (
-    <header className="relative z-10 flex h-[52px] flex-none items-center gap-1.5 border-b border-border bg-surface-1 px-2 min-[440px]:gap-2 md:px-4">
-      <BetaBadge />
+    <header className="relative z-10 flex h-[52px] flex-none items-center gap-2 border-b border-border bg-surface-1 px-2 min-[440px]:gap-3 md:px-4">
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center">
-        <ol className="flex min-w-0 items-center gap-1.5 sm:gap-2 m-0 p-0 list-none text-xs sm:text-[13px] font-medium">
-          <li className="flex items-center">
-            <Link to="/" aria-label={t('app.logoLabel')} className="flex items-center gap-1.5 font-display text-[13px] font-semibold tracking-tight text-text no-underline hover:text-accent">
+        <ol className="flex min-w-0 items-center gap-1.5 sm:gap-2 m-0 p-0 list-none font-display text-[12px] sm:text-[13px] font-semibold tracking-tight">
+          <li className="flex items-center gap-1.5">
+            <Link to="/" tabIndex={-1} aria-hidden="true" className="flex items-center text-text no-underline hover:text-accent">
               <Logo hue={product?.hue} />
+            </Link>
+            <BetaBadge />
+            <Link to="/" aria-label={t('app.logoLabel')} className="flex items-center text-text no-underline hover:text-accent">
               <span data-testid="site-name">PrintKit</span>
             </Link>
           </li>

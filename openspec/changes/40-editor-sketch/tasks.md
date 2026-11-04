@@ -23,8 +23,8 @@
 
 ## 4. Viewport sketch layer
 
-- [ ] 4.1 `Viewport` optional `sketch` prop and `onSketchPointer`: plane grid, curves, points, dashed construction, selection and hover highlight, preview geometry, plane coordinates from pointer rays, orthographic look-at, rotation locked. Generator modes and the scene mode of `39` unchanged. Test (three mocked in jsdom): pointer to plane coordinates for each base plane and offset; pure helpers `screenPick` (6 px) and `lookAtPlane`.
-- [ ] 4.2 Constraint glyphs and dimension labels (DOM labels positioned from plane coordinates, in-place editing with `LengthField`), colours by DoF status from theme tokens (blue, black, red). Browser check in both languages and both themes.
+- [x] 4.1 `Viewport` optional `sketch` prop and `onSketchPointer`: plane grid, curves, points, dashed construction, selection and hover highlight, preview geometry, plane coordinates from pointer rays, orthographic look-at, rotation locked. Generator modes and the scene mode of `39` unchanged. Test (three mocked in jsdom): pointer to plane coordinates for each base plane and offset; pure helpers `screenPick` (6 px) and `lookAtPlane`.
+- [x] 4.2 Constraint glyphs and dimension labels (DOM labels positioned from plane coordinates, in-place editing with `LengthField`), colours by DoF status from theme tokens (blue, black, red). Browser check in both languages and both themes.
 
 ## 5. Sketch UI (no artboard exists: built from `ui/` components and tokens; compare with the wireframes in `design.md`)
 

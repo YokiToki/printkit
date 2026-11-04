@@ -19,6 +19,10 @@ import {
   type ViewFace,
 } from '../editor/viewCommands'
 import { ViewCube } from '../editor/ViewCube'
+import { buildSketchGroup, type ViewportSketchConfig } from './sketchMesh'
+import { lookAtPlane, pointerToPlaneCoordinates, screenPick, type ScreenPickResult } from './sketchPicking'
+import { SketchOverlay } from './SketchOverlay'
+import { planeFrame } from '../../editor/sketch/model'
 
 export interface BuildPlate { x: number; y: number; /** Поле по краю: пунктирный контур рабочей области. */ margin?: number }
 
@@ -59,12 +63,23 @@ export interface ViewportProps {
   /** Показывать вырезающие инструменты (model.tools) полупрозрачными. */
   showTools?: boolean
   scene?: ViewportSceneConfig
+  sketch?: ViewportSketchConfig | null
   onPick?: (label: string | null, additive: boolean) => void
   onBoxSelect?: (labels: string[]) => void
   onGizmoChange?: (matrices: Record<string, Matrix4Tuple>) => void
   onGizmoCommit?: () => void
   onFitReady?: (fit: () => void) => void
   onCameraChange?: (rotation: [number, number, number]) => void
+  onSketchPointer?: (
+    kind: 'down' | 'move' | 'up' | 'click' | 'dblclick',
+    pos: { x: number; y: number },
+    mods: { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean },
+    rawEvent: PointerEvent,
+  ) => void
+  onSketchSelect?: (hit: ScreenPickResult | null, additive: boolean) => void
+  onUpdateConstraint?: (id: string, value: number) => void
+  onDeleteConstraint?: (id: string) => void
+  onSelectConstraint?: (id: string) => void
 }
 
 interface Api {
@@ -77,6 +92,9 @@ interface Api {
   setViewFace: (face: ViewFace) => void
   orbit: (dx: number, dy: number) => void
   updateScene: (sc: ViewportSceneConfig | undefined) => void
+  setSketch: (s: ViewportSketchConfig | null | undefined) => void
+  lookAtSketchPlane: () => void
+  projectPoint: (planePt: { x: number; y: number }) => { x: number; y: number } | null
 }
 
 const GIZMO_SIZE = 120
@@ -170,6 +188,12 @@ export function Viewport({
   onGizmoCommit,
   onFitReady,
   onCameraChange,
+  sketch,
+  onSketchPointer,
+  onSketchSelect,
+  onUpdateConstraint,
+  onDeleteConstraint,
+  onSelectConstraint,
 }: ViewportProps) {
   const host = useRef<HTMLDivElement>(null)
   const api = useRef<Api | null>(null)
@@ -180,12 +204,20 @@ export function Viewport({
   const sceneRef = useRef(sceneConfig)
   sceneRef.current = sceneConfig
 
+  const sketchRef = useRef(sketch)
+  sketchRef.current = sketch
+
   const callbacksRef = useRef({
     onPick,
     onBoxSelect,
     onGizmoChange,
     onGizmoCommit,
     onCameraChange,
+    onSketchPointer,
+    onSketchSelect,
+    onUpdateConstraint,
+    onDeleteConstraint,
+    onSelectConstraint,
   })
   callbacksRef.current = {
     onPick,
@@ -193,6 +225,11 @@ export function Viewport({
     onGizmoChange,
     onGizmoCommit,
     onCameraChange,
+    onSketchPointer,
+    onSketchSelect,
+    onUpdateConstraint,
+    onDeleteConstraint,
+    onSelectConstraint,
   }
 
   const [boxSelectRect, setBoxSelectRect] = useState<Rect2D | null>(null)
@@ -248,6 +285,9 @@ export function Viewport({
 
     const toolGroup = new THREE.Group()
     scene.add(toolGroup)
+
+    const sketchGroup = new THREE.Group()
+    scene.add(sketchGroup)
 
     // Pivot & TransformControls
     const pivotGroup = new THREE.Group()
@@ -483,6 +523,57 @@ export function Viewport({
       updateScene(sc) {
         applyScene(sc)
       },
+      setSketch(s) {
+        sketchGroup.traverse((o) => {
+          const mesh = o as THREE.Mesh
+          if (mesh.geometry) mesh.geometry.dispose()
+        })
+        sketchGroup.clear()
+        if (s) {
+          const g = buildSketchGroup(s)
+          sketchGroup.add(g)
+          controls.enableRotate = false
+          const look = lookAtPlane(s.plane)
+          controls.target.set(...look.target)
+          camera.position.set(...look.position)
+          camera.up.set(...look.up)
+          camera.lookAt(...look.target)
+          orthoCamera.position.copy(camera.position)
+          orthoCamera.up.copy(camera.up)
+          orthoCamera.lookAt(...look.target)
+          controls.update()
+        } else {
+          controls.enableRotate = true
+        }
+      },
+      lookAtSketchPlane() {
+        if (sketchRef.current) {
+          const look = lookAtPlane(sketchRef.current.plane)
+          controls.target.set(...look.target)
+          camera.position.set(...look.position)
+          camera.up.set(...look.up)
+          camera.lookAt(...look.target)
+          orthoCamera.position.copy(camera.position)
+          orthoCamera.up.copy(camera.up)
+          orthoCamera.lookAt(...look.target)
+          controls.update()
+        }
+      },
+      projectPoint(planePt) {
+        if (!sketchRef.current) return null
+        const frame = planeFrame(sketchRef.current.plane)
+        const isOrtho = sceneRef.current?.projection === 'ortho' || !!sketchRef.current
+        const activeCam = isOrtho ? orthoCamera : camera
+        const worldPt = new THREE.Vector3(
+          frame.origin[0] + planePt.x * frame.xDir[0] + planePt.y * frame.yDir[0],
+          frame.origin[1] + planePt.x * frame.xDir[1] + planePt.y * frame.yDir[1],
+          frame.origin[2] + planePt.x * frame.xDir[2] + planePt.y * frame.yDir[2],
+        ).project(activeCam)
+        return {
+          x: ((worldPt.x + 1) / 2) * el.clientWidth,
+          y: ((1 - worldPt.y) / 2) * el.clientHeight,
+        }
+      },
       setPlate(p) {
         plateGroup.children.forEach((c) => { const m = c as THREE.Mesh; m.geometry.dispose() })
         plateGroup.clear()
@@ -613,11 +704,31 @@ export function Viewport({
     let isPointerDownOnCanvas = false
 
     const onPointerDown = (e: MouseEvent) => {
-      if (e.button !== 0) return
+      if (e.button !== 0 && e.button !== 1 && e.button !== 2) return
       isPointerDownOnCanvas = true
       mouseDownPos = { x: e.clientX, y: e.clientY }
       isDragging = false
       isBoxSelecting = false
+
+      if (sketchRef.current) {
+        controls.enableRotate = false
+        const rect = el.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+        const isOrtho = sceneRef.current?.projection === 'ortho' || !!sketchRef.current
+        const activeCam = isOrtho ? orthoCamera : camera
+        const planeCoords = pointerToPlaneCoordinates(
+          { x, y },
+          { width: el.clientWidth, height: el.clientHeight },
+          activeCam,
+          sketchRef.current.plane,
+        )
+        const mods = { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey }
+        if (planeCoords) {
+          callbacksRef.current.onSketchPointer?.('down', planeCoords, mods, e as unknown as PointerEvent)
+        }
+        return
+      }
 
       // In Editor scene mode: Left Click without Option/Alt is for selection/box-select only, not rotation
       if (sceneRef.current && !e.altKey) {
@@ -628,6 +739,30 @@ export function Viewport({
     }
 
     const onPointerMove = (e: MouseEvent) => {
+      if (sketchRef.current) {
+        const rect = el.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+        const isOrtho = sceneRef.current?.projection === 'ortho' || !!sketchRef.current
+        const activeCam = isOrtho ? orthoCamera : camera
+        const planeCoords = pointerToPlaneCoordinates(
+          { x, y },
+          { width: el.clientWidth, height: el.clientHeight },
+          activeCam,
+          sketchRef.current.plane,
+        )
+        const mods = { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey }
+        if (planeCoords) {
+          callbacksRef.current.onSketchPointer?.('move', planeCoords, mods, e as unknown as PointerEvent)
+        }
+        if (isPointerDownOnCanvas) {
+          const dx = e.clientX - mouseDownPos.x
+          const dy = e.clientY - mouseDownPos.y
+          if (Math.hypot(dx, dy) > 5) isDragging = true
+        }
+        return
+      }
+
       if (!isPointerDownOnCanvas) return
       if (e.buttons !== 1) {
         isPointerDownOnCanvas = false
@@ -661,6 +796,42 @@ export function Viewport({
       if (!isPointerDownOnCanvas) return
       isPointerDownOnCanvas = false
       controls.enabled = true
+
+      if (sketchRef.current) {
+        const rect = el.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+        const isOrtho = sceneRef.current?.projection === 'ortho' || !!sketchRef.current
+        const activeCam = isOrtho ? orthoCamera : camera
+        const planeCoords = pointerToPlaneCoordinates(
+          { x, y },
+          { width: el.clientWidth, height: el.clientHeight },
+          activeCam,
+          sketchRef.current.plane,
+        )
+        const mods = { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey }
+        if (planeCoords) {
+          callbacksRef.current.onSketchPointer?.('up', planeCoords, mods, e as unknown as PointerEvent)
+        }
+
+        if (!isDragging) {
+          const projectPoint = (planePt: { x: number; y: number }): { x: number; y: number } | null => {
+            const frame = planeFrame(sketchRef.current!.plane)
+            const worldPt = new THREE.Vector3(
+              frame.origin[0] + planePt.x * frame.xDir[0] + planePt.y * frame.yDir[0],
+              frame.origin[1] + planePt.x * frame.xDir[1] + planePt.y * frame.yDir[1],
+              frame.origin[2] + planePt.x * frame.xDir[2] + planePt.y * frame.yDir[2],
+            ).project(activeCam)
+            return {
+              x: ((worldPt.x + 1) / 2) * el.clientWidth,
+              y: ((1 - worldPt.y) / 2) * el.clientHeight,
+            }
+          }
+          const hit = screenPick({ x, y }, sketchRef.current.sketch, projectPoint, 6)
+          callbacksRef.current.onSketchSelect?.(hit, e.shiftKey || e.ctrlKey || e.metaKey)
+        }
+        return
+      }
 
       if (isBoxSelecting) {
         isBoxSelecting = false
@@ -765,7 +936,7 @@ export function Viewport({
       if (plateMats) { plateMats.fill.opacity = 0.85 * ground; plateMats.line.opacity = ground; if (plateMats.safe) plateMats.safe.opacity = ground }
 
       const w = el.clientWidth, h = el.clientHeight
-      const isOrtho = sceneRef.current?.projection === 'ortho'
+      const isOrtho = sceneRef.current?.projection === 'ortho' || !!sketchRef.current
       const activeCam = isOrtho ? orthoCamera : camera
 
       if (isOrtho) {
@@ -825,13 +996,14 @@ export function Viewport({
   useEffect(() => { api.current?.setLayout(view, openGap) }, [view, openGap])
   useEffect(() => { api.current?.setPlate(plate ?? null) }, [plate])
   useEffect(() => { api.current?.updateScene(sceneConfig) }, [sceneConfig])
+  useEffect(() => { api.current?.setSketch(sketch) }, [sketch])
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none">
       <div ref={host} style={{ width: '100%', height: '100%' }} />
 
-      {/* ViewCube over the view in scene mode */}
-      {sceneConfig && (
+      {/* ViewCube over the view in scene mode (disabled while sketching) */}
+      {sceneConfig && !sketch && (
         <div className="absolute top-4 right-4 z-10">
           <ViewCube
             rotation={cameraRotation}
@@ -839,6 +1011,30 @@ export function Viewport({
             onOrbit={(dx, dy) => api.current?.orbit(dx, dy)}
           />
         </div>
+      )}
+
+      {/* Look at plane button in sketch mode */}
+      {sketch && (
+        <div className="absolute top-4 right-4 z-10">
+          <button
+            type="button"
+            onClick={() => api.current?.lookAtSketchPlane()}
+            className="px-2.5 py-1 text-xs font-medium rounded-(--radius-control) border border-(--color-border) bg-(--color-surface-2)/90 text-(--color-text-muted) hover:text-(--color-text) hover:border-(--color-accent) shadow-(--shadow-sticky) cursor-pointer"
+          >
+            Look at plane
+          </button>
+        </div>
+      )}
+
+      {/* Sketch Overlay: constraint glyphs and dimension labels */}
+      {sketch && (
+        <SketchOverlay
+          config={sketch}
+          project={(pt) => api.current?.projectPoint(pt) ?? null}
+          onUpdateConstraint={onUpdateConstraint}
+          onDeleteConstraint={onDeleteConstraint}
+          onSelectConstraint={onSelectConstraint}
+        />
       )}
 
       {/* Box selection overlay */}

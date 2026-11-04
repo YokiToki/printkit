@@ -107,7 +107,7 @@ export function ViewCube({ rotation = [0, 0, 0], onSelectFace, onOrbit }: ViewCu
         className="w-full h-full relative transition-transform duration-75"
         style={{
           transformStyle: 'preserve-3d',
-          transform: `rotateX(${-pitch}deg) rotateY(${yaw}deg)`,
+          transform: `rotateX(${-pitch}deg) rotateY(${-yaw}deg)`,
         }}
       >
         {faces.map(({ face, transform, labelKey }) => (

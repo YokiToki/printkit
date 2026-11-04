@@ -55,4 +55,13 @@ describe('editor/ViewCube', () => {
     fireEvent.click(rightBtn)
     expect(onSelect).toHaveBeenCalledWith('right')
   })
+
+  it('applies correct CSS transform based on rotation angles', () => {
+    const onSelect = vi.fn()
+    const { container } = render(<ViewCube rotation={[30, 45, 0]} onSelectFace={onSelect} />)
+
+    const cubeInner = container.querySelector('[style*="preserve-3d"]')
+    expect(cubeInner).not.toBeNull()
+    expect((cubeInner as HTMLElement).style.transform).toBe('rotateX(-30deg) rotateY(-45deg)')
+  })
 })

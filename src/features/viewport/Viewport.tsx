@@ -280,6 +280,11 @@ export function Viewport({
     controls.maxPolarAngle = Math.PI // камера может уйти под плоскость XY и смотреть на низ модели; ось Z остаётся вверху
     controls.minDistance = 0.5
     controls.maxDistance = 20000
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.ROTATE,
+    }
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x8794a8, 1.4))
     const sun = new THREE.DirectionalLight(0xffffff, 1.6)
@@ -843,7 +848,7 @@ export function Viewport({
       }
 
       // In Editor scene mode: Left Click without Option/Alt is for selection/box-select only, not rotation
-      if (sceneRef.current && !e.altKey) {
+      if (sceneRef.current && e.button === 0 && !e.altKey) {
         controls.enabled = false
       } else {
         controls.enabled = true
@@ -880,7 +885,7 @@ export function Viewport({
       }
 
       if (!isPointerDownOnCanvas) return
-      if (e.buttons !== 1) {
+      if (e.buttons === 0) {
         isPointerDownOnCanvas = false
         if (isBoxSelecting) {
           isBoxSelecting = false
@@ -894,7 +899,7 @@ export function Viewport({
       const dy = e.clientY - mouseDownPos.y
       if (Math.hypot(dx, dy) > 5) {
         isDragging = true
-        if (!transformControls.dragging && !e.altKey && sceneRef.current) {
+        if (!transformControls.dragging && !e.altKey && sceneRef.current && (e.buttons & 1)) {
           isBoxSelecting = true
           controls.enabled = false
           const rect = el.getBoundingClientRect()
@@ -1153,7 +1158,12 @@ export function Viewport({
           const dz = camera.position.z - controls.target.z
           const pitch = (Math.asin(Math.max(-1, Math.min(1, dz / dist))) * 180) / Math.PI
           const yaw = (Math.atan2(dx, -dy) * 180) / Math.PI
-          if (Math.abs(pitch - lastRot[0]) > 0.05 || Math.abs(yaw - lastRot[1]) > 0.05) {
+          if (
+            Number.isNaN(lastRot[0]) ||
+            Number.isNaN(lastRot[1]) ||
+            Math.abs(pitch - lastRot[0]) > 0.05 ||
+            Math.abs(yaw - lastRot[1]) > 0.05
+          ) {
             lastRot = [pitch, yaw]
             setCameraRotation([pitch, yaw, 0])
             callbacksRef.current.onCameraChange?.([pitch, yaw, 0])

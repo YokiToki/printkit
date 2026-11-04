@@ -53,6 +53,7 @@ import {
   dragPointCommand,
 } from './sketch/sketchCommands'
 import { newId, type PlaneDefinition, type Constraint, type Sketch } from '../../editor/sketch/model'
+import { dimensionFor, constraintEntities } from '../../editor/sketch/measure'
 import type { ScreenPickResult } from '../viewport/sketchPicking'
 import type { ViewportSketchConfig } from '../viewport/sketchMesh'
 import type { MeshData } from '../../geometry/mesh'
@@ -616,6 +617,15 @@ export function EditorMode() {
     }
   }, [doc.objects, selection, tool, snap, snapStepMm, snapStepDeg, projection])
 
+  // Hovered constraint for highlight
+  const [hoverConstraintId, setHoverConstraintId] = useState<string | null>(null)
+  const constraintHighlight = useMemo(() => {
+    if (!activeSketch || !hoverConstraintId) return null
+    const c = activeSketch.constraints.find((con) => con.id === hoverConstraintId)
+    if (!c) return null
+    return constraintEntities(activeSketch, c)
+  }, [activeSketch, hoverConstraintId])
+
   // Sketch Viewport config
   const viewportSketch = useMemo((): ViewportSketchConfig | null => {
     if (!activeSketch) return null
@@ -626,6 +636,7 @@ export function EditorMode() {
         points: sketchToolState.selectedPointIds,
         curves: sketchToolState.selectedCurveIds,
       },
+      highlight: constraintHighlight,
       preview: sketchToolState.preview,
       tool: sketchToolState.tool,
       dofStatus: {
@@ -636,7 +647,20 @@ export function EditorMode() {
         constraints: dofInfo.conflicts,
       },
     }
-  }, [activeSketch, sketchToolState, dofInfo])
+  }, [activeSketch, sketchToolState, dofInfo, constraintHighlight])
+
+  const handlePinDimension = (curveId: string) => {
+    if (!activeSketch) return
+    const dim = dimensionFor(activeSketch, curveId)
+    if (dim) {
+      dispatch('Add Dimension', (prev) =>
+        updateSketchInDoc(prev, activeSketch.id, (s) => ({
+          ...s,
+          constraints: [...s.constraints, dim],
+        })),
+      )
+    }
+  }
 
   // Sketch add handler
   const handleAddSketch = (plane: PlaneDefinition) => {
@@ -1180,6 +1204,8 @@ export function EditorMode() {
                   )
                 }
               }}
+              onHoverConstraint={setHoverConstraintId}
+              onPinDimension={handlePinDimension}
             />
           </EditorDropZone>
 
@@ -1243,6 +1269,7 @@ export function EditorMode() {
                   constraints: dofInfo.conflicts,
                   redundant: dofInfo.redundant,
                 }}
+                dof={dofInfo.dof}
                 onUpdateConstraint={(id, val) =>
                   dispatch('Update Constraint', (prev) =>
                     updateDimensionCommand(prev, activeSketch.id, id, val),
@@ -1253,6 +1280,8 @@ export function EditorMode() {
                     deleteConstraintCommand(prev, activeSketch.id, id),
                   )
                 }
+                onAddConstraint={handleAddConstraint}
+                onHoverConstraint={setHoverConstraintId}
               />
             ) : (
               <Properties
@@ -1429,6 +1458,7 @@ export function EditorMode() {
                     constraints: dofInfo.conflicts,
                     redundant: dofInfo.redundant,
                   }}
+                  dof={dofInfo.dof}
                   onUpdateConstraint={(id, val) =>
                     dispatch('Update Constraint', (prev) =>
                       updateDimensionCommand(prev, activeSketch.id, id, val),
@@ -1439,6 +1469,8 @@ export function EditorMode() {
                       deleteConstraintCommand(prev, activeSketch.id, id),
                     )
                   }
+                  onAddConstraint={handleAddConstraint}
+                  onHoverConstraint={setHoverConstraintId}
                 />
               ) : (
                 <>

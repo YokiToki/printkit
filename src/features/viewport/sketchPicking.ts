@@ -99,7 +99,7 @@ export function screenPick(
   pointerScreen: { x: number; y: number },
   sketch: Sketch,
   projectToScreen: (planePt: { x: number; y: number }) => { x: number; y: number } | null,
-  thresholdPx = 6,
+  thresholdPx = 9,
 ): ScreenPickResult | null {
   let closestPoint: { id: string; dist: number } | null = null
 

@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import type { ViewportSketchConfig } from './sketchMesh'
 import type { Constraint, LineCurve, CircleCurve, ArcCurve } from '../../editor/sketch/model'
+import {
+  measureCurve,
+  hasDimension,
+  entityRef,
+} from '../../editor/sketch/measure'
 import { LengthField } from '../../ui/LengthField'
 import { NumberField } from '../../ui/NumberField'
-import { useUnit, toDisplay } from '../../ui/units'
+import { useUnit, toDisplay, formatLength } from '../../ui/units'
 
 export interface SketchOverlayProps {
   config: ViewportSketchConfig
@@ -11,6 +16,8 @@ export interface SketchOverlayProps {
   onUpdateConstraint?: (id: string, value: number) => void
   onDeleteConstraint?: (id: string) => void
   onSelectConstraint?: (id: string) => void
+  onHoverConstraint?: (id: string | null) => void
+  onPinDimension?: (curveId: string) => void
 }
 
 function getConstraintPosition(
@@ -100,8 +107,10 @@ export function SketchOverlay({
   onUpdateConstraint,
   onDeleteConstraint,
   onSelectConstraint,
+  onHoverConstraint,
+  onPinDimension,
 }: SketchOverlayProps) {
-  const { sketch, conflicts } = config
+  const { sketch, conflicts, selection } = config
   const { unit } = useUnit()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<number>(0)
@@ -119,8 +128,14 @@ export function SketchOverlay({
     setEditingId(null)
   }
 
+  // Selected curves without dimensions: render live dimension badge on canvas!
+  const unpinnedCurves = (selection?.curves ?? []).filter((cid) => {
+    return sketch.curves[cid] && !hasDimension(sketch, cid)
+  })
+
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+      {/* Existing constraints */}
       {sketch.constraints.map((c) => {
         const planePos = getConstraintPosition(c, sketch)
         if (!planePos) return null
@@ -138,6 +153,8 @@ export function SketchOverlay({
               key={c.id}
               className="absolute pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 z-20"
               style={{ left: screenPos.x, top: screenPos.y }}
+              onMouseEnter={() => onHoverConstraint?.(c.id)}
+              onMouseLeave={() => onHoverConstraint?.(null)}
             >
               {isEditing ? (
                 <div
@@ -196,11 +213,20 @@ export function SketchOverlay({
 
         // Geometric constraint glyph badge
         const glyphChar = GLYPH_CHARS[c.kind] ?? '●'
+        const refNames = c.refs
+          .map((r) => {
+            const ref = entityRef(sketch, r)
+            return ref ? `${ref.kind} ${ref.index}` : r
+          })
+          .join(', ')
+
         return (
           <div
             key={c.id}
             className="absolute pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 z-10"
             style={{ left: screenPos.x, top: screenPos.y }}
+            onMouseEnter={() => onHoverConstraint?.(c.id)}
+            onMouseLeave={() => onHoverConstraint?.(null)}
           >
             <button
               type="button"
@@ -214,9 +240,61 @@ export function SketchOverlay({
                   ? 'bg-(--color-error-bg) text-(--color-error-text) border-(--color-error-border)'
                   : 'bg-(--color-surface-2)/85 text-(--color-text-muted) border-(--color-border) hover:text-(--color-accent) hover:border-(--color-accent)'
               }`}
-              title={`${c.kind} constraint (right-click to delete)`}
+              title={`${c.kind} (${refNames}): right-click to delete`}
             >
               {glyphChar}
+            </button>
+          </div>
+        )
+      })}
+
+      {/* Live dimension badges for selected unpinned curves */}
+      {unpinnedCurves.map((cid) => {
+        const curve = sketch.curves[cid]
+        if (!curve) return null
+        const m = measureCurve(sketch, cid)
+        if (!m) return null
+
+        let planePos: { x: number; y: number } | null = null
+        let labelText = ''
+
+        if (curve.kind === 'line') {
+          const p1 = sketch.points[curve.a]
+          const p2 = sketch.points[curve.b]
+          if (p1 && p2) planePos = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+          labelText = formatLength((m as { length: number }).length, unit)
+        } else if (curve.kind === 'circle') {
+          const center = sketch.points[curve.c]
+          if (center) planePos = { x: center.x + curve.r * 0.707, y: center.y + curve.r * 0.707 }
+          labelText = `R ${formatLength((m as { radius: number }).radius, unit)}`
+        } else if (curve.kind === 'arc') {
+          const center = sketch.points[curve.c]
+          const p1 = sketch.points[curve.a]
+          if (center && p1) {
+            const r = Math.hypot(p1.x - center.x, p1.y - center.y)
+            planePos = { x: center.x + r * 0.707, y: center.y + r * 0.707 }
+            labelText = `R ${formatLength(r, unit)}`
+          }
+        }
+
+        if (!planePos) return null
+        const screenPos = project(planePos)
+        if (!screenPos) return null
+
+        return (
+          <div
+            key={`unpinned-${cid}`}
+            className="absolute pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 z-20"
+            style={{ left: screenPos.x, top: screenPos.y }}
+          >
+            <button
+              type="button"
+              onClick={() => onPinDimension?.(cid)}
+              className="px-1.5 py-0.5 text-xs font-mono font-medium rounded-(--radius-xs) border border-accent/70 bg-surface-1/95 text-accent shadow-xs hover:bg-accent hover:text-white transition-colors cursor-pointer flex items-center gap-1 backdrop-blur-xs"
+              title="Click to pin dimension"
+            >
+              <span>{labelText}</span>
+              <span className="text-[10px] font-bold opacity-80">+</span>
             </button>
           </div>
         )

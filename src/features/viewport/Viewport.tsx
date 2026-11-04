@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as THREE from 'three'
 import { creaseEdges } from './degenerate'
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -19,7 +20,7 @@ import {
   type ViewFace,
 } from '../editor/viewCommands'
 import { ViewCube } from '../editor/ViewCube'
-import { buildSketchGroup, type ViewportSketchConfig } from './sketchMesh'
+import { buildSketchContent, buildSketchGrid, type ViewportSketchConfig } from './sketchMesh'
 import { lookAtPlane, pointerToPlaneCoordinates, screenPick, type ScreenPickResult } from './sketchPicking'
 import { SketchOverlay } from './SketchOverlay'
 import { planeFrame } from '../../editor/sketch/model'
@@ -73,13 +74,15 @@ export interface ViewportProps {
   onSketchPointer?: (
     kind: 'down' | 'move' | 'up' | 'click' | 'dblclick',
     pos: { x: number; y: number },
-    mods: { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean },
+    mods: { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean; pixelsPerMm?: number },
     rawEvent: PointerEvent,
   ) => void
   onSketchSelect?: (hit: ScreenPickResult | null, additive: boolean) => void
   onUpdateConstraint?: (id: string, value: number) => void
   onDeleteConstraint?: (id: string) => void
   onSelectConstraint?: (id: string) => void
+  onHoverConstraint?: (id: string | null) => void
+  onPinDimension?: (curveId: string) => void
 }
 
 interface Api {
@@ -194,7 +197,10 @@ export function Viewport({
   onUpdateConstraint,
   onDeleteConstraint,
   onSelectConstraint,
+  onHoverConstraint,
+  onPinDimension,
 }: ViewportProps) {
+  const { t } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
   const api = useRef<Api | null>(null)
   const gapRef = useRef(gap)
@@ -237,6 +243,8 @@ export function Viewport({
   boxSelectRectRef.current = boxSelectRect
 
   const [cameraRotation, setCameraRotation] = useState<[number, number, number]>([0, 0, 0])
+  // счётчик изменений вида: подписи эскиза пересчитывают экранные позиции только при смене камеры
+  const [, setViewTick] = useState(0)
 
   useEffect(() => {
     const el = host.current!
@@ -288,6 +296,17 @@ export function Viewport({
 
     const sketchGroup = new THREE.Group()
     scene.add(sketchGroup)
+    // сетка плоскости живёт отдельно и пересобирается только при смене плоскости или эскиза
+    const sketchGridGroup = new THREE.Group()
+    const sketchContentGroup = new THREE.Group()
+    sketchGroup.add(sketchGridGroup, sketchContentGroup)
+    let sketchViewKey = ''
+    const disposeGeometries = (root: THREE.Object3D) => {
+      root.traverse((o) => {
+        const g = (o as THREE.Mesh).geometry
+        if (g) g.dispose()
+      })
+    }
 
     // Pivot & TransformControls
     const pivotGroup = new THREE.Group()
@@ -503,6 +522,8 @@ export function Viewport({
     }
 
     let fitted = false
+    let lastViewSig = ''
+    let lastRot: [number, number] = [Number.NaN, Number.NaN]
     api.current = {
       fit,
       setViewFace(face: ViewFace) {
@@ -524,15 +545,24 @@ export function Viewport({
         applyScene(sc)
       },
       setSketch(s) {
-        sketchGroup.traverse((o) => {
-          const mesh = o as THREE.Mesh
-          if (mesh.geometry) mesh.geometry.dispose()
-        })
-        sketchGroup.clear()
-        if (s) {
-          const g = buildSketchGroup(s)
-          sketchGroup.add(g)
-          controls.enableRotate = false
+        disposeGeometries(sketchContentGroup)
+        sketchContentGroup.clear()
+        if (!s) {
+          disposeGeometries(sketchGridGroup)
+          sketchGridGroup.clear()
+          sketchViewKey = ''
+          controls.enableRotate = true
+          return
+        }
+        controls.enableRotate = false
+        sketchContentGroup.add(buildSketchContent(s))
+        // камера и сетка меняются только при входе в эскиз или смене плоскости: правка эскиза не должна сбрасывать вид
+        const key = `${s.sketch.id}|${s.plane.base}|${s.plane.offset}`
+        if (key !== sketchViewKey) {
+          sketchViewKey = key
+          disposeGeometries(sketchGridGroup)
+          sketchGridGroup.clear()
+          sketchGridGroup.add(buildSketchGrid(s.plane, s.grid))
           const look = lookAtPlane(s.plane)
           controls.target.set(...look.target)
           camera.position.set(...look.position)
@@ -542,8 +572,6 @@ export function Viewport({
           orthoCamera.up.copy(camera.up)
           orthoCamera.lookAt(...look.target)
           controls.update()
-        } else {
-          controls.enableRotate = true
         }
       },
       lookAtSketchPlane() {
@@ -703,8 +731,34 @@ export function Viewport({
     let isBoxSelecting = false
     let isPointerDownOnCanvas = false
 
+    // эскиз: координаты указателя на плоскости и масштаб вида (пикселей на мм) для допусков в пикселях
+    const sketchPlanePoint = (e: MouseEvent) => {
+      if (!sketchRef.current) return null
+      const rect = el.getBoundingClientRect()
+      return pointerToPlaneCoordinates(
+        { x: e.clientX - rect.left, y: e.clientY - rect.top },
+        { width: el.clientWidth, height: el.clientHeight },
+        orthoCamera,
+        sketchRef.current.plane,
+      )
+    }
+    const sketchPixelsPerMm = () => {
+      const dist = camera.position.distanceTo(controls.target)
+      const oH = orthoHeightFromDistance(dist, camera.fov)
+      return oH > 1e-9 ? (el.clientHeight || 1) / oH : 5
+    }
+    const sketchMods = (e: MouseEvent) => ({
+      shift: e.shiftKey,
+      ctrl: e.ctrlKey,
+      alt: e.altKey,
+      meta: e.metaKey,
+      pixelsPerMm: sketchPixelsPerMm(),
+    })
+
     const onPointerDown = (e: MouseEvent) => {
       if (e.button !== 0 && e.button !== 1 && e.button !== 2) return
+      // в эскизе рисует и выбирает только левая кнопка; средняя и правая двигают вид (OrbitControls)
+      if (sketchRef.current && e.button !== 0) return
       isPointerDownOnCanvas = true
       mouseDownPos = { x: e.clientX, y: e.clientY }
       isDragging = false
@@ -712,18 +766,8 @@ export function Viewport({
 
       if (sketchRef.current) {
         controls.enableRotate = false
-        const rect = el.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
-        const isOrtho = sceneRef.current?.projection === 'ortho' || !!sketchRef.current
-        const activeCam = isOrtho ? orthoCamera : camera
-        const planeCoords = pointerToPlaneCoordinates(
-          { x, y },
-          { width: el.clientWidth, height: el.clientHeight },
-          activeCam,
-          sketchRef.current.plane,
-        )
-        const mods = { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey }
+        const planeCoords = sketchPlanePoint(e)
+        const mods = sketchMods(e)
         if (planeCoords) {
           callbacksRef.current.onSketchPointer?.('down', planeCoords, mods, e as unknown as PointerEvent)
         }
@@ -740,20 +784,13 @@ export function Viewport({
 
     const onPointerMove = (e: MouseEvent) => {
       if (sketchRef.current) {
+        // окно слушается целиком: над панелями эскиз ничего не должен делать
         const rect = el.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
-        const isOrtho = sceneRef.current?.projection === 'ortho' || !!sketchRef.current
-        const activeCam = isOrtho ? orthoCamera : camera
-        const planeCoords = pointerToPlaneCoordinates(
-          { x, y },
-          { width: el.clientWidth, height: el.clientHeight },
-          activeCam,
-          sketchRef.current.plane,
-        )
-        const mods = { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey }
+        const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom
+        if (!inside && !isPointerDownOnCanvas) return
+        const planeCoords = sketchPlanePoint(e)
         if (planeCoords) {
-          callbacksRef.current.onSketchPointer?.('move', planeCoords, mods, e as unknown as PointerEvent)
+          callbacksRef.current.onSketchPointer?.('move', planeCoords, sketchMods(e), e as unknown as PointerEvent)
         }
         if (isPointerDownOnCanvas) {
           const dx = e.clientX - mouseDownPos.x
@@ -801,33 +838,15 @@ export function Viewport({
         const rect = el.getBoundingClientRect()
         const x = e.clientX - rect.left
         const y = e.clientY - rect.top
-        const isOrtho = sceneRef.current?.projection === 'ortho' || !!sketchRef.current
-        const activeCam = isOrtho ? orthoCamera : camera
-        const planeCoords = pointerToPlaneCoordinates(
-          { x, y },
-          { width: el.clientWidth, height: el.clientHeight },
-          activeCam,
-          sketchRef.current.plane,
-        )
-        const mods = { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey }
+        const planeCoords = sketchPlanePoint(e)
         if (planeCoords) {
-          callbacksRef.current.onSketchPointer?.('up', planeCoords, mods, e as unknown as PointerEvent)
+          callbacksRef.current.onSketchPointer?.('up', planeCoords, sketchMods(e), e as unknown as PointerEvent)
         }
 
         if (!isDragging) {
-          const projectPoint = (planePt: { x: number; y: number }): { x: number; y: number } | null => {
-            const frame = planeFrame(sketchRef.current!.plane)
-            const worldPt = new THREE.Vector3(
-              frame.origin[0] + planePt.x * frame.xDir[0] + planePt.y * frame.yDir[0],
-              frame.origin[1] + planePt.x * frame.xDir[1] + planePt.y * frame.yDir[1],
-              frame.origin[2] + planePt.x * frame.xDir[2] + planePt.y * frame.yDir[2],
-            ).project(activeCam)
-            return {
-              x: ((worldPt.x + 1) / 2) * el.clientWidth,
-              y: ((1 - worldPt.y) / 2) * el.clientHeight,
-            }
-          }
-          const hit = screenPick({ x, y }, sketchRef.current.sketch, projectPoint, 6)
+          const projectPoint = (planePt: { x: number; y: number }): { x: number; y: number } | null =>
+            api.current?.projectPoint(planePt) ?? null
+          const hit = screenPick({ x, y }, sketchRef.current.sketch, projectPoint, 8)
           callbacksRef.current.onSketchSelect?.(hit, e.shiftKey || e.ctrlKey || e.metaKey)
         }
         return
@@ -951,15 +970,27 @@ export function Viewport({
         orthoCamera.updateProjectionMatrix()
       }
 
-      // Camera orientation for ViewCube
-      if (dist > 0.001) {
-        const dx = camera.position.x - controls.target.x
-        const dy = camera.position.y - controls.target.y
-        const dz = camera.position.z - controls.target.z
-        const pitch = (Math.asin(Math.max(-1, Math.min(1, dz / dist))) * 180) / Math.PI
-        const yaw = (Math.atan2(dx, -dy) * 180) / Math.PI
-        setCameraRotation([pitch, yaw, 0])
-        callbacksRef.current.onCameraChange?.([pitch, yaw, 0])
+      // Ориентация для ViewCube и обновление подписей эскиза: только когда вид действительно изменился,
+      // иначе каждый кадр перерисовывал весь React-интерфейс (главная причина тормозов).
+      const viewSig = [
+        camera.position.x, camera.position.y, camera.position.z,
+        controls.target.x, controls.target.y, controls.target.z, w, h,
+      ].map((v) => v.toFixed(3)).join()
+      if (viewSig !== lastViewSig) {
+        lastViewSig = viewSig
+        if (dist > 0.001) {
+          const dx = camera.position.x - controls.target.x
+          const dy = camera.position.y - controls.target.y
+          const dz = camera.position.z - controls.target.z
+          const pitch = (Math.asin(Math.max(-1, Math.min(1, dz / dist))) * 180) / Math.PI
+          const yaw = (Math.atan2(dx, -dy) * 180) / Math.PI
+          if (Math.abs(pitch - lastRot[0]) > 0.05 || Math.abs(yaw - lastRot[1]) > 0.05) {
+            lastRot = [pitch, yaw]
+            setCameraRotation([pitch, yaw, 0])
+            callbacksRef.current.onCameraChange?.([pitch, yaw, 0])
+          }
+        }
+        if (sketchRef.current) setViewTick((v) => v + 1)
       }
 
       renderer.setViewport(0, 0, w, h); renderer.setScissorTest(false)
@@ -1021,7 +1052,7 @@ export function Viewport({
             onClick={() => api.current?.lookAtSketchPlane()}
             className="px-2.5 py-1 text-xs font-medium rounded-(--radius-control) border border-(--color-border) bg-(--color-surface-2)/90 text-(--color-text-muted) hover:text-(--color-text) hover:border-(--color-accent) shadow-(--shadow-sticky) cursor-pointer"
           >
-            Look at plane
+            {t('sketch.lookAtPlane', 'Look at plane')}
           </button>
         </div>
       )}
@@ -1034,6 +1065,8 @@ export function Viewport({
           onUpdateConstraint={onUpdateConstraint}
           onDeleteConstraint={onDeleteConstraint}
           onSelectConstraint={onSelectConstraint}
+          onHoverConstraint={onHoverConstraint}
+          onPinDimension={onPinDimension}
         />
       )}
 

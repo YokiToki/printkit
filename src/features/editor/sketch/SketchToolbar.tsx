@@ -6,13 +6,19 @@ import {
   IconLineDashed,
   IconRectangle,
   IconCircle,
+  IconVectorSpline,
+  IconCapsule,
+  IconPolygon,
   IconScissors,
   IconFlipHorizontal,
-  IconPolygon,
-  IconRuler2,
+  IconRulerMeasure,
   IconCheck,
   IconChevronDown,
   IconUpload,
+  IconArrowsHorizontal,
+  IconArrowsVertical,
+  IconEqual,
+  IconPoint,
 } from '@tabler/icons-react'
 import type { SketchTool } from './toolStateMachine'
 import type { Constraint } from '../../../editor/sketch/model'
@@ -57,7 +63,7 @@ export function SketchToolbar({
           type="button"
           data-testid="sketch-tool-select"
           aria-pressed={tool === 'select'}
-          title="Select (Esc)"
+          title={`${t('sketch.tool.select', 'Select')} (Esc)`}
           onClick={() => onToolChange('select')}
           className={`inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 font-medium cursor-pointer ${
             tool === 'select'
@@ -73,7 +79,7 @@ export function SketchToolbar({
           type="button"
           data-testid="sketch-tool-line"
           aria-pressed={tool === 'line'}
-          title="Line (L)"
+          title={`${t('sketch.tool.line', 'Line')} (L)`}
           onClick={() => onToolChange('line')}
           className={`inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 font-medium cursor-pointer ${
             tool === 'line'
@@ -90,7 +96,7 @@ export function SketchToolbar({
             type="button"
             data-testid="sketch-tool-rect"
             aria-pressed={isRect}
-            title="Rectangle (R)"
+            title={`${t('sketch.tool.rect', 'Rectangle')} (R)`}
             onClick={() => onToolChange(tool === 'rect-center' ? 'rect-center' : 'rect-2pt')}
             className={`inline-flex h-full items-center gap-1 px-2 cursor-pointer ${
               isRect ? 'bg-surface-3 text-text' : 'text-text-muted hover:text-text'
@@ -110,7 +116,7 @@ export function SketchToolbar({
 
           {rectMenuOpen && (
             <div
-              className="absolute left-0 top-full mt-1 z-30 min-w-36 rounded-card border border-border-strong bg-surface-1 p-1 shadow-float"
+              className="absolute left-0 top-full mt-1 z-30 min-w-40 rounded-card border border-border-strong bg-surface-1 p-1 shadow-float"
               onClick={() => setRectMenuOpen(false)}
             >
               <button
@@ -118,14 +124,14 @@ export function SketchToolbar({
                 onClick={() => onToolChange('rect-2pt')}
                 className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
               >
-                2-Point Rectangle
+                {t('sketch.tool.rect2pt', '2-Point Rectangle')}
               </button>
               <button
                 type="button"
                 onClick={() => onToolChange('rect-center')}
                 className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
               >
-                Center Rectangle
+                {t('sketch.tool.rectCenter', 'Center Rectangle')}
               </button>
             </div>
           )}
@@ -136,7 +142,7 @@ export function SketchToolbar({
           type="button"
           data-testid="sketch-tool-circle"
           aria-pressed={tool === 'circle'}
-          title="Circle (C)"
+          title={`${t('sketch.tool.circle', 'Circle')} (C)`}
           onClick={() => onToolChange('circle')}
           className={`inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 font-medium cursor-pointer ${
             tool === 'circle'
@@ -147,20 +153,37 @@ export function SketchToolbar({
           <IconCircle size={16} stroke={1.75} />
         </button>
 
+        {/* 3-Point Arc */}
+        <button
+          type="button"
+          data-testid="sketch-tool-arc"
+          aria-pressed={tool === 'arc-3pt'}
+          title={`${t('sketch.tool.arc3pt', '3-Point Arc')} (A)`}
+          onClick={() => onToolChange('arc-3pt')}
+          className={`inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 font-medium cursor-pointer ${
+            tool === 'arc-3pt'
+              ? 'bg-surface-3 text-text shadow-[inset_0_0_0_1px_var(--color-border-strong)]'
+              : 'text-text-muted hover:text-text'
+          }`}
+        >
+          <IconVectorSpline size={16} stroke={1.75} />
+        </button>
+
         {/* Slot */}
         <button
           type="button"
           data-testid="sketch-tool-slot"
           aria-pressed={tool === 'slot'}
-          title="Slot"
+          title={t('sketch.tool.slot', 'Slot')}
           onClick={() => onToolChange('slot')}
-          className={`inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 font-medium cursor-pointer ${
+          className={`inline-flex h-8 items-center gap-1.5 rounded-control px-2 font-medium cursor-pointer ${
             tool === 'slot'
               ? 'bg-surface-3 text-text shadow-[inset_0_0_0_1px_var(--color-border-strong)]'
               : 'text-text-muted hover:text-text'
           }`}
         >
-          Slot
+          <IconCapsule size={16} stroke={1.75} />
+          <span className="hidden sm:inline">{t('sketch.tool.slot', 'Slot')}</span>
         </button>
 
         {/* Polygon */}
@@ -168,7 +191,7 @@ export function SketchToolbar({
           type="button"
           data-testid="sketch-tool-polygon"
           aria-pressed={tool === 'polygon'}
-          title="Polygon"
+          title={t('sketch.tool.polygon', 'Polygon')}
           onClick={() => onToolChange('polygon')}
           className={`inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 font-medium cursor-pointer ${
             tool === 'polygon'
@@ -186,7 +209,7 @@ export function SketchToolbar({
           type="button"
           data-testid="sketch-tool-trim"
           aria-pressed={tool === 'trim'}
-          title="Trim (T)"
+          title={`${t('sketch.tool.trim', 'Trim')} (T)`}
           onClick={() => onToolChange('trim')}
           className={`inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 font-medium cursor-pointer ${
             tool === 'trim'
@@ -202,7 +225,7 @@ export function SketchToolbar({
           type="button"
           data-testid="sketch-tool-mirror"
           aria-pressed={tool === 'mirror'}
-          title="Mirror"
+          title={t('sketch.tool.mirror', 'Mirror')}
           onClick={() => onToolChange('mirror')}
           className={`inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 font-medium cursor-pointer ${
             tool === 'mirror'
@@ -220,16 +243,16 @@ export function SketchToolbar({
           type="button"
           data-testid="sketch-tool-construction"
           aria-pressed={construction}
-          title="Construction Mode (X)"
+          title={`${t('sketch.toggleConstruction', 'Toggle construction geometry')} (X)`}
           onClick={onToggleConstruction}
-          className={`inline-flex h-8 items-center gap-1.5 rounded-control px-2.5 font-medium cursor-pointer ${
+          className={`inline-flex h-8 items-center gap-1.5 rounded-control px-2 font-medium cursor-pointer ${
             construction
               ? 'bg-accent-muted text-white shadow-[inset_0_0_0_1px_var(--color-accent)]'
               : 'text-text-muted hover:text-text'
           }`}
         >
           <IconLineDashed size={16} stroke={1.75} />
-          <span>Constr.</span>
+          <span className="hidden sm:inline">{t('sketch.tool.construction', 'Construction')}</span>
         </button>
 
         {/* Dimension */}
@@ -237,16 +260,16 @@ export function SketchToolbar({
           type="button"
           data-testid="sketch-tool-dimension"
           aria-pressed={tool === 'dimension'}
-          title="Dimension (D)"
+          title={`${t('sketch.tool.dimension', 'Dimension')} (D)`}
           onClick={() => onToolChange('dimension')}
-          className={`inline-flex h-8 items-center gap-1.5 rounded-control px-2.5 font-medium cursor-pointer ${
+          className={`inline-flex h-8 items-center gap-1.5 rounded-control px-2 font-medium cursor-pointer ${
             tool === 'dimension'
               ? 'bg-surface-3 text-text shadow-[inset_0_0_0_1px_var(--color-border-strong)]'
               : 'text-text-muted hover:text-text'
           }`}
         >
-          <IconRuler2 size={16} stroke={1.75} />
-          <span>Dim</span>
+          <IconRulerMeasure size={16} stroke={1.75} />
+          <span className="hidden sm:inline">{t('sketch.tool.dimension', 'Dimension')}</span>
         </button>
 
         {/* Constraints Dropdown */}
@@ -258,13 +281,13 @@ export function SketchToolbar({
             onClick={() => setConstraintsMenuOpen(!constraintsMenuOpen)}
             className="inline-flex h-full items-center gap-1 rounded-control border border-border px-2 text-text-muted hover:text-text cursor-pointer"
           >
-            <span>Constraints</span>
+            <span>{t('sketch.constraint.title', 'Constraints')}</span>
             <IconChevronDown size={12} />
           </button>
 
           {constraintsMenuOpen && (
             <div
-              className="absolute left-0 top-full mt-1 z-30 min-w-44 rounded-card border border-border-strong bg-surface-1 p-1 shadow-float"
+              className="absolute left-0 top-full mt-1 z-30 min-w-48 rounded-card border border-border-strong bg-surface-1 p-1 shadow-float"
               onClick={() => setConstraintsMenuOpen(false)}
             >
               <button
@@ -272,7 +295,10 @@ export function SketchToolbar({
                 onClick={() => onAddConstraint?.('horizontal')}
                 className="flex w-full items-center justify-between rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
               >
-                <span>Horizontal</span>
+                <span className="flex items-center gap-2">
+                  <IconArrowsHorizontal size={14} className="text-text-muted" />
+                  <span>{t('sketch.constraint.horizontal', 'Horizontal')}</span>
+                </span>
                 <span className="font-mono text-text-subtle">H</span>
               </button>
               <button
@@ -280,7 +306,10 @@ export function SketchToolbar({
                 onClick={() => onAddConstraint?.('vertical')}
                 className="flex w-full items-center justify-between rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
               >
-                <span>Vertical</span>
+                <span className="flex items-center gap-2">
+                  <IconArrowsVertical size={14} className="text-text-muted" />
+                  <span>{t('sketch.constraint.vertical', 'Vertical')}</span>
+                </span>
                 <span className="font-mono text-text-subtle">V</span>
               </button>
               <button
@@ -288,7 +317,10 @@ export function SketchToolbar({
                 onClick={() => onAddConstraint?.('coincident')}
                 className="flex w-full items-center justify-between rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
               >
-                <span>Coincident</span>
+                <span className="flex items-center gap-2">
+                  <IconPoint size={14} className="text-text-muted" />
+                  <span>{t('sketch.constraint.coincident', 'Coincident')}</span>
+                </span>
                 <span className="font-mono text-text-subtle">●</span>
               </button>
               <button
@@ -296,7 +328,10 @@ export function SketchToolbar({
                 onClick={() => onAddConstraint?.('tangent')}
                 className="flex w-full items-center justify-between rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
               >
-                <span>Tangent</span>
+                <span className="flex items-center gap-2">
+                  <IconCircle size={14} className="text-text-muted" />
+                  <span>{t('sketch.constraint.tangent', 'Tangent')}</span>
+                </span>
                 <span className="font-mono text-text-subtle">T</span>
               </button>
               <button
@@ -304,7 +339,10 @@ export function SketchToolbar({
                 onClick={() => onAddConstraint?.('parallel')}
                 className="flex w-full items-center justify-between rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
               >
-                <span>Parallel</span>
+                <span className="flex items-center gap-2">
+                  <span className="w-3.5 text-center font-mono font-bold text-text-muted">//</span>
+                  <span>{t('sketch.constraint.parallel', 'Parallel')}</span>
+                </span>
                 <span className="font-mono text-text-subtle">//</span>
               </button>
               <button
@@ -312,7 +350,10 @@ export function SketchToolbar({
                 onClick={() => onAddConstraint?.('perpendicular')}
                 className="flex w-full items-center justify-between rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
               >
-                <span>Perpendicular</span>
+                <span className="flex items-center gap-2">
+                  <span className="w-3.5 text-center font-mono font-bold text-text-muted">⊥</span>
+                  <span>{t('sketch.constraint.perpendicular', 'Perpendicular')}</span>
+                </span>
                 <span className="font-mono text-text-subtle">⊥</span>
               </button>
               <button
@@ -320,7 +361,10 @@ export function SketchToolbar({
                 onClick={() => onAddConstraint?.('equal')}
                 className="flex w-full items-center justify-between rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
               >
-                <span>Equal</span>
+                <span className="flex items-center gap-2">
+                  <IconEqual size={14} className="text-text-muted" />
+                  <span>{t('sketch.constraint.equal', 'Equal')}</span>
+                </span>
                 <span className="font-mono text-text-subtle">=</span>
               </button>
             </div>
@@ -345,11 +389,11 @@ export function SketchToolbar({
           <span className="font-medium text-text">{sketchName}</span>
           <span className="mx-1.5">·</span>
           {hasConflict ? (
-            <span className="text-(--color-error-text) font-semibold">Conflict</span>
+            <span className="text-(--color-error-text) font-semibold">{t('sketch.conflict.badge', 'Conflict')}</span>
           ) : dof === 0 ? (
-            <span className="text-(--color-success-text) font-medium">Fully defined</span>
+            <span className="text-(--color-success-text) font-medium">{t('sketch.properties.fullyDefined', 'Fully defined')}</span>
           ) : (
-            <span>{dof} DoF</span>
+            <span>{t('sketch.properties.dofStatus', { count: dof, defaultValue: `${dof} DoF` })}</span>
           )}
         </div>
 
@@ -360,7 +404,7 @@ export function SketchToolbar({
           className="inline-flex h-8 items-center gap-1.5 rounded-control bg-accent px-3 font-semibold text-accent-on hover:brightness-110 shadow-xs cursor-pointer"
         >
           <IconCheck size={16} stroke={2.5} />
-          <span>Finish</span>
+          <span>{t('sketch.tool.finish', 'Finish')}</span>
         </button>
       </div>
     </div>

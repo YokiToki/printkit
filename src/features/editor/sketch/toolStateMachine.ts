@@ -11,6 +11,7 @@ import {
 } from '../../../editor/sketch/model'
 import { solve } from '../../../editor/sketch/solver'
 import { inferSnap, type SnapResult } from '../../../editor/sketch/infer'
+import { dimensionFor } from '../../../editor/sketch/measure'
 import { rectangleMacro } from '../../../editor/sketch/tools/rectangle'
 import { slotMacro } from '../../../editor/sketch/tools/slot'
 import { polygonMacro } from '../../../editor/sketch/tools/polygon'
@@ -57,6 +58,8 @@ export interface ToolEvent {
   shift?: boolean
   ctrl?: boolean
   alt?: boolean
+  /** Масштаб вида: допуски привязки заданы в пикселях экрана, а не в мм. */
+  pixelsPerMm?: number
 }
 
 export function initialToolState(tool: SketchTool = 'select', construction = false): ToolState {
@@ -67,6 +70,41 @@ export function initialToolState(tool: SketchTool = 'select', construction = fal
     selectedPointIds: [],
     selectedCurveIds: [],
   }
+}
+
+/** Смена инструмента: выбор сохраняется там, где он нужен инструменту (зеркало, размер), иначе сбрасывается. */
+export function switchTool(prev: ToolState, tool: SketchTool): ToolState {
+  const next = initialToolState(tool, prev.construction)
+  if (tool === 'select' || tool === 'mirror' || tool === 'dimension') {
+    next.selectedPointIds = prev.selectedPointIds
+    next.selectedCurveIds = prev.selectedCurveIds
+  }
+  return next
+}
+
+/** Окружность через три точки; дуга идёт против часовой стрелки от `a` к `b` через заданную точку. */
+export function arcThrough(
+  s: { x: number; y: number },
+  e: { x: number; y: number },
+  m: { x: number; y: number },
+): { center: { x: number; y: number }; a: { x: number; y: number }; b: { x: number; y: number } } | null {
+  const d = 2 * (s.x * (e.y - m.y) + e.x * (m.y - s.y) + m.x * (s.y - e.y))
+  if (Math.abs(d) < 1e-9) return null
+  const s2 = s.x * s.x + s.y * s.y
+  const e2 = e.x * e.x + e.y * e.y
+  const m2 = m.x * m.x + m.y * m.y
+  const center = {
+    x: (s2 * (e.y - m.y) + e2 * (m.y - s.y) + m2 * (s.y - e.y)) / d,
+    y: (s2 * (m.x - e.x) + e2 * (s.x - m.x) + m2 * (e.x - s.x)) / d,
+  }
+  const ang = (p: { x: number; y: number }) => Math.atan2(p.y - center.y, p.x - center.x)
+  const ccw = (from: number, to: number) => {
+    let v = to - from
+    while (v < 0) v += 2 * Math.PI
+    return v
+  }
+  const as = ang(s)
+  return ccw(as, ang(m)) < ccw(as, ang(e)) ? { center, a: s, b: e } : { center, a: e, b: s }
 }
 
 export interface StateMachineResult {
@@ -112,6 +150,7 @@ export function sketchToolReducer(
           previousPoint: state.startPt,
           shiftKey: event.shift,
           ctrlKey: event.ctrl,
+          pixelsPerMm: event.pixelsPerMm,
         })
     const activePos = snap?.pos ?? rawPos
     nextState.inferred = snap
@@ -168,6 +207,29 @@ export function sketchToolReducer(
           pr_circ: { id: 'pr_circ', kind: 'circle', c: 'pr_c', r, construction: state.construction },
         },
       }
+    } else if (state.tool === 'arc-3pt' && state.stage === 1 && state.startPt) {
+      nextState.preview = {
+        points: { preview_start: state.startPt, preview_end: activePos },
+        curves: {
+          preview_line: {
+            id: 'preview_line',
+            kind: 'line',
+            a: 'preview_start',
+            b: 'preview_end',
+            construction: true,
+          },
+        },
+      }
+    } else if (state.tool === 'arc-3pt' && state.stage === 2 && state.startPt && state.secondPt) {
+      const arc = arcThrough(state.startPt, state.secondPt, activePos)
+      nextState.preview = arc
+        ? {
+            points: { pr_c: arc.center, pr_a: arc.a, pr_b: arc.b },
+            curves: {
+              pr_arc: { id: 'pr_arc', kind: 'arc', c: 'pr_c', a: 'pr_a', b: 'pr_b', construction: state.construction },
+            },
+          }
+        : undefined
     } else {
       nextState.preview = undefined
     }
@@ -185,6 +247,7 @@ export function sketchToolReducer(
           previousPoint: state.startPt,
           shiftKey: event.shift,
           ctrlKey: event.ctrl,
+          pixelsPerMm: event.pixelsPerMm,
         })
     const pt = snap?.pos ?? rawPos
 
@@ -204,6 +267,11 @@ export function sketchToolReducer(
       } else if (state.stage === 1 && state.startPt) {
         // Finish current line
         let p2Id = snap?.glyph === 'coincident' ? snap.targetId : undefined
+        if (p2Id && p2Id === state.startPt.pointId) {
+          // щелчок по точке, из которой линия уже идёт: нулевой длины не бывает
+          return { state: nextState, sketch: s }
+        }
+        const closesOnExisting = !!p2Id
         if (!p2Id) {
           const res = addPoint(s, pt.x, pt.y)
           s = res.sketch
@@ -221,9 +289,9 @@ export function sketchToolReducer(
           s.constraints.push({ id: newId('con'), kind: 'pointOnLine', refs: [p2Id, snap.targetId] })
         }
 
-        // Chain next line
-        nextState.stage = 1
-        nextState.startPt = { x: pt.x, y: pt.y, pointId: p2Id }
+        // Цепочка продолжается, пока линия не замкнулась на уже существующей точке
+        nextState.stage = closesOnExisting ? 0 : 1
+        nextState.startPt = closesOnExisting ? undefined : { x: pt.x, y: pt.y, pointId: p2Id }
         nextState.preview = undefined
         return {
           state: nextState,
@@ -243,6 +311,7 @@ export function sketchToolReducer(
         nextState.stage = 0
         nextState.startPt = undefined
         nextState.preview = undefined
+        nextState.tool = 'select' // фигура готова: следующий щелчок выбирает, а не рисует новую
         return {
           state: nextState,
           sketch: s,
@@ -265,6 +334,7 @@ export function sketchToolReducer(
         nextState.stage = 0
         nextState.startPt = undefined
         nextState.preview = undefined
+        nextState.tool = 'select' // фигура готова: следующий щелчок выбирает, а не рисует новую
         return {
           state: nextState,
           sketch: s,
@@ -290,6 +360,7 @@ export function sketchToolReducer(
         nextState.stage = 0
         nextState.startPt = undefined
         nextState.preview = undefined
+        nextState.tool = 'select' // фигура готова: следующий щелчок выбирает, а не рисует новую
         return {
           state: nextState,
           sketch: s,
@@ -317,6 +388,7 @@ export function sketchToolReducer(
         nextState.stage = 0
         nextState.startPt = undefined
         nextState.secondPt = undefined
+        nextState.tool = 'select' // фигура готова: следующий щелчок выбирает, а не рисует новую
         return {
           state: nextState,
           sketch: s,
@@ -334,11 +406,78 @@ export function sketchToolReducer(
         s = res.sketch
         nextState.stage = 0
         nextState.startPt = undefined
+        nextState.tool = 'select' // фигура готова: следующий щелчок выбирает, а не рисует новую
         return {
           state: nextState,
           sketch: s,
           command: { label: 'Add Polygon' },
         }
+      }
+    } else if (state.tool === 'arc-3pt') {
+      if (state.stage === 0) {
+        nextState.stage = 1
+        nextState.startPt = pt
+        return { state: nextState, sketch: s }
+      } else if (state.stage === 1 && state.startPt) {
+        nextState.stage = 2
+        nextState.secondPt = pt
+        nextState.preview = undefined
+        return { state: nextState, sketch: s }
+      } else if (state.stage === 2 && state.startPt && state.secondPt) {
+        const arc = arcThrough(state.startPt, state.secondPt, pt)
+        if (!arc) return { state: nextState, sketch: s } // три точки на одной прямой: дуги нет
+        const res = addArc(s, arc.center, arc.a, arc.b, state.construction)
+        s = res.sketch
+        nextState.stage = 0
+        nextState.startPt = undefined
+        nextState.secondPt = undefined
+        nextState.preview = undefined
+        nextState.tool = 'select'
+        return { state: nextState, sketch: s, command: { label: 'Add Arc' } }
+      }
+    } else if (state.tool === 'dimension') {
+      const target = snap?.targetId
+      if (target && s.curves[target]) {
+        // размер на отрезок, окружность или дугу: фиксирует текущее значение
+        const dim = dimensionFor(s, target)
+        if (dim) {
+          s = { ...s, constraints: [...s.constraints, dim] }
+          return { state: nextState, sketch: s, command: { label: 'Add Dimension' } }
+        }
+      } else if (snap?.glyph === 'coincident' && target && s.points[target]) {
+        // два щелчка по точкам: расстояние между ними
+        if (state.stage === 0) {
+          nextState.stage = 1
+          nextState.startPt = { x: pt.x, y: pt.y, pointId: target }
+          return { state: nextState, sketch: s }
+        }
+        const firstId = state.startPt?.pointId
+        if (state.stage === 1 && firstId && firstId !== target && s.points[firstId]) {
+          const a = s.points[firstId]
+          const b = s.points[target]
+          s = {
+            ...s,
+            constraints: [
+              ...s.constraints,
+              { id: newId('con'), kind: 'distance', refs: [firstId, target], value: Math.hypot(b.x - a.x, b.y - a.y) },
+            ],
+          }
+          nextState.stage = 0
+          nextState.startPt = undefined
+          return { state: nextState, sketch: s, command: { label: 'Add Dimension' } }
+        }
+      }
+    } else if (state.tool === 'mirror') {
+      // выбранные кривые отражаются относительно щёлкнутого отрезка
+      const axisId = snap?.targetId
+      const axis = axisId ? s.curves[axisId] : undefined
+      if (axisId && axis?.kind === 'line' && state.selectedCurveIds.length > 0 && !state.selectedCurveIds.includes(axisId)) {
+        const res = mirrorMacro(s, { curveIds: state.selectedCurveIds, axisLineId: axisId })
+        s = res.sketch
+        nextState.tool = 'select'
+        nextState.selectedCurveIds = []
+        nextState.selectedPointIds = []
+        return { state: nextState, sketch: s, command: { label: 'Mirror' } }
       }
     } else if (state.tool === 'trim') {
       if (snap?.targetId && s.curves[snap.targetId]) {

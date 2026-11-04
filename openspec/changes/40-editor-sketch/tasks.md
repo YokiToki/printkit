@@ -51,7 +51,7 @@
 
 ## 9. Version
 
-- [ ] 9.1 Bump `package.json` to 1.11.0 and add `1.11.0 — 40-editor-sketch` at the top of `CHANGELOG.md`. Test: `site.test.ts` passes.
+- [x] 9.1 Bump `package.json` to 1.11.0 and add `1.11.0 — 40-editor-sketch` at the top of `CHANGELOG.md`. Test: `site.test.ts` passes.
 
 ## 10. Verification
 

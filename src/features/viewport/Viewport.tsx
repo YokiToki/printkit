@@ -78,6 +78,8 @@ export interface ViewportProps {
     rawEvent: PointerEvent,
   ) => void
   onSketchSelect?: (hit: ScreenPickResult | null, additive: boolean) => void
+  onSketchSelectBox?: (box: { points: string[]; curves: string[] }, additive: boolean) => void
+  onSubmitDraftInput?: (val1: number, val2: number) => void
   onUpdateConstraint?: (id: string, value: number) => void
   onDeleteConstraint?: (id: string) => void
   onSelectConstraint?: (id: string) => void
@@ -194,6 +196,8 @@ export function Viewport({
   sketch,
   onSketchPointer,
   onSketchSelect,
+  onSketchSelectBox,
+  onSubmitDraftInput,
   onUpdateConstraint,
   onDeleteConstraint,
   onSelectConstraint,
@@ -221,6 +225,8 @@ export function Viewport({
     onCameraChange,
     onSketchPointer,
     onSketchSelect,
+    onSketchSelectBox,
+    onSubmitDraftInput,
     onUpdateConstraint,
     onDeleteConstraint,
     onSelectConstraint,
@@ -233,6 +239,8 @@ export function Viewport({
     onCameraChange,
     onSketchPointer,
     onSketchSelect,
+    onSketchSelectBox,
+    onSubmitDraftInput,
     onUpdateConstraint,
     onDeleteConstraint,
     onSelectConstraint,
@@ -795,7 +803,18 @@ export function Viewport({
         if (isPointerDownOnCanvas) {
           const dx = e.clientX - mouseDownPos.x
           const dy = e.clientY - mouseDownPos.y
-          if (Math.hypot(dx, dy) > 5) isDragging = true
+          if (Math.hypot(dx, dy) > 5) {
+            isDragging = true
+            if (sketchRef.current.tool === 'select') {
+              isBoxSelecting = true
+              setBoxSelectRect({
+                x0: mouseDownPos.x - rect.left,
+                y0: mouseDownPos.y - rect.top,
+                x1: e.clientX - rect.left,
+                y1: e.clientY - rect.top,
+              })
+            }
+          }
         }
         return
       }
@@ -843,10 +862,63 @@ export function Viewport({
           callbacksRef.current.onSketchPointer?.('up', planeCoords, sketchMods(e), e as unknown as PointerEvent)
         }
 
+        const projectPoint = (planePt: { x: number; y: number }): { x: number; y: number } | null =>
+          api.current?.projectPoint(planePt) ?? null
+
+        if (isBoxSelecting && boxSelectRectRef.current && sketchRef.current) {
+          const bRect = boxSelectRectRef.current
+          isBoxSelecting = false
+          setBoxSelectRect(null)
+          const minX = Math.min(bRect.x0, bRect.x1)
+          const maxX = Math.max(bRect.x0, bRect.x1)
+          const minY = Math.min(bRect.y0, bRect.y1)
+          const maxY = Math.max(bRect.y0, bRect.y1)
+
+          const matchedPoints: string[] = []
+          for (const [pId, pt] of Object.entries(sketchRef.current.sketch.points)) {
+            const sp = projectPoint(pt)
+            if (sp && sp.x >= minX && sp.x <= maxX && sp.y >= minY && sp.y <= maxY) {
+              matchedPoints.push(pId)
+            }
+          }
+
+          const matchedCurves: string[] = []
+          for (const [cId, c] of Object.entries(sketchRef.current.sketch.curves)) {
+            if (c.kind === 'line') {
+              const p1 = sketchRef.current.sketch.points[c.a]
+              const p2 = sketchRef.current.sketch.points[c.b]
+              if (p1 && p2) {
+                const sp1 = projectPoint(p1)
+                const sp2 = projectPoint(p2)
+                const midSp = projectPoint({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 })
+                if (
+                  (sp1 && sp1.x >= minX && sp1.x <= maxX && sp1.y >= minY && sp1.y <= maxY) ||
+                  (sp2 && sp2.x >= minX && sp2.x <= maxX && sp2.y >= minY && sp2.y <= maxY) ||
+                  (midSp && midSp.x >= minX && midSp.x <= maxX && midSp.y >= minY && midSp.y <= maxY)
+                ) {
+                  matchedCurves.push(cId)
+                }
+              }
+            } else if (c.kind === 'circle' || c.kind === 'arc') {
+              const center = sketchRef.current.sketch.points[c.c]
+              if (center) {
+                const sp = projectPoint(center)
+                if (sp && sp.x >= minX && sp.x <= maxX && sp.y >= minY && sp.y <= maxY) {
+                  matchedCurves.push(cId)
+                }
+              }
+            }
+          }
+
+          callbacksRef.current.onSketchSelectBox?.(
+            { points: matchedPoints, curves: matchedCurves },
+            e.shiftKey || e.ctrlKey || e.metaKey,
+          )
+          return
+        }
+
         if (!isDragging) {
-          const projectPoint = (planePt: { x: number; y: number }): { x: number; y: number } | null =>
-            api.current?.projectPoint(planePt) ?? null
-          const hit = screenPick({ x, y }, sketchRef.current.sketch, projectPoint, 8)
+          const hit = screenPick({ x, y }, sketchRef.current.sketch, projectPoint, 12)
           callbacksRef.current.onSketchSelect?.(hit, e.shiftKey || e.ctrlKey || e.metaKey)
         }
         return
@@ -1067,6 +1139,7 @@ export function Viewport({
           onSelectConstraint={onSelectConstraint}
           onHoverConstraint={onHoverConstraint}
           onPinDimension={onPinDimension}
+          onSubmitDraftInput={onSubmitDraftInput}
         />
       )}
 

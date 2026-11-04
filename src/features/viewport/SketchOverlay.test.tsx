@@ -95,4 +95,81 @@ describe('4.2 SketchOverlay: Constraint glyphs and dimension labels', () => {
     // Should contain error styling classes
     expect(glyph.className).toContain('text-(--color-error-text)')
   })
+
+  it('renders CAD guidelines and HUD inputs for Point 1 (X, Y relative to axes) and Point 2 (W, H)', () => {
+    const s = createSketch('HudTest')
+    const project = (pt: { x: number; y: number }) => ({ x: pt.x + 200, y: 200 - pt.y })
+    const onSubmitDraft = vi.fn()
+
+    // 1. Stage 0: First point relative to origin axes
+    const configStage0: ViewportSketchConfig = {
+      plane: { base: 'XY', offset: 0 },
+      sketch: s,
+      tool: 'rect-2pt',
+      toolStage: 0,
+      cursorPlanePos: { x: 25, y: 15 },
+    }
+
+    const { rerender } = render(
+      <UnitProvider>
+        <SketchOverlay
+          config={configStage0}
+          project={project}
+          onSubmitDraftInput={onSubmitDraft}
+        />
+      </UnitProvider>,
+    )
+
+    const hud0 = screen.getByTestId('sketch-draft-hud-stage0')
+    expect(hud0).toBeDefined()
+    expect(screen.getByText('X')).toBeDefined()
+    expect(screen.getByText('Y')).toBeDefined()
+
+    const inputs0 = hud0.querySelectorAll('input')
+    expect(inputs0.length).toBe(2)
+    expect(inputs0[0].value).toBe('25.0')
+    expect(inputs0[1].value).toBe('15.0')
+
+    // Change X to 30, Tab, Enter -> submits (30, 15)
+    fireEvent.change(inputs0[0], { target: { value: '30' } })
+    fireEvent.keyDown(inputs0[0], { key: 'Tab' })
+    fireEvent.keyDown(inputs0[1], { key: 'Enter' })
+    expect(onSubmitDraft).toHaveBeenCalledWith(30, 15)
+
+    // 2. Stage 1: Point 2 extending rectangle with sides W and H
+    onSubmitDraft.mockClear()
+    const configStage1: ViewportSketchConfig = {
+      plane: { base: 'XY', offset: 0 },
+      sketch: s,
+      tool: 'rect-2pt',
+      toolStage: 1,
+      toolStartPt: { x: 30, y: 15 },
+      cursorPlanePos: { x: 70, y: 45 },
+    }
+
+    rerender(
+      <UnitProvider>
+        <SketchOverlay
+          config={configStage1}
+          project={project}
+          onSubmitDraftInput={onSubmitDraft}
+        />
+      </UnitProvider>,
+    )
+
+    const hud1 = screen.getByTestId('sketch-draft-hud-stage1')
+    expect(hud1).toBeDefined()
+    expect(screen.getByText('W')).toBeDefined()
+    expect(screen.getByText('H')).toBeDefined()
+
+    const inputs1 = hud1.querySelectorAll('input')
+    expect(inputs1[0].value).toBe('40.0') // 70 - 30
+    expect(inputs1[1].value).toBe('30.0') // 45 - 15
+
+    // Type W = 50, H = 20, Enter -> submits (50, 20)
+    fireEvent.change(inputs1[0], { target: { value: '50' } })
+    fireEvent.change(inputs1[1], { target: { value: '20' } })
+    fireEvent.keyDown(inputs1[1], { key: 'Enter' })
+    expect(onSubmitDraft).toHaveBeenCalledWith(50, 20)
+  })
 })

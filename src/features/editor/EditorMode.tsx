@@ -52,8 +52,9 @@ import {
   deleteSelectionCommand,
   dragPointCommand,
 } from './sketch/sketchCommands'
-import { newId, type PlaneDefinition, type Constraint, type Sketch } from '../../editor/sketch/model'
+import { newId, type PlaneDefinition, type Constraint, type Sketch, addLine, addPoint } from '../../editor/sketch/model'
 import { dimensionFor, constraintEntities } from '../../editor/sketch/measure'
+import { rectangleMacro } from '../../editor/sketch/tools/rectangle'
 import type { ScreenPickResult } from '../viewport/sketchPicking'
 import type { ViewportSketchConfig } from '../viewport/sketchMesh'
 import type { MeshData } from '../../geometry/mesh'
@@ -619,6 +620,7 @@ export function EditorMode() {
 
   // Hovered constraint for highlight
   const [hoverConstraintId, setHoverConstraintId] = useState<string | null>(null)
+  const [sketchCursorPos, setSketchCursorPos] = useState<{ x: number; y: number } | null>(null)
   const constraintHighlight = useMemo(() => {
     if (!activeSketch || !hoverConstraintId) return null
     const c = activeSketch.constraints.find((con) => con.id === hoverConstraintId)
@@ -639,6 +641,9 @@ export function EditorMode() {
       highlight: constraintHighlight,
       preview: sketchToolState.preview,
       tool: sketchToolState.tool,
+      toolStage: sketchToolState.stage,
+      toolStartPt: sketchToolState.startPt,
+      cursorPlanePos: sketchCursorPos,
       dofStatus: {
         points: dofInfo.entityStatus,
         curves: dofInfo.entityStatus,
@@ -647,7 +652,86 @@ export function EditorMode() {
         constraints: dofInfo.conflicts,
       },
     }
-  }, [activeSketch, sketchToolState, dofInfo, constraintHighlight])
+  }, [activeSketch, sketchToolState, dofInfo, constraintHighlight, sketchCursorPos])
+
+  const handleDraftInputSubmit = (val1: number, val2: number) => {
+    if (!activeSketch) return
+    const tool = sketchToolState.tool
+
+    if (tool === 'rect-2pt' || tool === 'rect-center') {
+      if (sketchToolState.stage === 0) {
+        setSketchToolState((prev) => ({
+          ...prev,
+          stage: 1,
+          startPt: { x: val1, y: val2 },
+        }))
+      } else if (sketchToolState.stage === 1 && sketchToolState.startPt) {
+        const p1 = sketchToolState.startPt
+        const cursor = sketchCursorPos ?? p1
+        const sx = cursor.x >= p1.x ? 1 : -1
+        const sy = cursor.y >= p1.y ? 1 : -1
+        const p2 = {
+          x: p1.x + sx * Math.abs(val1),
+          y: p1.y + sy * Math.abs(val2),
+        }
+        const res = rectangleMacro(activeSketch, {
+          p1,
+          p2,
+          isCenter: tool === 'rect-center',
+          widthDim: Math.abs(val1),
+          heightDim: Math.abs(val2),
+        })
+        dispatch('Add Rectangle', (prev) => updateSketchInDoc(prev, activeSketch.id, () => res.sketch))
+        setSketchToolState((prev) => ({
+          ...prev,
+          tool: 'select',
+          stage: 0,
+          startPt: undefined,
+          secondPt: undefined,
+          preview: undefined,
+        }))
+      }
+    } else if (tool === 'line') {
+      if (sketchToolState.stage === 0) {
+        setSketchToolState((prev) => ({
+          ...prev,
+          stage: 1,
+          startPt: { x: val1, y: val2 },
+        }))
+      } else if (sketchToolState.stage === 1 && sketchToolState.startPt) {
+        const p1 = sketchToolState.startPt
+        const resPt = addPoint(activeSketch, val1, val2)
+        let s = resPt.sketch
+        const p1Id = p1.pointId ?? addPoint(s, p1.x, p1.y).pointId
+        const lineRes = addLine(s, p1Id, resPt.pointId, sketchToolState.construction)
+        s = lineRes.sketch
+        const len = Math.hypot(val1 - p1.x, val2 - p1.y)
+        if (len > 1e-4) {
+          s.constraints.push({ id: newId('con'), kind: 'distance', refs: [lineRes.curveId], value: len })
+        }
+        dispatch('Add Line', (prev) => updateSketchInDoc(prev, activeSketch.id, () => s))
+        setSketchToolState((prev) => ({
+          ...prev,
+          tool: 'select',
+          stage: 0,
+          startPt: undefined,
+          preview: undefined,
+        }))
+      }
+    }
+  }
+
+  const handleSketchBoxSelect = (box: { points: string[]; curves: string[] }, additive: boolean) => {
+    setSketchToolState((prev) => ({
+      ...prev,
+      selectedPointIds: additive
+        ? Array.from(new Set([...prev.selectedPointIds, ...box.points]))
+        : box.points,
+      selectedCurveIds: additive
+        ? Array.from(new Set([...prev.selectedCurveIds, ...box.curves]))
+        : box.curves,
+    }))
+  }
 
   const handlePinDimension = (curveId: string) => {
     if (!activeSketch) return
@@ -782,6 +866,9 @@ export function EditorMode() {
     mods: { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean },
   ) => {
     if (!activeSketch) return
+    if (kind === 'move') {
+      setSketchCursorPos(pos)
+    }
     if (kind === 'move' && sketchToolState.tool === 'select' && dragPointRef.current) {
       dispatch(
         'Drag Point',
@@ -1190,6 +1277,8 @@ export function EditorMode() {
               }}
               onSketchPointer={handleSketchPointer}
               onSketchSelect={handleSketchSelect}
+              onSketchSelectBox={handleSketchBoxSelect}
+              onSubmitDraftInput={handleDraftInputSubmit}
               onUpdateConstraint={(id, val) => {
                 if (activeSketchId) {
                   dispatch('Update Constraint', (prev) =>

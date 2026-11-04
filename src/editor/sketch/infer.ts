@@ -96,6 +96,16 @@ export function inferSnap(
     }
   }
 
+  // 1b. Origin snap (0, 0)
+  const distToOrigin = Math.hypot(cursor.x, cursor.y)
+  if (distToOrigin <= tolMm) {
+    return {
+      pos: { x: 0, y: 0 },
+      glyph: 'coincident',
+      constraints: [],
+    }
+  }
+
   // 2. Tangent to previous curve end
   if (previousPoint && lastCurveId) {
     const lastCurve = sketch.curves[lastCurveId]

@@ -22,6 +22,9 @@ export interface ViewportSketchConfig {
     curves?: Record<string, Curve>
   }
   tool?: string
+  toolStage?: number
+  toolStartPt?: { x: number; y: number }
+  cursorPlanePos?: { x: number; y: number } | null
   grid?: {
     size?: number
     visible?: boolean
@@ -118,19 +121,17 @@ export function buildSketchGrid(plane: PlaneDefinition, gridCfg?: ViewportSketch
   if (gridCfg?.visible === false) return group
 
   const gridSize = gridCfg?.size ?? 10
-  const halfRange = 200
+  const halfRange = 250
   const gridPositions: number[] = []
-  const axisPositions: number[] = []
 
   for (let x = -halfRange; x <= halfRange; x += gridSize) {
-    if (Math.abs(x) < 1e-5) axisPositions.push(x, -halfRange, 0, x, halfRange, 0)
-    else gridPositions.push(x, -halfRange, 0, x, halfRange, 0)
+    if (Math.abs(x) >= 1e-5) gridPositions.push(x, -halfRange, 0, x, halfRange, 0)
   }
   for (let y = -halfRange; y <= halfRange; y += gridSize) {
-    if (Math.abs(y) < 1e-5) axisPositions.push(-halfRange, y, 0, halfRange, y, 0)
-    else gridPositions.push(-halfRange, y, 0, halfRange, y, 0)
+    if (Math.abs(y) >= 1e-5) gridPositions.push(-halfRange, y, 0, halfRange, y, 0)
   }
 
+  // Фоновые линии сетки
   if (gridPositions.length > 0) {
     const geom = new THREE.BufferGeometry()
     geom.setAttribute('position', new THREE.Float32BufferAttribute(gridPositions, 3))
@@ -141,16 +142,41 @@ export function buildSketchGrid(plane: PlaneDefinition, gridCfg?: ViewportSketch
       ),
     )
   }
-  if (axisPositions.length > 0) {
-    const geom = new THREE.BufferGeometry()
-    geom.setAttribute('position', new THREE.Float32BufferAttribute(axisPositions, 3))
-    group.add(
-      new THREE.LineSegments(
-        geom,
-        cachedMaterial('axis', () => new THREE.LineBasicMaterial({ color: 0x414b59, transparent: true, opacity: 0.9 })),
-      ),
-    )
-  }
+
+  // Красная ось X (Y = 0)
+  const xAxisGeom = new THREE.BufferGeometry()
+  xAxisGeom.setAttribute('position', new THREE.Float32BufferAttribute([-halfRange, 0, 0.01, halfRange, 0, 0.01], 3))
+  group.add(
+    new THREE.LineSegments(
+      xAxisGeom,
+      cachedMaterial('axis:x', () => new THREE.LineBasicMaterial({ color: 0xf05060, transparent: true, opacity: 0.95 })),
+    ),
+  )
+
+  // Зеленая ось Y (X = 0)
+  const yAxisGeom = new THREE.BufferGeometry()
+  yAxisGeom.setAttribute('position', new THREE.Float32BufferAttribute([0, -halfRange, 0.01, 0, halfRange, 0.01], 3))
+  group.add(
+    new THREE.LineSegments(
+      yAxisGeom,
+      cachedMaterial('axis:y', () => new THREE.LineBasicMaterial({ color: 0x2ecc71, transparent: true, opacity: 0.95 })),
+    ),
+  )
+
+  // Маркер начала координат (0, 0)
+  const originPositions: number[] = [
+    -3, 0, 0.02, 3, 0, 0.02,
+    0, -3, 0.02, 0, 3, 0.02,
+  ]
+  const originGeom = new THREE.BufferGeometry()
+  originGeom.setAttribute('position', new THREE.Float32BufferAttribute(originPositions, 3))
+  group.add(
+    new THREE.LineSegments(
+      originGeom,
+      cachedMaterial('axis:origin', () => new THREE.LineBasicMaterial({ color: 0xf7c948 })),
+    ),
+  )
+
   return group
 }
 
@@ -223,7 +249,24 @@ export function buildSketchContent(config: ViewportSketchConfig): THREE.Group {
         }
       }
     }
-    if (pts.length >= 2) push(c.construction ? dashed : solid, color, pts)
+    if (pts.length >= 2) {
+      push(c.construction ? dashed : solid, color, pts)
+      if (isSelected || isHighlighted) {
+        // Добавляем параллельные линии со смещением, чтобы выбранные линии были жирными и контрастными
+        const offPts1: Array<{ x: number; y: number }> = []
+        const offPts2: Array<{ x: number; y: number }> = []
+        for (let i = 0; i + 1 < pts.length; i++) {
+          const a = pts[i], b = pts[i + 1]
+          const dx = b.x - a.x, dy = b.y - a.y
+          const len = Math.hypot(dx, dy) || 1
+          const nx = (-dy / len) * 0.25, ny = (dx / len) * 0.25
+          offPts1.push({ x: a.x + nx, y: a.y + ny }, { x: b.x + nx, y: b.y + ny })
+          offPts2.push({ x: a.x - nx, y: a.y - ny }, { x: b.x - nx, y: b.y - ny })
+        }
+        push(solid, color, offPts1)
+        push(solid, color, offPts2)
+      }
+    }
   }
 
   for (const [color, positions] of solid) {
@@ -252,7 +295,16 @@ export function buildSketchContent(config: ViewportSketchConfig): THREE.Group {
     const tmp = new THREE.Color()
     ids.forEach((id, i) => {
       const pt = allPoints[id]
-      const isSelected = selection?.points?.includes(id)
+      const isDirectSelected = selection?.points?.includes(id)
+      const isCurveEndpointSelected = !!selection?.curves?.some((cid) => {
+        const c = sketch.curves[cid]
+        if (!c) return false
+        if (c.kind === 'line') return c.a === id || c.b === id
+        if (c.kind === 'circle') return c.c === id
+        if (c.kind === 'arc') return c.a === id || c.b === id || c.c === id
+        return false
+      })
+      const isSelected = isDirectSelected || isCurveEndpointSelected
       const isHighlighted = highlight?.points?.includes(id)
       const isHovered = hover?.kind === 'point' && hover?.id === id
       const isConflict = conflicts?.points?.includes(id)

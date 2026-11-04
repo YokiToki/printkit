@@ -35,6 +35,12 @@
   "start": {
     "tagline": "runs in your browser · no account · STL and 3MF",
     "title": "What are you printing?",
+    "generatorsTitle": "Parametric generators",
+    "editor": {
+      "desc": "Inspect, transform, repair and compose STL models and primitives before slicing.",
+      "tag1": "compose · inspect",
+      "tag2": "repair · export"
+    },
     "box": {
       "desc": "Bin or tray on the Gridfinity grid, with lip, scoop and dividers.",
       "tag1": "grid × height",
@@ -605,6 +611,12 @@
   },
   "products": {
     "label": "Product",
+    "editor": {
+      "name": "Editor",
+      "desc": "Inspect, transform, repair and compose STL models and primitives before slicing.",
+      "tag1": "compose · inspect",
+      "tag2": "repair · export"
+    },
     "gridfinity": {
       "name": "Gridfinity",
       "desc": "Parametric Gridfinity bins, baseplates and tool cutouts, with pockets traced from a photo.",
@@ -1386,6 +1398,7 @@
       "error": "Error"
     },
     "sources": {
+      "editor": "Editor",
       "model": "Model",
       "photo": "Photo",
       "image": "Files",
@@ -1470,6 +1483,14 @@
       "callFailed": "Agent: {{tool}} failed ({{summary}})",
       "running": "Agent: {{tool}}…",
       "undone": "Agent change reverted: {{label}}"
+    },
+    "editor": {
+      "imported": "Imported {{count}} files ({{names}})",
+      "added": "Added {{shape}}",
+      "transformed": "Transformed {{name}}",
+      "deleted": "Deleted {{count}} objects",
+      "duplicated": "Duplicated {{name}}",
+      "exported": "Exported {{name}}"
     }
   },
   "agent": {
@@ -1627,6 +1648,115 @@
       "colBusy": "Busy share",
       "colGpuTime": "GPU time",
       "colTriangles": "Triangles"
+    }
+  },
+  "editor": {
+    "outliner": {
+      "title": "Objects",
+      "empty": "No objects. Import STL or add primitives.",
+      "show": "Show",
+      "hide": "Hide",
+      "lock": "Lock",
+      "unlock": "Unlock",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "isolate": "Isolate",
+      "showAll": "Show all"
+    },
+    "properties": {
+      "sceneSummary": "Scene summary",
+      "objectCount": "Total objects",
+      "visibleCount": "Visible objects",
+      "overallSize": "Overall size",
+      "multipleSelected": "{{count}} objects selected",
+      "transform": "Transform",
+      "position": "Position",
+      "posX": "Pos X",
+      "posY": "Pos Y",
+      "posZ": "Pos Z",
+      "rotation": "Rotation",
+      "rotX": "Rot X",
+      "rotY": "Rot Y",
+      "rotZ": "Rot Z",
+      "size": "Size",
+      "sizeX": "Size X",
+      "sizeY": "Size Y",
+      "sizeZ": "Size Z",
+      "name": "Name",
+      "lockProportions": "Lock proportions",
+      "unlockProportions": "Unlock proportions",
+      "dropToBed": "Drop to bed",
+      "centerOnBed": "Center",
+      "mirrorX": "Mirror X",
+      "mirrorY": "Mirror Y",
+      "resetTransform": "Reset",
+      "source": "Parameters",
+      "meshHealth": "Mesh health"
+    },
+    "primitive": {
+      "box": "Box",
+      "cylinder": "Cylinder",
+      "sphere": "Sphere",
+      "cone": "Cone",
+      "torus": "Torus",
+      "wedge": "Wedge",
+      "width": "Width",
+      "depth": "Depth",
+      "height": "Height",
+      "diameter": "Diameter",
+      "bottomDiameter": "Bottom diameter",
+      "majorRadius": "Major radius",
+      "tubeRadius": "Tube radius"
+    },
+    "health": {
+      "status": "Solid status",
+      "closed": "Closed solid",
+      "open": "Open mesh (not solid)",
+      "triangles": "Triangles",
+      "volume": "Volume",
+      "openEdges": "Open edges",
+      "nonManifoldEdges": "Non-manifold edges",
+      "missing": "Mesh data unavailable",
+      "openMeshWarning": "Mesh has open edges or holes"
+    },
+    "toolbar": {
+      "import": "Import STL",
+      "add": "Add",
+      "select": "Select",
+      "move": "Move",
+      "rotate": "Rotate",
+      "scale": "Scale",
+      "snap": "Snap",
+      "snapMm": "Snap: {{val}} mm",
+      "snapDeg": "Snap: {{val}}°",
+      "perspective": "Perspective view",
+      "orthographic": "Orthographic view",
+      "fit": "Fit view",
+      "hotkeys": "Keyboard shortcuts",
+      "dropHint": "Drop STL files here to import"
+    },
+    "unitDialog": {
+      "title": "Import STL",
+      "prompt": "Choose the file units:",
+      "mm": "Millimeters (mm)",
+      "in": "Inches (in)",
+      "remember": "Remember my choice",
+      "confirm": "Import"
+    },
+    "view": {
+      "top": "Top",
+      "bottom": "Bottom",
+      "front": "Front",
+      "back": "Back",
+      "left": "Left",
+      "right": "Right",
+      "fitAll": "Fit all",
+      "fitSelection": "Fit selection"
+    },
+    "export": {
+      "selectionOnly": "Selection only",
+      "openMeshWarning": "Some meshes are open. They will still be exported, but slicers may report warnings.",
+      "belowBedWarning": "Some parts are positioned below the print bed."
     }
   }
 }

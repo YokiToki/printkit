@@ -24,12 +24,12 @@
 
 ## 4. Editor UI (no artboard exists: built from `ui/` components and `theme.css` tokens; compare with the wireframe in `design.md`)
 
-- [ ] 4.1 `EditorMode` shell: grid with collapsible outliner and properties, tool bar, drawers below 768 px, status bar and measurements reused. Component test: panels collapse, drawer buttons exist at narrow width. Compare at 1280 px and 390 px in en and ru.
-- [ ] 4.2 `Outliner`: rows with name (rename on double click), eye, lock, health flag, multi-select with Shift/Ctrl, context menu (Duplicate, Delete, Isolate, Show all). Component test for each action and for keyboard navigation.
-- [ ] 4.3 `Properties`: name, colour, transform fields (`LengthField` for position and size, `NumberField` for degrees, proportion lock), source parameters per primitive, mesh health block, empty-selection summary; `stepperAssert` passes. Component test: typing a size applies on blur/Enter as one history step; multi-selection shows the common transform.
-- [ ] 4.4 Tool bar: Import (file input with `multiple`, unit choice dialog remembered in `editor.ui`), Add menu, tool group, snap toggle with steps, projection switch, Fit, hotkeys popover; drop zone on the view with a visible hint. Component tests: import via input and via drop event, Add creates an object.
-- [ ] 4.5 `useHotkeys` registry and the commands of design item 9, ignored in inputs; every command also has a button or menu entry. Test: each key runs its command, nothing runs while an input has focus, conflicts between registered keys throw.
-- [ ] 4.6 Undo/redo wiring: all commands go through one `dispatch(label, patch, mergeKey?)`; buttons and status bar step name. Test: each command is undoable, merge of gizmo drag and typing, redo cleared on new change, delete+undo restores the mesh.
+- [x] 4.1 `EditorMode` shell: grid with collapsible outliner and properties, tool bar, drawers below 768 px, status bar and measurements reused. Component test: panels collapse, drawer buttons exist at narrow width. Compare at 1280 px and 390 px in en and ru.
+- [x] 4.2 `Outliner`: rows with name (rename on double click), eye, lock, health flag, multi-select with Shift/Ctrl, context menu (Duplicate, Delete, Isolate, Show all). Component test for each action and for keyboard navigation.
+- [x] 4.3 `Properties`: name, colour, transform fields (`LengthField` for position and size, `NumberField` for degrees, proportion lock), source parameters per primitive, mesh health block, empty-selection summary; `stepperAssert` passes. Component test: typing a size applies on blur/Enter as one history step; multi-selection shows the common transform.
+- [x] 4.4 Tool bar: Import (file input with `multiple`, unit choice dialog remembered in `editor.ui`), Add menu, tool group, snap toggle with steps, projection switch, Fit, hotkeys popover; drop zone on the view with a visible hint. Component tests: import via input and via drop event, Add creates an object.
+- [x] 4.5 `useHotkeys` registry and the commands of design item 9, ignored in inputs; every command also has a button or menu entry. Test: each key runs its command, nothing runs while an input has focus, conflicts between registered keys throw.
+- [x] 4.6 Undo/redo wiring: all commands go through one `dispatch(label, patch, mergeKey?)`; buttons and status bar step name. Test: each command is undoable, merge of gizmo drag and typing, redo cleared on new change, delete+undo restores the mesh.
 
 ## 5. Product, routes, start page
 

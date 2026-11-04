@@ -2,7 +2,7 @@ import { NumberField, type NumberFieldProps } from './NumberField'
 import { fromDisplay, toDisplay, useUnit } from './units'
 
 /** Поле длины: значение хранится в мм, показывается и вводится в выбранной единице. */
-export function LengthField({ value, onChange, min, max, step = 1, ...rest }: NumberFieldProps) {
+export function LengthField({ value, onChange, min = -100000, max = 100000, step = 1, ...rest }: NumberFieldProps) {
   const { unit } = useUnit()
   const digits = unit === 'in' ? 3 : 2
   return (

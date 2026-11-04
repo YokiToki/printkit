@@ -33,45 +33,22 @@ export function StartPage() {
   // «Продолжить» ведёт в режим Gridfinity или в раздел продукта без режимов
   const lastTo = lastMode?.path ?? lastProduct?.path
   const lastName = lastMode ? t(lastMode.labelKey) : lastProduct ? t(`products.${lastProduct.id}.name`) : ''
-  const editorProduct = PRODUCTS[0]
-  const generatorProducts = PRODUCTS.slice(1)
 
   return (
     <StartLayout tagline={t('start.tagline')} title={t('start.title')} after={<Motivation />}>
-      <div className="relative flex flex-col items-center gap-6 w-full max-w-5xl">
-        {/* Editor as main hero card */}
-        <div className="w-full flex justify-center">
+      <div className="relative flex flex-wrap justify-center gap-6">
+        {PRODUCTS.map(({ id, path, artId }, i) => (
           <ChoiceCard
-            to={editorProduct.path}
-            testId={`card-${editorProduct.id}`}
-            index={1}
-            art={<ModeArt id={editorProduct.artId} />}
-            name={t(`products.${editorProduct.id}.name`)}
-            desc={t(`products.${editorProduct.id}.desc`)}
-            tags={[t(`products.${editorProduct.id}.tag1`), t(`products.${editorProduct.id}.tag2`)]}
+            key={id}
+            to={path}
+            testId={`card-${id}`}
+            index={i + 1}
+            art={<ModeArt id={artId} />}
+            name={t(`products.${id}.name`)}
+            desc={t(`products.${id}.desc`)}
+            tags={[t(`products.${id}.tag1`), t(`products.${id}.tag2`)]}
           />
-        </div>
-
-        {/* Generator cards under heading */}
-        <div className="w-full space-y-3">
-          <h2 className="text-xs font-semibold tracking-wider text-text-muted uppercase text-center">
-            {t('start.generatorsTitle')}
-          </h2>
-          <div className="relative flex flex-wrap justify-center gap-6">
-            {generatorProducts.map(({ id, path, artId }, i) => (
-              <ChoiceCard
-                key={id}
-                to={path}
-                testId={`card-${id}`}
-                index={i + 2}
-                art={<ModeArt id={artId} />}
-                name={t(`products.${id}.name`)}
-                desc={t(`products.${id}.desc`)}
-                tags={[t(`products.${id}.tag1`), t(`products.${id}.tag2`)]}
-              />
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
       {last && lastTo && (
         <Link to={lastTo} className="relative inline-flex h-10 items-center gap-2.5 rounded-full border border-border bg-surface-1/85 px-3.5 text-text-muted no-underline hover:text-text">

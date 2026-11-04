@@ -128,36 +128,64 @@ async function rackModels(): Promise<Record<string, TriMesh>> {
 async function editorModel(): Promise<Record<string, TriMesh>> {
   const w = await getWasm()
   const M = w.Manifold
-  // L-Bracket
-  const baseBracket = M.cube([32, 20, 32], false).subtract(
-    M.cube([24, 22, 24], false).translate([8, -1, 8])
-  )
-  const hole1 = M.cylinder(12, 3.5, 3.5, 32, false).translate([20, 10, -1])
-  const hole2 = M.cylinder(12, 3.5, 3.5, 32, false).rotate([0, 90, 0]).translate([-1, 10, 20])
-  const bracket = baseBracket.subtract(hole1).subtract(hole2)
+  const CS = w.CrossSection
 
-  // Box
-  const box = M.cube([18, 18, 18], false).translate([-28, 0, 0])
+  // 1. Base plate: rounded rectangle 74 × 38 × 7 mm with rounded corners
+  const baseCS = CS.square([74 - 12, 38 - 12], true).offset(6, 'Round', 2, 32)
+  let base = M.extrude(baseCS, 7) // z: 0..7
 
-  // Cylinder
-  const cyl = M.cylinder(24, 7, 7, 32, false).translate([0, 26, 0])
+  // Slotted / counterbored mounting holes on base ears (left & right)
+  const holeL = M.cylinder(12, 3.2, 3.2, 32, false).translate([-26, 0, -1])
+  const cbL = M.cylinder(6, 5.5, 5.5, 32, false).translate([-26, 0, 3.5])
+  const holeR = M.cylinder(12, 3.2, 3.2, 32, false).translate([26, 0, -1])
+  const cbR = M.cylinder(6, 5.5, 5.5, 32, false).translate([26, 0, 3.5])
+  base = base.subtract(holeL).subtract(cbL).subtract(holeR).subtract(cbR)
 
-  // Gizmo on the box
-  const arrowX = M.cylinder(14, 0.8, 0.8, 16, false)
-    .add(M.cylinder(5, 2, 0, 16, false).translate([0, 0, 14]))
-    .rotate([0, 90, 0])
-    .translate([-19, 9, 9])
+  // 2. Vertical upright flange: width 46, height 48, thickness 8 mm at y = 10..18
+  const uprightCS = CS.ofPolygons([
+    [
+      [-23, 0],
+      [23, 0],
+      [23, 38],
+      [15, 48],
+      [-15, 48],
+      [-23, 38],
+    ],
+  ])
+  let upright = M.extrude(uprightCS, 8).rotate([90, 0, 0]).translate([0, 18, 0]) // y: 10..18, z: 0..48
 
-  const arrowY = M.cylinder(14, 0.8, 0.8, 16, false)
-    .add(M.cylinder(5, 2, 0, 16, false).translate([0, 0, 14]))
-    .rotate([-90, 0, 0])
-    .translate([-19, 9, 9])
+  // Precision central bearing bore at x = 0, z = 28
+  const mainBore = M.cylinder(14, 10, 10, 48, false).rotate([90, 0, 0]).translate([0, 20, 28])
+  const bearingPocket = M.cylinder(4.5, 12.5, 12.5, 48, false).rotate([90, 0, 0]).translate([0, 14.5, 28])
+  upright = upright.subtract(mainBore).subtract(bearingPocket)
 
-  const arrowZ = M.cylinder(14, 0.8, 0.8, 16, false)
-    .add(M.cylinder(5, 2, 0, 16, false).translate([0, 0, 14]))
-    .translate([-19, 9, 9])
+  // 4 faceplate mounting screw holes around the bore (square pattern 28 × 28 mm)
+  for (const dx of [-14, 14]) {
+    for (const dz of [-14, 14]) {
+      const boltHole = M.cylinder(12, 1.8, 1.8, 24, false).rotate([90, 0, 0]).translate([dx, 20, 28 + dz])
+      const boltCb = M.cylinder(3, 3.2, 3.2, 24, false).rotate([90, 0, 0]).translate([dx, 13, 28 + dz])
+      upright = upright.subtract(boltHole).subtract(boltCb)
+    }
+  }
 
-  const combined = M.union([bracket, box, cyl, arrowX, arrowY, arrowZ])
+  // 3. Stiffener gussets (triangular webs): thickness 5 mm, connecting upright to base
+  // Cross-section in (Y, Z):
+  const gussetPoly: [number, number][] = [
+    [-15, 7],
+    [10, 7],
+    [10, 42],
+    [5, 42],
+    [-15, 12],
+  ]
+  const gussetCS = CS.ofPolygons([gussetPoly])
+  const gussetBody = M.extrude(gussetCS, 5).rotate([90, 0, 90]) // x: 0..5, y: -15..10, z: 7..42
+
+  // Weight-reduction hole through the gusset web
+  const webHole = M.cylinder(12, 4.5, 4.5, 32, false).rotate([0, 90, 0]).translate([-3, 0, 22])
+  const leftGusset = gussetBody.translate([-22, 0, 0]).subtract(webHole.translate([-22, 0, 0]))
+  const rightGusset = gussetBody.translate([17, 0, 0]).subtract(webHole.translate([17, 0, 0]))
+
+  const combined = M.union([base, upright, leftGusset, rightGusset])
   const m = combined.getMesh()
   const n = m.vertProperties.length / m.numProp
   const positions = new Float32Array(n * 3)

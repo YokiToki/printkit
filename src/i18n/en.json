@@ -1494,7 +1494,11 @@
       "step": "{{name}}",
       "undoStep": "Undo: {{name}}",
       "redoStep": "Redo: {{name}}",
-      "openMesh": "Open mesh: {{name}}"
+      "openMesh": "Open mesh: {{name}}",
+      "sketch": {
+        "svgImported": "Imported SVG \"{{name}}\" ({{size}} B, {{curves}} curves)",
+        "missingConstraintRef": "Removed dangling sketch constraints"
+      }
     }
   },
   "agent": {
@@ -1761,6 +1765,134 @@
       "selectionOnly": "Selection only",
       "openMeshWarning": "Some meshes are open. They will still be exported, but slicers may report warnings.",
       "belowBedWarning": "Some parts are positioned below the print bed."
+    },
+    "sketch": {
+      "importSvg": "Import SVG...",
+      "importSvgTitle": "Import SVG",
+      "chooseFile": "Choose file",
+      "svgFile": "File",
+      "svgTarget": "Target",
+      "svgTargetActive": "Active sketch",
+      "svgTargetNew": "New sketch",
+      "svgPlane": "Plane",
+      "svgScale": "Scale",
+      "svgScaleFitWidth": "Fit width",
+      "svgScaleDpi": "DPI",
+      "svgFitWidth": "Width",
+      "svgDpi": "DPI",
+      "svgSegments": "segments",
+      "svgImportAction": "Import",
+      "missingConstraintRef": "Removed dangling sketch constraints"
+    }
+  },
+  "sketch": {
+    "defaultName": "Sketch",
+    "planeOffset": "Plane offset",
+    "toggleConstruction": "Toggle construction geometry",
+    "menu": {
+      "title": "Sketch",
+      "features": "Features"
+    },
+    "plane": {
+      "xy": "Sketch (XY Top)",
+      "xz": "Sketch (XZ Front)",
+      "yz": "Sketch (YZ Right)"
+    },
+    "tool": {
+      "line": "Line",
+      "rect2pt": "Rectangle",
+      "circle": "Circle",
+      "arc3pt": "Arc"
+    },
+    "curve": {
+      "line": "Line",
+      "circle": "Circle",
+      "arc": "Arc"
+    },
+    "outliner": {
+      "sketches": "Sketches",
+      "bodies": "Bodies",
+      "edit": "Edit sketch"
+    },
+    "delete": {
+      "confirmTitle": "Delete sketch?",
+      "confirmMessage": "Deleting this sketch will affect bodies created from it."
+    },
+    "conflict": {
+      "title": "Conflicting constraints",
+      "badge": "Conflict",
+      "fix": "Fix conflicts"
+    },
+    "redundant": {
+      "badge": "Redundant"
+    },
+    "properties": {
+      "entities": "Selected entities",
+      "constraints": "Constraints",
+      "dimensions": "Dimensions",
+      "features": "Features",
+      "noSelection": "Nothing selected",
+      "point": "Point",
+      "distance": "Distance",
+      "radius": "Radius",
+      "angle": "Angle"
+    },
+    "feature": {
+      "extrude": "Extrude",
+      "revolve": "Revolve",
+      "sketch": "Sketch",
+      "noSketches": "No sketches available",
+      "operation": "Operation",
+      "opNew": "New body",
+      "opJoin": "Join",
+      "opCut": "Cut",
+      "opIntersect": "Intersect",
+      "targetBody": "Target body",
+      "side": "Direction",
+      "sideOne": "One side",
+      "sideSymmetric": "Symmetric",
+      "sideTwo": "Two sides",
+      "distance": "Distance",
+      "distance2": "Second distance",
+      "axis": "Axis",
+      "sketchLine": "Sketch line",
+      "selectLine": "Select line",
+      "noLinesInSketch": "No lines in sketch",
+      "angle": "Angle",
+      "topEdge": "Top edge",
+      "topEdgeSize": "Top break size",
+      "bottomEdge": "Bottom edge",
+      "bottomEdgeSize": "Bottom break size",
+      "chamfer": "Chamfer",
+      "fillet": "Fillet"
+    },
+    "notice": {
+      "unsupportedSvgElement": "Unsupported SVG elements ignored: {{tags}}"
+    },
+    "warning": {
+      "edgeBreakTooLarge": "Edge break too large; skipped"
+    },
+    "error": {
+      "emptySketch": "Sketch is empty",
+      "noProfiles": "No closed profiles found in sketch",
+      "openProfile": "Profile is not closed",
+      "selfIntersect": "Profile self-intersects",
+      "invalidDistance": "Distance must be greater than zero",
+      "invalidAngle": "Angle must be between 0.1° and 360°",
+      "invalidAxis": "Invalid revolution axis",
+      "revolveCrossesAxis": "Profile crosses revolution axis",
+      "sketchNotFound": "Sketch not found",
+      "unknownFeatureKind": "Unknown feature type",
+      "firstFeatureMustBeNew": "First feature in body must be 'New'",
+      "featureFailed": "Feature evaluation failed",
+      "linesParallel": "Lines are parallel",
+      "degenerateLine": "Line has zero length",
+      "chamferTooLarge": "Chamfer exceeds wall thickness",
+      "filletTooLarge": "Fillet exceeds curve radius",
+      "fileTooLarge": "File is too large (max 5 MB)",
+      "tooManySegments": "File contains too many segments (max 50,000)",
+      "invalidSvg": "Invalid SVG file",
+      "invalidSelection": "Invalid entity selection"
     }
   }
 }

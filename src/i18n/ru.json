@@ -1494,7 +1494,11 @@
       "step": "{{name}}",
       "undoStep": "Отмена: {{name}}",
       "redoStep": "Повтор: {{name}}",
-      "openMesh": "Незамкнутая сетка: {{name}}"
+      "openMesh": "Незамкнутая сетка: {{name}}",
+      "sketch": {
+        "svgImported": "Импортирован SVG «{{name}}» ({{size}} Б, кривых: {{curves}})",
+        "missingConstraintRef": "Удалены устаревшие ограничения эскиза"
+      }
     }
   },
   "agent": {
@@ -1761,6 +1765,134 @@
       "selectionOnly": "Только выбранное",
       "openMeshWarning": "Некоторые сетки незамкнуты. Они будут экспортированы, но слайсер может выдать предупреждение.",
       "belowBedWarning": "Некоторые детали расположены ниже стола."
+    },
+    "sketch": {
+      "importSvg": "Импорт SVG...",
+      "importSvgTitle": "Импорт SVG",
+      "chooseFile": "Выбрать файл",
+      "svgFile": "Файл",
+      "svgTarget": "Назначение",
+      "svgTargetActive": "Текущий эскиз",
+      "svgTargetNew": "Новый эскиз",
+      "svgPlane": "Плоскость",
+      "svgScale": "Масштаб",
+      "svgScaleFitWidth": "Вписать по ширине",
+      "svgScaleDpi": "DPI",
+      "svgFitWidth": "Ширина",
+      "svgDpi": "DPI",
+      "svgSegments": "сегментов",
+      "svgImportAction": "Импортировать",
+      "missingConstraintRef": "Удалены устаревшие ограничения эскиза"
+    }
+  },
+  "sketch": {
+    "defaultName": "Эскиз",
+    "planeOffset": "Смещение плоскости",
+    "toggleConstruction": "Вспомогательная геометрия",
+    "menu": {
+      "title": "Эскиз",
+      "features": "Операции"
+    },
+    "plane": {
+      "xy": "Эскиз (XY Сверху)",
+      "xz": "Эскиз (XZ Спереди)",
+      "yz": "Эскиз (YZ Справа)"
+    },
+    "tool": {
+      "line": "Отрезок",
+      "rect2pt": "Прямоугольник",
+      "circle": "Окружность",
+      "arc3pt": "Дуга"
+    },
+    "curve": {
+      "line": "Отрезок",
+      "circle": "Окружность",
+      "arc": "Дуга"
+    },
+    "outliner": {
+      "sketches": "Эскизы",
+      "bodies": "Тела",
+      "edit": "Редактировать эскиз"
+    },
+    "delete": {
+      "confirmTitle": "Удалить эскиз?",
+      "confirmMessage": "Удаление эскиза затронет построенные по нему тела."
+    },
+    "conflict": {
+      "title": "Конфликтующие ограничения",
+      "badge": "Конфликт",
+      "fix": "Исправить"
+    },
+    "redundant": {
+      "badge": "Избыточное"
+    },
+    "properties": {
+      "entities": "Выбранные элементы",
+      "constraints": "Ограничения",
+      "dimensions": "Размеры",
+      "features": "Операции",
+      "noSelection": "Ничего не выбрано",
+      "point": "Точка",
+      "distance": "Расстояние",
+      "radius": "Радиус",
+      "angle": "Угол"
+    },
+    "feature": {
+      "extrude": "Выдавливание",
+      "revolve": "Вращение",
+      "sketch": "Эскиз",
+      "noSketches": "Нет доступных эскизов",
+      "operation": "Операция",
+      "opNew": "Новое тело",
+      "opJoin": "Объединение",
+      "opCut": "Вычитание",
+      "opIntersect": "Пересечение",
+      "targetBody": "Целевое тело",
+      "side": "Направление",
+      "sideOne": "В одну сторону",
+      "sideSymmetric": "Симметрично",
+      "sideTwo": "В две стороны",
+      "distance": "Расстояние",
+      "distance2": "Второе расстояние",
+      "axis": "Ось",
+      "sketchLine": "Линия эскиза",
+      "selectLine": "Выберите линию",
+      "noLinesInSketch": "В эскизе нет линий",
+      "angle": "Угол",
+      "topEdge": "Верхняя кромка",
+      "topEdgeSize": "Размер кромки",
+      "bottomEdge": "Нижняя кромка",
+      "bottomEdgeSize": "Размер кромки",
+      "chamfer": "Фаска",
+      "fillet": "Скругление"
+    },
+    "notice": {
+      "unsupportedSvgElement": "Пропущены неподдерживаемые элементы SVG: {{tags}}"
+    },
+    "warning": {
+      "edgeBreakTooLarge": "Слишком большая кромка; пропущено"
+    },
+    "error": {
+      "emptySketch": "Эскиз пуст",
+      "noProfiles": "В эскизе не найдено замкнутых профилей",
+      "openProfile": "Профиль не замкнут",
+      "selfIntersect": "Профиль пересекает сам себя",
+      "invalidDistance": "Расстояние должно быть больше нуля",
+      "invalidAngle": "Угол должен быть от 0.1° до 360°",
+      "invalidAxis": "Некорректная ось вращения",
+      "revolveCrossesAxis": "Профиль пересекает ось вращения",
+      "sketchNotFound": "Эскиз не найден",
+      "unknownFeatureKind": "Неизвестный тип операции",
+      "firstFeatureMustBeNew": "Первая операция тела должна быть «Новое тело»",
+      "featureFailed": "Ошибка вычисления операции",
+      "linesParallel": "Линии параллельны",
+      "degenerateLine": "Линия нулевой длины",
+      "chamferTooLarge": "Фаска превышает толщину стенки",
+      "filletTooLarge": "Скругление превышает радиус кривой",
+      "fileTooLarge": "Файл слишком большой (макс. 5 МБ)",
+      "tooManySegments": "Слишком много сегментов (макс. 50 000)",
+      "invalidSvg": "Некорректный файл SVG",
+      "invalidSelection": "Некорректный выбор элементов"
     }
   }
 }

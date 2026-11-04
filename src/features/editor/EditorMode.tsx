@@ -32,6 +32,7 @@ import { log } from '../../app/activityLog'
 import { SketchToolbar } from './sketch/SketchToolbar'
 import { ConstraintPanel } from './sketch/ConstraintPanel'
 import { FeatureDialog } from './sketch/FeatureDialog'
+import { SvgImportDialog } from './sketch/SvgImportDialog'
 import type { Feature } from '../../geometry/features/evaluate'
 import {
   initialToolState,
@@ -51,7 +52,7 @@ import {
   deleteSelectionCommand,
   dragPointCommand,
 } from './sketch/sketchCommands'
-import { newId, type PlaneDefinition, type Constraint } from '../../editor/sketch/model'
+import { newId, type PlaneDefinition, type Constraint, type Sketch } from '../../editor/sketch/model'
 import type { ScreenPickResult } from '../viewport/sketchPicking'
 import type { ViewportSketchConfig } from '../viewport/sketchMesh'
 import type { MeshData } from '../../geometry/mesh'
@@ -103,6 +104,13 @@ export function EditorMode() {
     targetObjectId?: string
     featureIndex?: number
   } | null>(null)
+
+  // SVG import modal state
+  const [svgImportState, setSvgImportState] = useState<{
+    open: boolean
+    file?: File | null
+    svgText?: string | null
+  }>({ open: false })
 
   const dofInfo = useMemo(() => {
     if (!activeSketch) return { dof: 0, conflicts: [], redundant: [], entityStatus: {} }
@@ -416,6 +424,35 @@ export function EditorMode() {
         objects: prev.objects.map((o) =>
           o.id === objectId ? { ...o, source: { kind: 'feature', features: nextFeatures } } : o,
         ),
+      }))
+    }
+  }
+
+  const handleOpenSvgImport = (file?: File, svgText?: string) => {
+    setSvgImportState({ open: true, file, svgText })
+  }
+
+  const handleSvgImport = (
+    sketch: Sketch,
+    isNew: boolean,
+    meta: { name: string; size: number; curves: number }
+  ) => {
+    log.info('editor', 'log.editor.sketch.svgImported', {
+      name: meta.name,
+      size: meta.size,
+      curves: meta.curves,
+    })
+
+    if (isNew) {
+      dispatch('Import SVG', (prev) => ({
+        ...prev,
+        sketches: [...(prev.sketches ?? []), sketch],
+      }))
+      setActiveSketchId(sketch.id)
+    } else {
+      dispatch('Import SVG into Sketch', (prev) => ({
+        ...prev,
+        sketches: (prev.sketches ?? []).map((s) => (s.id === sketch.id ? sketch : s)),
       }))
     }
   }
@@ -979,6 +1016,7 @@ export function EditorMode() {
             setSketchToolState((prev) => ({ ...prev, construction: !prev.construction }))
           }
           onAddConstraint={handleAddConstraint}
+          onImportSvg={() => handleOpenSvgImport()}
           onFinish={() => {
             setActiveSketchId(null)
           }}
@@ -1001,6 +1039,8 @@ export function EditorMode() {
           onAddPrimitive={handleAddPrimitive}
           onImportFiles={handleImportFiles}
           onAddSketch={handleAddSketch}
+          onImportSvgClick={() => handleOpenSvgImport()}
+          onImportSvgFile={(file) => handleOpenSvgImport(file)}
           hasSketches={(doc.sketches?.length ?? 0) > 0}
           onOpenFeatureDialog={(k) => handleOpenFeatureDialog(k)}
         />
@@ -1108,7 +1148,10 @@ export function EditorMode() {
           )}
 
           {/* Viewport wrapped with file drop zone */}
-          <EditorDropZone onDropFiles={(files) => handleImportFiles(files, 'mm')}>
+          <EditorDropZone
+            onDropFiles={(files) => handleImportFiles(files, 'mm')}
+            onDropSvgFile={(file) => handleOpenSvgImport(file)}
+          >
             <Viewport
               model={model}
               scene={viewportScene}
@@ -1431,6 +1474,16 @@ export function EditorMode() {
           </aside>
         )}
       </div>
+
+      {svgImportState.open && (
+        <SvgImportDialog
+          initialFile={svgImportState.file}
+          initialSvgText={svgImportState.svgText}
+          activeSketch={activeSketch}
+          onImport={handleSvgImport}
+          onClose={() => setSvgImportState({ open: false })}
+        />
+      )}
     </div>
   )
 }

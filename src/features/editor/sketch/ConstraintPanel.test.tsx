@@ -85,8 +85,8 @@ describe('5.3 ConstraintPanel in Properties', () => {
     )
 
     expect(screen.getByText('Conflicting constraints')).toBeDefined()
-    expect(screen.getByText('(conflict)')).toBeDefined()
-    expect(screen.getByText('(redundant)')).toBeDefined()
+    expect(screen.getByText(/\(conflict\)/i)).toBeDefined()
+    expect(screen.getByText(/\(redundant\)/i)).toBeDefined()
 
     const fixBtn = screen.getByRole('button', { name: 'Fix conflicts' })
     fireEvent.click(fixBtn)

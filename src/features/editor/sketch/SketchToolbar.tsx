@@ -12,6 +12,7 @@ import {
   IconRuler2,
   IconCheck,
   IconChevronDown,
+  IconUpload,
 } from '@tabler/icons-react'
 import type { SketchTool } from './toolStateMachine'
 import type { Constraint } from '../../../editor/sketch/model'
@@ -22,6 +23,7 @@ export interface SketchToolbarProps {
   construction: boolean
   onToggleConstruction: () => void
   onAddConstraint?: (kind: Constraint['kind']) => void
+  onImportSvg?: () => void
   onFinish: () => void
   sketchName: string
   dof?: number
@@ -34,6 +36,7 @@ export function SketchToolbar({
   construction,
   onToggleConstruction,
   onAddConstraint,
+  onImportSvg,
   onFinish,
   sketchName,
   dof = 0,
@@ -321,6 +324,17 @@ export function SketchToolbar({
                 <span className="font-mono text-text-subtle">=</span>
               </button>
             </div>
+          )}
+          {onImportSvg && (
+            <button
+              type="button"
+              data-testid="sketch-tool-import-svg"
+              title={t('editor.sketch.importSvg', 'Import SVG...')}
+              onClick={onImportSvg}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-control text-text-muted hover:bg-surface-3 hover:text-text cursor-pointer"
+            >
+              <IconUpload size={18} stroke={1.75} />
+            </button>
           )}
         </div>
       </div>

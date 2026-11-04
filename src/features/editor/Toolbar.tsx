@@ -33,6 +33,8 @@ export interface ToolbarProps {
   onImportFiles: (files: File[], unit: 'mm' | 'in') => void
   onAddSketch?: (plane: PlaneDefinition) => void
   onOpenFeatureDialog?: (kind: 'extrude' | 'revolve') => void
+  onImportSvgFile?: (file: File) => void
+  onImportSvgClick?: () => void
   hasSketches?: boolean
 }
 
@@ -53,6 +55,8 @@ export function Toolbar({
   onImportFiles,
   onAddSketch,
   onOpenFeatureDialog,
+  onImportSvgFile,
+  onImportSvgClick,
   hasSketches = false,
 }: ToolbarProps) {
   const { t } = useTranslation()
@@ -69,14 +73,23 @@ export function Toolbar({
 
   const handleFiles = (files: File[]) => {
     if (!files.length) return
-    const ui = loadEditorUi()
-    if (ui.rememberUnit) {
-      onImportFiles(files, ui.importUnit)
-      return
+    const svgFile = files.find((f) => f.name.toLowerCase().endsWith('.svg') || f.type.includes('svg'))
+    const stlFiles = files.filter((f) => f.name.toLowerCase().endsWith('.stl') || f.type.includes('stl'))
+
+    if (svgFile && onImportSvgFile) {
+      onImportSvgFile(svgFile)
     }
-    setPendingFiles(files)
-    setSelectedUnit(ui.importUnit)
-    setRememberChoice(false)
+
+    if (stlFiles.length > 0) {
+      const ui = loadEditorUi()
+      if (ui.rememberUnit) {
+        onImportFiles(stlFiles, ui.importUnit)
+        return
+      }
+      setPendingFiles(stlFiles)
+      setSelectedUnit(ui.importUnit)
+      setRememberChoice(false)
+    }
   }
 
   const handleFileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -114,7 +127,7 @@ export function Toolbar({
             ref={fileInputRef}
             type="file"
             multiple
-            accept=".stl"
+            accept=".stl,.svg"
             data-testid="stl-file-input"
             onChange={handleFileInputChange}
             className="hidden"
@@ -192,6 +205,17 @@ export function Toolbar({
                   >
                     <span>{t('sketch.plane.yz', 'Sketch (YZ Right)')}</span>
                     <span className="font-mono text-text-subtle text-[10px]">YZ</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="toolbar-import-svg"
+                    onClick={() => {
+                      onImportSvgClick?.()
+                      setAddMenuOpen(false)
+                    }}
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs text-text hover:bg-surface-3 cursor-pointer"
+                  >
+                    <span>{t('editor.sketch.importSvg', 'Import SVG...')}</span>
                   </button>
 
                   {hasSketches && (
@@ -542,9 +566,11 @@ export function Toolbar({
 export function EditorDropZone({
   children,
   onDropFiles,
+  onDropSvgFile,
 }: {
   children: React.ReactNode
   onDropFiles: (files: File[]) => void
+  onDropSvgFile?: (file: File) => void
 }) {
   const { t } = useTranslation()
   const [isDragOver, setIsDragOver] = useState(false)
@@ -579,11 +605,18 @@ export function EditorDropZone({
     setIsDragOver(false)
     dragCounter.current = 0
     if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-      const files = Array.from(e.dataTransfer.files).filter(
+      const allFiles = Array.from(e.dataTransfer.files)
+      const svgFile = allFiles.find(
+        (f) => f.name.toLowerCase().endsWith('.svg') || f.type.includes('svg')
+      )
+      const stlFiles = allFiles.filter(
         (f) => f.name.toLowerCase().endsWith('.stl') || f.type.includes('stl')
       )
-      if (files.length > 0) {
-        onDropFiles(files)
+      if (svgFile && onDropSvgFile) {
+        onDropSvgFile(svgFile)
+      }
+      if (stlFiles.length > 0) {
+        onDropFiles(stlFiles)
       }
     }
   }

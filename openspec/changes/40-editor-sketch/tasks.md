@@ -41,8 +41,8 @@
 
 ## 7. SVG import
 
-- [ ] 7.1 `geometry/svg.ts`: path commands (absolute and relative M L H V C S Q T A Z), basic shapes, group transforms, units and Y flip, flattening tolerance, limits, notices for ignored content, endpoint joining. Test with inline SVG fixtures: closed path with hole, arcs staying arcs under similarity, rotated group, relative commands, 50 000-segment limit, text ignored with a notice.
-- [ ] 7.2 Import dialog (file, drop on the sketch, plane choice for a new sketch, scale: units or "fit width to N mm"), log entries (names and sizes only). Component test of the dialog and an end-to-end test: SVG → sketch → extrude → valid solid.
+- [x] 7.1 `geometry/svg.ts`: path commands (absolute and relative M L H V C S Q T A Z), basic shapes, group transforms, units and Y flip, flattening tolerance, limits, notices for ignored content, endpoint joining. Test with inline SVG fixtures: closed path with hole, arcs staying arcs under similarity, rotated group, relative commands, 50 000-segment limit, text ignored with a notice.
+- [x] 7.2 Import dialog (file, drop on the sketch, plane choice for a new sketch, scale: units or "fit width to N mm"), log entries (names and sizes only). Component test of the dialog and an end-to-end test: SVG → sketch → extrude → valid solid.
 
 ## 8. Strings and persistence
 

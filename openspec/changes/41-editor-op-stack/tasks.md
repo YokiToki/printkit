@@ -13,11 +13,11 @@
 
 ## 3. Geometry operations (`geometry/features/ops/`)
 
-- [ ] 3.1 `boolean.ts` (union/subtract/intersect, closed-solid guard with health info, tool placed by relative matrix) and Combine reducer. Test with `expectValidSolid`: volumes of box − cylinder, intersect, rotated target, open tool refused with counts.
-- [ ] 3.2 `mirror.ts` and `pattern.ts` (linear with spacing/total/symmetric, circular with angle, merge or disjoint, triangle limit). Test: half-to-full volume, 4×20 mm bbox and volume, 6 pegs 60° apart, hole array volume, limit error.
-- [ ] 3.3 `offset.ts` and `hollow.ts` per the spike (circumscribed/inscribed sphere, drains). Test: grown cube bbox, shrunk cube, shrink to empty error, hollow cube volume and drain connectivity (genus), wall too thick message value.
-- [ ] 3.4 `evaluate.ts` generalised: fold over ops, rollback, failed ops with reason, tool evaluation in the target frame, prefix cache with LRU and `delete()`. Test: cache hits on repeated evaluation, edit of op *k* recomputes only *k…n* (counting calls), eviction frees manifolds, failed op keeps previous solid, missing tool.
-- [ ] 3.5 `generate('editor')` takes the whole graph (objects, matrices, stacks), evaluates visible objects and tools, returns meshes per object plus per-op status (`ok`/`failed`+reason) in `ModelResult`. Test: result statuses, tools not returned as parts unless visible, stale cache after an edit.
+- [x] 3.1 `boolean.ts` (union/subtract/intersect, closed-solid guard with health info, tool placed by relative matrix) and Combine reducer. Test with `expectValidSolid`: volumes of box − cylinder, intersect, rotated target, open tool refused with counts.
+- [x] 3.2 `mirror.ts` and `pattern.ts` (linear with spacing/total/symmetric, circular with angle, merge or disjoint, triangle limit). Test: half-to-full volume, 4×20 mm bbox and volume, 6 pegs 60° apart, hole array volume, limit error.
+- [x] 3.3 `offset.ts` and `hollow.ts` per the spike (circumscribed/inscribed sphere, drains). Test: grown cube bbox, shrunk cube, shrink to empty error, hollow cube volume and drain connectivity (genus), wall too thick message value.
+- [x] 3.4 `evaluate.ts` generalised: fold over ops, rollback, failed ops with reason, tool evaluation in the target frame, prefix cache with LRU and `delete()`. Test: cache hits on repeated evaluation, edit of op *k* recomputes only *k…n* (counting calls), eviction frees manifolds, failed op keeps previous solid, missing tool.
+- [x] 3.5 `generate('editor')` takes the whole graph (objects, matrices, stacks), evaluates visible objects and tools, returns meshes per object plus per-op status (`ok`/`failed`+reason) in `ModelResult`. Test: result statuses, tools not returned as parts unless visible, stale cache after an edit.
 
 ## 4. UI (no artboard exists: built from `ui/` components and tokens)
 

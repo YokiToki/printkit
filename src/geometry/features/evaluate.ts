@@ -1,7 +1,20 @@
-import type { Manifold } from 'manifold-3d'
+import type { Manifold, ManifoldToplevel } from 'manifold-3d'
 import type { Sketch } from '../../editor/sketch/model'
+import type { Mat4 } from '../matrix'
+import type { MeshHealth } from '../../editor/health'
+import type { Op, BooleanParams, ExtrudeOp, RevolveOp, MirrorOp, LinearPatternOp, CircularPatternOp, OffsetOp, HollowOp } from '../../editor/stack'
+import { featureToOp } from '../../editor/stack'
 import { buildExtrude, type EdgeBreak, type ExtrudeParams } from './extrude'
 import { buildRevolve, type RevolveParams } from './revolve'
+import { applyBoolean, type ToolOperand } from './ops/boolean'
+import { applyMirror } from './ops/mirror'
+import { applyLinearPattern, applyCircularPattern } from './ops/pattern'
+import { applyOffset } from './ops/offset'
+import { applyHollow } from './ops/hollow'
+import { identityMat4, relativeMatrix } from '../matrix'
+import { PrefixCache } from './cache'
+
+export { PrefixCache }
 
 export interface BaseFeature {
   id?: string
@@ -31,31 +44,50 @@ export interface RevolveFeature extends BaseFeature {
 
 export type Feature = ExtrudeFeature | RevolveFeature
 
-export interface EvaluateFeaturesResult {
-  solid?: Manifold
-  failedIndex?: number
-  failedReason?: string
-  warning?: string
+export interface ToolObjectInfo {
+  solid: Manifold
+  matrix: Mat4
+  name: string
+  health?: MeshHealth
 }
 
-export async function evaluateFeatures(
-  features: Feature[],
-  sketches: Sketch[] | Record<string, Sketch>,
-  quality: 'coarse' | 'fine' = 'fine',
-): Promise<EvaluateFeaturesResult> {
-  if (features.length === 0) {
-    return {}
-  }
+export interface EvaluationContext {
+  w: ManifoldToplevel
+  targetId?: string
+  sketches?: Sketch[] | Record<string, Sketch> | Map<string, Sketch>
+  targetMatrix?: Mat4
+  toolObjects?: Map<string, ToolObjectInfo>
+  quality?: 'coarse' | 'fine'
+  cache?: PrefixCache
+  onRecomputeOp?: (opIndex: number) => void
+}
 
-  // Build sketch lookup map
+export interface EvaluateStackResult {
+  solid?: Manifold
+  failedIndex?: number
+  failedOpId?: string
+  failedReason?: string
+  failedParams?: Record<string, string | number>
+  warning?: string
+  recomputedCount?: number
+}
+
+export async function evaluateStack(
+  initialSolid: Manifold | null,
+  ops: Op[],
+  rollback: number | null | undefined,
+  ctx: EvaluationContext,
+): Promise<EvaluateStackResult> {
+  const { w, targetId = 'obj', quality = 'fine', cache } = ctx
+
   const sketchMap = new Map<string, Sketch>()
-  if (Array.isArray(sketches)) {
-    for (const s of sketches) {
-      sketchMap.set(s.id, s)
-    }
-  } else if (sketches && typeof sketches === 'object') {
-    for (const [id, s] of Object.entries(sketches)) {
-      sketchMap.set(id, s)
+  if (ctx.sketches) {
+    if (ctx.sketches instanceof Map) {
+      for (const [k, v] of ctx.sketches.entries()) sketchMap.set(k, v)
+    } else if (Array.isArray(ctx.sketches)) {
+      for (const s of ctx.sketches) sketchMap.set(s.id, s)
+    } else {
+      for (const [k, v] of Object.entries(ctx.sketches)) sketchMap.set(k, v)
     }
   }
 
@@ -64,118 +96,421 @@ export async function evaluateFeatures(
       ? { chordTolerance: 0.5, segments: 24, circleSegments: 24 }
       : { chordTolerance: 0.1, segments: 64, circleSegments: 64 }
 
-  let currentSolid: Manifold | undefined
+  const sphereSegments = quality === 'coarse' ? 16 : 24
+
+  // Limit ops by rollback index
+  const effectiveOps =
+    rollback !== null && rollback !== undefined && rollback >= 0 && rollback < ops.length
+      ? ops.slice(0, rollback)
+      : ops
+
+  let baseKey = `obj:${targetId}:q=${quality}`
+  let currentSolid: Manifold | null = initialSolid ? initialSolid.asOriginal() : null
   let lastWarning: string | undefined
+  let recomputedCount = 0
 
-  for (let i = 0; i < features.length; i++) {
-    const f = features[i]
-    if (i === 0 && f.op !== 'new') {
-      return {
-        solid: currentSolid,
-        failedIndex: 0,
-        failedReason: 'sketch.error.firstFeatureMustBeNew',
+  // Longest cached prefix search
+  let startIndex = 0
+  if (cache) {
+    // Check if initial solid can be cached
+    const initKey = `${baseKey}:init`
+    if (initialSolid) {
+      const cachedInit = cache.get(initKey)
+      if (cachedInit) {
+        if (currentSolid) currentSolid.delete()
+        currentSolid = cachedInit.asOriginal()
+      } else {
+        cache.set(initKey, initialSolid)
       }
     }
 
-    const sketchId = f.sketch || f.sketchId
-    const sketch = sketchId ? sketchMap.get(sketchId) : undefined
-    if (!sketch) {
-      return {
-        solid: currentSolid,
-        failedIndex: i,
-        failedReason: 'sketch.error.sketchNotFound',
-      }
-    }
-
-    // Check if sketch has curves
-    if (Object.keys(sketch.curves).length === 0) {
-      return {
-        solid: currentSolid,
-        failedIndex: i,
-        failedReason: 'sketch.error.emptySketch',
-      }
-    }
-
-    let featureSolid: Manifold | undefined
-
-    if (f.kind === 'extrude') {
-      const extrudeParams: ExtrudeParams = {
-        sketchId,
-        regions: f.regions,
-        side: f.side,
-        d1: f.d1,
-        d2: f.d2,
-        op: f.op,
-        top: f.top,
-        bottom: f.bottom,
-      }
-      const res = await buildExtrude(sketch, extrudeParams, options)
-      if (res.error || !res.solid) {
-        return {
-          solid: currentSolid,
-          failedIndex: i,
-          failedReason: res.error || 'sketch.error.featureFailed',
-          warning: res.warning ?? lastWarning,
-        }
-      }
-      featureSolid = res.solid
-      if (res.warning) lastWarning = res.warning
-    } else if (f.kind === 'revolve') {
-      const axis =
-        f.axis.kind === 'line'
-          ? { kind: 'line' as const, curveId: f.axis.curveId || f.axis.curve || '' }
-          : f.axis
-      const revolveParams: RevolveParams = {
-        sketchId,
-        regions: f.regions,
-        axis,
-        angle: f.angle,
-        op: f.op,
-      }
-      const res = await buildRevolve(sketch, revolveParams, options)
-      if (res.error || !res.solid) {
-        return {
-          solid: currentSolid,
-          failedIndex: i,
-          failedReason: res.error || 'sketch.error.featureFailed',
-          warning: lastWarning,
-        }
-      }
-      featureSolid = res.solid
-    } else {
-      return {
-        solid: currentSolid,
-        failedIndex: i,
-        failedReason: 'sketch.error.unknownFeatureKind',
-      }
-    }
-
-    // Combine featureSolid with currentSolid
-    if (i === 0 || !currentSolid) {
-      currentSolid = featureSolid
-    } else {
-      let combined: Manifold
-      if (f.op === 'new') {
-        currentSolid.delete()
-        currentSolid = featureSolid
-      } else if (f.op === 'join') {
-        combined = currentSolid.add(featureSolid)
-        currentSolid.delete()
-        featureSolid.delete()
-        currentSolid = combined
-      } else if (f.op === 'cut') {
-        combined = currentSolid.subtract(featureSolid)
-        currentSolid.delete()
-        featureSolid.delete()
-        currentSolid = combined
-      } else if (f.op === 'intersect') {
-        combined = currentSolid.intersect(featureSolid)
-        currentSolid.delete()
-        featureSolid.delete()
-        currentSolid = combined
+    let prefixKey = initKey
+    for (let i = 0; i < effectiveOps.length; i++) {
+      const op = effectiveOps[i]
+      const toolInfoKey =
+        op.kind === 'boolean'
+          ? (op as any).params.tools
+              ?.map((tId: string) => {
+                const tObj = ctx.toolObjects?.get(tId)
+                return `${tId}:${tObj?.matrix?.join(',') ?? ''}`
+              })
+              .join(';')
+          : ''
+      const stepKey = `${prefixKey}|op:${op.id}:${op.kind}:${JSON.stringify(op.params)}:${op.enabled}:${toolInfoKey}`
+      const cachedSolid = cache.get(stepKey)
+      if (cachedSolid && startIndex === i) {
+        if (currentSolid) currentSolid.delete()
+        currentSolid = cachedSolid.asOriginal()
+        startIndex = i + 1
+        prefixKey = stepKey
+      } else {
+        break
       }
     }
   }
 
-  return { solid: currentSolid, warning: lastWarning }
+  // Evaluate remaining ops
+  let prefixKey = `${baseKey}:init`
+  for (let i = 0; i < startIndex; i++) {
+    const op = effectiveOps[i]
+    const toolInfoKey =
+      op.kind === 'boolean'
+        ? (op as any).params.tools
+            ?.map((tId: string) => {
+              const tObj = ctx.toolObjects?.get(tId)
+              return `${tId}:${tObj?.matrix?.join(',') ?? ''}`
+            })
+            .join(';')
+        : ''
+    prefixKey = `${prefixKey}|op:${op.id}:${op.kind}:${JSON.stringify(op.params)}:${op.enabled}:${toolInfoKey}`
+  }
+
+  for (let i = startIndex; i < effectiveOps.length; i++) {
+    const op = effectiveOps[i]
+    recomputedCount++
+    if (ctx.onRecomputeOp) ctx.onRecomputeOp(i)
+
+    if (!op.enabled) {
+      // Disabled op: solid passes through unchanged
+      const toolInfoKey = ''
+      prefixKey = `${prefixKey}|op:${op.id}:${op.kind}:${JSON.stringify(op.params)}:false:${toolInfoKey}`
+      if (cache && currentSolid) {
+        cache.set(prefixKey, currentSolid)
+      }
+      continue
+    }
+
+    let nextSolid: Manifold | undefined
+
+    if (op.kind === 'extrude') {
+      const p = (op as ExtrudeOp).params
+      if (i === 0 && !currentSolid && p.op !== 'new') {
+        return {
+          solid: currentSolid ?? undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'sketch.error.firstFeatureMustBeNew',
+          recomputedCount,
+        }
+      }
+      const sketch = p.sketchId ? sketchMap.get(p.sketchId) : undefined
+      if (!sketch) {
+        return {
+          solid: currentSolid ?? undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'sketch.error.sketchNotFound',
+          recomputedCount,
+        }
+      }
+      if (Object.keys(sketch.curves).length === 0) {
+        return {
+          solid: currentSolid ?? undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'sketch.error.emptySketch',
+          recomputedCount,
+        }
+      }
+      const res = await buildExtrude(sketch, p, options)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid ?? undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error || 'sketch.error.featureFailed',
+          warning: res.warning ?? lastWarning,
+          recomputedCount,
+        }
+      }
+      if (res.warning) lastWarning = res.warning
+
+      if (!currentSolid || p.op === 'new') {
+        if (currentSolid) currentSolid.delete()
+        nextSolid = res.solid
+      } else if (p.op === 'join') {
+        nextSolid = currentSolid.add(res.solid)
+        currentSolid.delete()
+        res.solid.delete()
+      } else if (p.op === 'cut') {
+        nextSolid = currentSolid.subtract(res.solid)
+        currentSolid.delete()
+        res.solid.delete()
+      } else if (p.op === 'intersect') {
+        nextSolid = currentSolid.intersect(res.solid)
+        currentSolid.delete()
+        res.solid.delete()
+      }
+    } else if (op.kind === 'revolve') {
+      const p = (op as RevolveOp).params
+      if (i === 0 && !currentSolid && p.op !== 'new') {
+        return {
+          solid: currentSolid ?? undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'sketch.error.firstFeatureMustBeNew',
+          recomputedCount,
+        }
+      }
+      const sketch = p.sketchId ? sketchMap.get(p.sketchId) : undefined
+      if (!sketch) {
+        return {
+          solid: currentSolid ?? undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'sketch.error.sketchNotFound',
+          recomputedCount,
+        }
+      }
+      const res = await buildRevolve(sketch, p, options)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid ?? undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error || 'sketch.error.featureFailed',
+          warning: lastWarning,
+          recomputedCount,
+        }
+      }
+
+      if (!currentSolid || p.op === 'new') {
+        if (currentSolid) currentSolid.delete()
+        nextSolid = res.solid
+      } else if (p.op === 'join') {
+        nextSolid = currentSolid.add(res.solid)
+        currentSolid.delete()
+        res.solid.delete()
+      } else if (p.op === 'cut') {
+        nextSolid = currentSolid.subtract(res.solid)
+        currentSolid.delete()
+        res.solid.delete()
+      } else if (p.op === 'intersect') {
+        nextSolid = currentSolid.intersect(res.solid)
+        currentSolid.delete()
+        res.solid.delete()
+      }
+    } else if (op.kind === 'boolean') {
+      if (!currentSolid) {
+        return {
+          solid: undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'stack.error.targetEmpty',
+          recomputedCount,
+        }
+      }
+      const p = (op as any).params as BooleanParams
+      const toolOperands: ToolOperand[] = []
+      const targetMat = ctx.targetMatrix ?? identityMat4()
+
+      for (const toolId of p.tools) {
+        const toolInfo = ctx.toolObjects?.get(toolId)
+        if (!toolInfo) {
+          return {
+            solid: currentSolid,
+            failedIndex: i,
+            failedOpId: op.id,
+            failedReason: 'stack.error.toolMissing',
+            failedParams: { id: toolId },
+            recomputedCount,
+          }
+        }
+        toolOperands.push({
+          id: toolId,
+          name: toolInfo.name,
+          solid: toolInfo.solid,
+          relativeMatrix: relativeMatrix(targetMat, toolInfo.matrix),
+          health: toolInfo.health,
+        })
+      }
+
+      const res = applyBoolean(currentSolid, p, toolOperands)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error || 'stack.error.booleanFailed',
+          failedParams: res.errorParams,
+          recomputedCount,
+        }
+      }
+      currentSolid.delete()
+      nextSolid = res.solid
+    } else if (op.kind === 'mirror') {
+      if (!currentSolid) {
+        return {
+          solid: undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'stack.error.targetEmpty',
+          recomputedCount,
+        }
+      }
+      const res = applyMirror(w, currentSolid, (op as MirrorOp).params)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error,
+          failedParams: res.errorParams,
+          recomputedCount,
+        }
+      }
+      currentSolid.delete()
+      nextSolid = res.solid
+    } else if (op.kind === 'linearPattern') {
+      if (!currentSolid) {
+        return {
+          solid: undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'stack.error.targetEmpty',
+          recomputedCount,
+        }
+      }
+      const res = applyLinearPattern(w, currentSolid, (op as LinearPatternOp).params)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error,
+          failedParams: res.errorParams,
+          recomputedCount,
+        }
+      }
+      currentSolid.delete()
+      nextSolid = res.solid
+    } else if (op.kind === 'circularPattern') {
+      if (!currentSolid) {
+        return {
+          solid: undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'stack.error.targetEmpty',
+          recomputedCount,
+        }
+      }
+      const res = applyCircularPattern(w, currentSolid, (op as CircularPatternOp).params)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error,
+          failedParams: res.errorParams,
+          recomputedCount,
+        }
+      }
+      currentSolid.delete()
+      nextSolid = res.solid
+    } else if (op.kind === 'offset') {
+      if (!currentSolid) {
+        return {
+          solid: undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'stack.error.targetEmpty',
+          recomputedCount,
+        }
+      }
+      const res = applyOffset(w, currentSolid, (op as OffsetOp).params, sphereSegments)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error,
+          failedParams: res.errorParams,
+          recomputedCount,
+        }
+      }
+      currentSolid.delete()
+      nextSolid = res.solid
+    } else if (op.kind === 'hollow') {
+      if (!currentSolid) {
+        return {
+          solid: undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'stack.error.targetEmpty',
+          recomputedCount,
+        }
+      }
+      const res = applyHollow(w, currentSolid, (op as HollowOp).params, sphereSegments)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error,
+          failedParams: res.errorParams,
+          recomputedCount,
+        }
+      }
+      currentSolid.delete()
+      nextSolid = res.solid
+    } else {
+      // Unknown op kind
+      return {
+        solid: currentSolid ?? undefined,
+        failedIndex: i,
+        failedOpId: op.id,
+        failedReason: 'stack.error.unknownOp',
+        failedParams: { kind: op.kind },
+        recomputedCount,
+      }
+    }
+
+    currentSolid = nextSolid
+
+    const toolInfoKey =
+      op.kind === 'boolean'
+        ? (op as any).params.tools
+            ?.map((tId: string) => {
+              const tObj = ctx.toolObjects?.get(tId)
+              return `${tId}:${tObj?.matrix?.join(',') ?? ''}`
+            })
+            .join(';')
+        : ''
+    prefixKey = `${prefixKey}|op:${op.id}:${op.kind}:${JSON.stringify(op.params)}:true:${toolInfoKey}`
+    if (cache && currentSolid) {
+      cache.set(prefixKey, currentSolid)
+    }
+  }
+
+  return {
+    solid: currentSolid ?? undefined,
+    warning: lastWarning,
+    recomputedCount,
+  }
+}
+
+/**
+ * Legacy compatibility helper for 40 features
+ */
+export async function evaluateFeatures(
+  features: Feature[],
+  sketches: Sketch[] | Record<string, Sketch>,
+  quality: 'coarse' | 'fine' = 'fine',
+): Promise<{ solid?: Manifold; failedIndex?: number; failedReason?: string; warning?: string }> {
+  const { getWasm } = await import('../wasm')
+  const w = await getWasm()
+
+  const ops = features.map(featureToOp)
+  const res = await evaluateStack(null, ops, null, {
+    w,
+    sketches,
+    quality,
+  })
+
+  return {
+    solid: res.solid,
+    failedIndex: res.failedIndex,
+    failedReason: res.failedReason,
+    warning: res.warning,
+  }
 }

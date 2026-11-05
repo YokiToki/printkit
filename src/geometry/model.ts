@@ -13,20 +13,57 @@ import type { IndexedMesh } from './stl-import'
 import { getWasm } from './wasm'
 import { meshBounds, meshOf, type MeshData } from './mesh'
 import { buildPrimitiveManifold } from '../editor/primitives'
-import type { ObjectSource } from '../editor/scene'
+import { matrixOf, type EditorObject, type Mat4, type ObjectSource, type Transform } from '../editor/scene'
 import type { Sketch } from '../editor/sketch/model'
-import { evaluateFeatures } from './features/evaluate'
+import type { Op } from '../editor/stack'
+import { featureToOp } from '../editor/stack'
+import { topologicalOrder } from '../editor/graph'
+import { meshHealth } from '../editor/health'
+import { toManifold } from './stl-import'
+import { evaluateStack, PrefixCache, type ToolObjectInfo } from './features/evaluate'
+
+export interface EditorObjectParam {
+  id: string
+  name?: string
+  visible?: boolean
+  locked?: boolean
+  color?: number
+  source: ObjectSource
+  transform?: Transform
+  matrix?: Mat4
+  stack?: Op[]
+  rollback?: number | null
+}
 
 export interface EditorModelParams {
-  objects: { id: string; source: ObjectSource }[]
+  objects: EditorObjectParam[]
   sketches?: Sketch[]
   quality?: 'coarse' | 'fine'
+}
+
+export interface OpStatus {
+  opId: string
+  status: 'ok' | 'failed'
+  reason?: string
+  params?: Record<string, string | number>
+}
+
+export interface ObjectStatus {
+  objectId: string
+  ops: OpStatus[]
+  error?: string
+}
+
+export interface EditorInfo {
+  statuses: Record<string, ObjectStatus>
 }
 
 /** Кэш полигональных сеток примитивов по (форма, параметры). */
 export const primitiveMeshCache = new Map<string, MeshData>()
 /** Кэш полигональных сеток тел из фич эскизов. */
 export const featureMeshCache = new Map<string, MeshData>()
+/** Префиксный кэш стека операций редактора. */
+export const editorPrefixCache = new PrefixCache(6_000_000)
 
 function copyMeshData(m: MeshData): MeshData {
   return {
@@ -69,7 +106,7 @@ export type ModeId = keyof ModeParams
 export interface PartMesh { label: string; col: number; row: number; oversize: boolean; mesh: MeshData }
 /** Вырезающий инструмент: только для превью, не часть модели (габариты, объём и экспорт его не учитывают). */
 export interface ToolMesh { id: string; name: string; /** Индекс цвета выреза в палитре (одинаков в списке, виде сверху и 3D). */ color: number; mesh: MeshData }
-export interface ModelResult { parts: PartMesh[]; tools?: ToolMesh[]; /** Только у rackPanel: ключ ошибки (модели нет) и замечания о тонком. */ rack?: { error?: string; /** Только rackCase при rack.error.tooWide: на сколько мм корпус шире окна между рейками. */ excess?: number; warnings: Issue[] }; /** Только у keychain: сведения о силуэте и размерах, ошибка построения. */ keychain?: KeychainInfo; /** Детали уже стоят на листе печати: экспорт сохраняет их взаимное положение, а не раскладывает заново. */ sheetLayout?: boolean; /** Только у keychain в режиме половин: матрицы 4×4 (по столбцам) для собранного вида по подписям деталей. */ assembly?: Assembly }
+export interface ModelResult { parts: PartMesh[]; tools?: ToolMesh[]; /** Только у rackPanel: ключ ошибки (модели нет) и замечания о тонком. */ rack?: { error?: string; /** Только rackCase при rack.error.tooWide: на сколько мм корпус шире окна между рейками. */ excess?: number; warnings: Issue[] }; /** Только у keychain: сведения о силуэте и размерах, ошибка построения. */ keychain?: KeychainInfo; /** Детали уже стоят на листе печати: экспорт сохраняет их взаимное положение, а не раскладывает заново. */ sheetLayout?: boolean; /** Только у keychain в режиме половин: матрицы 4×4 (по столбцам) для собранного вида по подписям деталей. */ assembly?: Assembly; editor?: EditorInfo }
 
 /** Габариты всей модели в собранных координатах. */
 export function modelBounds(r: ModelResult): { min: [number, number, number]; max: [number, number, number] } {
@@ -129,92 +166,153 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
       const p = params as EditorModelParams
       const w = await getWasm(wasmUrl)
       const parts: PartMesh[] = []
+      const tools: ToolMesh[] = []
+      const statuses: Record<string, ObjectStatus> = {}
 
-      for (const obj of p.objects) {
-        if (obj.source.kind === 'primitive') {
-          const cacheKey = `${obj.source.shape}:${JSON.stringify(obj.source.params)}`
-          let mesh = primitiveMeshCache.get(cacheKey)
-          if (!mesh) {
-            const m = buildPrimitiveManifold(w, obj.source.shape, obj.source.params)
-            try {
-              mesh = meshOf(m)
-              primitiveMeshCache.set(cacheKey, mesh)
-            } finally {
-              m.delete()
+      const editorObjs: EditorObject[] = p.objects.map((o) => ({
+        id: o.id,
+        name: o.name ?? o.id,
+        visible: o.visible ?? true,
+        locked: o.locked ?? false,
+        color: o.color ?? 0,
+        source: o.source,
+        transform: o.transform ?? { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        stack: o.stack ? o.stack : (o.source.kind === 'feature' ? o.source.features.map(featureToOp) : []),
+        rollback: o.rollback,
+      }))
+
+      // Find tool objects used by enabled boolean ops
+      const toolUsage = new Set<string>()
+      for (const o of editorObjs) {
+        for (const op of o.stack ?? []) {
+          if (op.enabled && op.kind === 'boolean') {
+            for (const t of (op as any).params.tools ?? []) {
+              toolUsage.add(t)
             }
-          }
-          parts.push({
-            label: obj.id,
-            col: 0,
-            row: 0,
-            oversize: false,
-            mesh: copyMeshData(mesh),
-          })
-        } else if (obj.source.kind === 'feature') {
-          const cacheKey = JSON.stringify({
-            features: obj.source.features,
-            sketches: p.sketches ?? [],
-            quality: p.quality ?? 'fine',
-          })
-          let mesh = featureMeshCache.get(cacheKey)
-          if (!mesh) {
-            const evalRes = await evaluateFeatures(
-              obj.source.features,
-              p.sketches ?? [],
-              p.quality ?? 'fine',
-            )
-            if (evalRes.solid) {
-              try {
-                mesh = meshOf(evalRes.solid)
-                featureMeshCache.set(cacheKey, mesh)
-              } finally {
-                evalRes.solid.delete()
-              }
-            }
-          }
-          if (mesh) {
-            parts.push({
-              label: obj.id,
-              col: 0,
-              row: 0,
-              oversize: false,
-              mesh: copyMeshData(mesh),
-            })
-          }
-        } else if (obj.source.kind === 'mesh') {
-          const indexed = meshRegistry.get(obj.source.meshId)
-          if (indexed) {
-            const b = meshBounds(indexed.vertProperties)
-            let vol = 0
-            const tris = indexed.triVerts
-            const verts = indexed.vertProperties
-            for (let t = 0; t < tris.length; t += 3) {
-              const ia = tris[t] * 3, ib = tris[t + 1] * 3, ic = tris[t + 2] * 3
-              vol +=
-                (verts[ia] * (verts[ib + 1] * verts[ic + 2] - verts[ib + 2] * verts[ic + 1]) -
-                  verts[ia + 1] * (verts[ib] * verts[ic + 2] - verts[ib + 2] * verts[ic]) +
-                  verts[ia + 2] * (verts[ib] * verts[ic + 1] - verts[ib + 1] * verts[ic])) /
-                6
-            }
-            const mesh: MeshData = {
-              vertProperties: indexed.vertProperties,
-              triVerts: indexed.triVerts,
-              numProp: 3,
-              min: b.min,
-              max: b.max,
-              volume: Math.abs(vol),
-            }
-            parts.push({
-              label: obj.id,
-              col: 0,
-              row: 0,
-              oversize: false,
-              mesh: copyMeshData(mesh),
-            })
           }
         }
       }
-      return { parts }
+
+      const topo = topologicalOrder(editorObjs)
+      if (topo.cycle) {
+        for (const cid of topo.cycle) {
+          statuses[cid] = {
+            objectId: cid,
+            error: 'stack.error.cycle',
+            ops: (editorObjs.find((o) => o.id === cid)?.stack ?? []).map((op) => ({
+              opId: op.id,
+              status: 'failed',
+              reason: 'stack.error.cycle',
+            })),
+          }
+        }
+      }
+
+      const evaluatedTools = new Map<string, ToolObjectInfo>()
+
+      for (const obj of topo.order) {
+        const oParam = p.objects.find((o) => o.id === obj.id)
+        const objMatrix = oParam?.matrix ?? matrixOf(obj.transform)
+
+        let baseSolid: any = null
+        let meshH: any = undefined
+
+        if (obj.source.kind === 'primitive') {
+          baseSolid = buildPrimitiveManifold(w, obj.source.shape, obj.source.params)
+        } else if (obj.source.kind === 'mesh') {
+          const indexed = meshRegistry.get(obj.source.meshId)
+          if (indexed) {
+            meshH = meshHealth(indexed)
+            try {
+              baseSolid = toManifold(w, indexed)
+            } catch {
+              baseSolid = null
+            }
+          }
+        }
+
+        const evalRes = await evaluateStack(baseSolid, obj.stack ?? [], obj.rollback, {
+          w,
+          targetId: obj.id,
+          targetMatrix: objMatrix,
+          sketches: p.sketches,
+          quality: p.quality,
+          toolObjects: evaluatedTools,
+          cache: editorPrefixCache,
+        })
+
+        if (baseSolid) {
+          baseSolid.delete()
+        }
+
+        const opStatuses: OpStatus[] = (obj.stack ?? []).map((op, idx) => {
+          if (evalRes.failedIndex !== undefined) {
+            if (idx === evalRes.failedIndex) {
+              return {
+                opId: op.id,
+                status: 'failed',
+                reason: evalRes.failedReason,
+                params: evalRes.failedParams,
+              }
+            } else if (idx > evalRes.failedIndex) {
+              return {
+                opId: op.id,
+                status: 'failed',
+                reason: 'stack.error.skipped',
+              }
+            }
+          }
+          return {
+            opId: op.id,
+            status: 'ok',
+          }
+        })
+
+        statuses[obj.id] = {
+          objectId: obj.id,
+          ops: opStatuses,
+          error: evalRes.failedReason,
+        }
+
+        if (evalRes.solid) {
+          const mesh = meshOf(evalRes.solid)
+          const isTool = toolUsage.has(obj.id)
+
+          if (isTool) {
+            evaluatedTools.set(obj.id, {
+              solid: evalRes.solid,
+              matrix: objMatrix,
+              name: obj.name,
+              health: meshH,
+            })
+            if (obj.visible) {
+              tools.push({
+                id: obj.id,
+                name: obj.name,
+                color: obj.color,
+                mesh,
+              })
+            }
+          } else {
+            if (obj.visible) {
+              parts.push({
+                label: obj.id,
+                col: 0,
+                row: 0,
+                oversize: false,
+                mesh,
+              })
+            }
+            evalRes.solid.delete()
+          }
+        }
+      }
+
+      return {
+        parts,
+        tools: tools.length > 0 ? tools : undefined,
+        editor: { statuses },
+      }
     }
     default:
       throw new Error(`Unknown mode: ${String(mode)}`)

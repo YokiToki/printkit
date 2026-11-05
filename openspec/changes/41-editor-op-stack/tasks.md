@@ -7,9 +7,9 @@
 
 ## 2. Stack model (React-free, `src/editor/`)
 
-- [ ] 2.1 `stack.ts`: `Op` types and params normalisation, `emptyStack`, add/remove/move/enable/rollback reducers, op summaries as keys. Test: reducers, normalisation of corrupt params, rollback bounds.
-- [ ] 2.2 Graph: `buildGraph`, topological order, cycle detection with the cycle path, dependants of an object. Test: chains, diamonds, cycles named, deleted tool detection.
-- [ ] 2.3 `migrateStack` in `migrateScene`: `feature` sources of `40` → empty source + ops, unknown kinds preserved disabled, idempotent. Test with stored scenes from `40` fixtures and unknown kinds.
+- [x] 2.1 `stack.ts`: `Op` types and params normalisation, `emptyStack`, add/remove/move/enable/rollback reducers, op summaries as keys. Test: reducers, normalisation of corrupt params, rollback bounds.
+- [x] 2.2 Graph: `buildGraph`, topological order, cycle detection with the cycle path, dependants of an object. Test: chains, diamonds, cycles named, deleted tool detection.
+- [x] 2.3 `migrateStack` in `migrateScene`: `feature` sources of `40` → empty source + ops, unknown kinds preserved disabled, idempotent. Test with stored scenes from `40` fixtures and unknown kinds.
 
 ## 3. Geometry operations (`geometry/features/ops/`)
 

@@ -57,6 +57,10 @@ function normaliseSource(raw: unknown, objectName: string): ObjectSource | null 
     }
   }
 
+  if (s.kind === 'empty') {
+    return { kind: 'empty' }
+  }
+
   if (s.kind === 'primitive') {
     if (typeof s.shape !== 'string' || !KNOWN_PRIMITIVES.has(s.shape as PrimitiveShape)) {
       log.warn('storage', 'log.editor.unknownSource', { name: objectName })
@@ -179,6 +183,7 @@ function normaliseSource(raw: unknown, objectName: string): ObjectSource | null 
 }
 
 import { migrateSketches } from './sketch/migrate'
+import { clampRollback, featureToOp, migrateStack } from './stack'
 
 export function migrateScene(raw: unknown): SceneDoc {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -205,14 +210,30 @@ export function migrateScene(raw: unknown): SceneDoc {
     const color = typeof o.color === 'number' && Number.isInteger(o.color) ? Math.max(0, o.color) : 0
     const transform = normaliseTransform(o.transform)
 
+    let finalSource = source
+    let stack = migrateStack(o.stack)
+
+    if (source.kind === 'feature') {
+      const converted = source.features.map(featureToOp)
+      stack = [...converted, ...stack]
+      finalSource = { kind: 'empty' }
+    }
+
+    const rollback = clampRollback(
+      stack.length,
+      typeof o.rollback === 'number' || o.rollback === null ? (o.rollback as number | null) : undefined
+    )
+
     objects.push({
       id,
       name,
       visible,
       locked,
       color,
-      source,
+      source: finalSource,
       transform,
+      ...(stack.length > 0 ? { stack } : {}),
+      ...(rollback !== null && rollback !== undefined ? { rollback } : {}),
     })
   }
 

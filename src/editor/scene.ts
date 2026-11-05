@@ -29,13 +29,18 @@ export type PrimitiveSource = {
 }
 
 import type { Feature } from '../geometry/features/evaluate'
+import type { Op } from './stack'
 
 export type FeatureSource = {
   kind: 'feature'
   features: Feature[]
 }
 
-export type ObjectSource = MeshSource | PrimitiveSource | FeatureSource
+export type EmptySource = {
+  kind: 'empty'
+}
+
+export type ObjectSource = MeshSource | PrimitiveSource | FeatureSource | EmptySource
 
 export interface EditorObject {
   id: string
@@ -45,6 +50,8 @@ export interface EditorObject {
   color: number
   source: ObjectSource
   transform: Transform
+  stack?: Op[]
+  rollback?: number | null
 }
 
 import type { Sketch } from './sketch/model'
@@ -172,6 +179,8 @@ export function duplicateObject(
             params: { ...original.source.params },
           }
         : { ...original.source },
+    ...(original.stack ? { stack: original.stack.map((op) => ({ ...op, params: { ...op.params } })) } : {}),
+    ...(original.rollback !== undefined ? { rollback: original.rollback } : {}),
   }
 
   return {

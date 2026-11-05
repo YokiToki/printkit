@@ -210,11 +210,12 @@ describe('editor/sceneStore', () => {
     expect(loaded.sketches).toHaveLength(1)
     expect(loaded.sketches![0].id).toBe('sk-1')
     expect(loaded.objects).toHaveLength(1)
-    expect(loaded.objects[0].source.kind).toBe('feature')
-    const feat = (loaded.objects[0].source as { kind: 'feature'; features: any[] }).features[0]
-    expect(feat.kind).toBe('extrude')
-    expect(feat.d1).toBe(20)
-    expect(feat.top).toEqual({ kind: 'chamfer', size: 1.5 })
+    expect(loaded.objects[0].source.kind).toBe('empty')
+    expect(loaded.objects[0].stack).toBeDefined()
+    const op = loaded.objects[0].stack![0]
+    expect(op.kind).toBe('extrude')
+    expect((op.params as any).d1).toBe(20)
+    expect((op.params as any).top).toEqual({ kind: 'chamfer', size: 1.5 })
   })
 
   it('loads old scenes of change 39 unchanged', () => {
@@ -274,6 +275,8 @@ describe('editor/sceneStore', () => {
 
     const loaded = migrateScene(raw)
     expect(loaded.objects).toHaveLength(1)
-    expect(loaded.objects[0].source.kind).toBe('feature')
+    expect(loaded.objects[0].source.kind).toBe('empty')
+    expect(loaded.objects[0].stack).toHaveLength(1)
+    expect(loaded.objects[0].stack![0].kind).toBe('extrude')
   })
 })

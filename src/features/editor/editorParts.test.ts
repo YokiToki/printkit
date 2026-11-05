@@ -227,4 +227,51 @@ describe('editorParts', () => {
     expect(labels).toEqual(['Bracket', 'Bracket 2', 'Bracket 3', 'Bracket 2 2'])
     expect(new Set(labels).size).toBe(4)
   })
+
+  it('skips tool objects unless explicitly selected with selectionOnly', () => {
+    const box = createTestBox()
+    const doc: SceneDoc = {
+      schema: 1,
+      objects: [
+        {
+          id: 'target',
+          name: 'Target',
+          visible: true,
+          locked: false,
+          color: 0,
+          source: { kind: 'primitive', shape: 'box', params: {} },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+          stack: [
+            {
+              id: 'bool-1',
+              kind: 'boolean',
+              enabled: true,
+              params: { mode: 'subtract', tools: ['tool-cyl'] },
+            },
+          ],
+        },
+        {
+          id: 'tool-cyl',
+          name: 'Tool Cylinder',
+          visible: true,
+          locked: false,
+          color: 1,
+          source: { kind: 'primitive', shape: 'cylinder', params: {} },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+      ],
+    }
+
+    const meshes = { target: box, 'tool-cyl': box }
+
+    // When exporting visible objects: tool-cyl is skipped!
+    const partsAll = editorParts(doc, meshes, { selectionOnly: false })
+    expect(partsAll).toHaveLength(1)
+    expect(partsAll[0].label).toBe('Target')
+
+    // When explicitly selecting tool-cyl with selectionOnly: tool-cyl is exported!
+    const partsSel = editorParts(doc, meshes, { selectionOnly: true, selection: ['tool-cyl'] })
+    expect(partsSel).toHaveLength(1)
+    expect(partsSel[0].label).toBe('Tool Cylinder')
+  })
 })

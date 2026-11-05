@@ -189,8 +189,14 @@ export function normalizeOp(raw: unknown): Op {
         for (const d of p.drains) {
           if (d && typeof d === 'object') {
             const rawD = d as Record<string, unknown>
-            const point = Array.isArray(rawD.point) && rawD.point.length === 3 ? (rawD.point as [number, number, number]) : [0, 0, 0]
-            const normal = Array.isArray(rawD.normal) && rawD.normal.length === 3 ? (rawD.normal as [number, number, number]) : [0, 0, 1]
+            const point: [number, number, number] =
+              Array.isArray(rawD.point) && rawD.point.length === 3
+                ? [Number(rawD.point[0]), Number(rawD.point[1]), Number(rawD.point[2])]
+                : [0, 0, 0]
+            const normal: [number, number, number] =
+              Array.isArray(rawD.normal) && rawD.normal.length === 3
+                ? [Number(rawD.normal[0]), Number(rawD.normal[1]), Number(rawD.normal[2])]
+                : [0, 0, 1]
             const diameter = typeof rawD.diameter === 'number' && Number.isFinite(rawD.diameter) ? rawD.diameter : 3
             drains.push({ point, normal, diameter })
           }

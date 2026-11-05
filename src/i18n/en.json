@@ -1783,6 +1783,64 @@
       "svgSegments": "segments",
       "svgImportAction": "Import",
       "missingConstraintRef": "Removed dangling sketch constraints"
+    },
+    "stack": {
+      "title": "Operations",
+      "add": "Add operation",
+      "flatten": "Flatten stack",
+      "flattenConfirmTitle": "Flatten operations?",
+      "flattenConfirmMessage": "The operation stack will be baked into an immutable mesh. You can undo this with History.",
+      "rollbackHere": "Roll back here",
+      "rollbackEnd": "Resume to end",
+      "combine": "Combine",
+      "releaseTool": "Release tool",
+      "toolOf": "tool of {{name}}",
+      "opsCount": "{{count}} ops"
+    },
+    "op": {
+      "extrude": "Extrude",
+      "revolve": "Revolve",
+      "boolean": "Boolean",
+      "mirror": "Mirror",
+      "linearPattern": "Linear pattern",
+      "circularPattern": "Circular pattern",
+      "offset": "Offset",
+      "hollow": "Hollow",
+      "distance": "Distance",
+      "wall": "Wall thickness",
+      "plane": "Mirror plane",
+      "origin": "Origin",
+      "merge": "Merge bodies",
+      "axis": "Axis",
+      "count": "Count",
+      "mode": "Mode",
+      "step": "Step",
+      "total": "Total length",
+      "spacing": "Spacing",
+      "symmetric": "Symmetric",
+      "angle": "Angle",
+      "tools": "Tools",
+      "union": "Union",
+      "subtract": "Subtract",
+      "intersect": "Intersect",
+      "originObject": "Object origin",
+      "originBbox": "Bbox center",
+      "delete": "Delete operation",
+      "suppress": "Suppress operation",
+      "unsuppress": "Unsuppress operation",
+      "moveUp": "Move up",
+      "moveDown": "Move down"
+    },
+    "history": {
+      "addOp": "Add operation",
+      "editOp": "Edit operation",
+      "reorderOp": "Reorder operations",
+      "toggleOp": "Toggle operation",
+      "deleteOp": "Delete operation",
+      "rollback": "Move rollback marker",
+      "flatten": "Flatten operations",
+      "combine": "Combine bodies",
+      "releaseTool": "Release tool"
     }
   },
   "sketch": {
@@ -1938,6 +1996,35 @@
       "tooManySegments": "File contains too many segments (max 50,000)",
       "invalidSvg": "Invalid SVG file",
       "invalidSelection": "Invalid entity selection"
+    }
+  },
+  "stack": {
+    "error": {
+      "notSolid": "{{name}} is not a closed solid ({{openEdges}} open edges)",
+      "cycle": "Circular dependency detected",
+      "toolMissing": "Tool object is missing",
+      "wallTooThick": "Wall thickness {{wall}} mm is too thick for this body",
+      "tooMany": "Operation would exceed limit of {{limit}} triangles (reached {{count}})",
+      "offsetEmpty": "Offset distance is too large and removed the entire body",
+      "targetEmpty": "Target body is empty",
+      "skipped": "Skipped due to earlier error",
+      "unknownOp": "Unknown operation: {{kind}}",
+      "tooManyTriangles": "Mesh has {{count}} triangles, exceeding limit of {{limit}}"
+    },
+    "summary": {
+      "extrude": "Extrude {{d}} mm",
+      "revolve": "Revolve {{angle}}°",
+      "boolean": {
+        "union": "Union ({{count}} tools)",
+        "subtract": "Subtract ({{count}} tools)",
+        "intersect": "Intersect ({{count}} tools)"
+      },
+      "mirror": "Mirror {{plane}}",
+      "linearPattern": "Linear pattern ({{count}}x along {{axis}})",
+      "circularPattern": "Circular pattern ({{count}}x around {{axis}})",
+      "offset": "Offset {{distance}}",
+      "hollow": "Hollow ({{wall}})",
+      "unknown": "Unknown ({{kind}})"
     }
   }
 }

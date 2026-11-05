@@ -19,9 +19,28 @@ export function editorParts(
   const selectionOnly = !!options?.selectionOnly
   const selectedSet = new Set(options?.selection ?? [])
 
+  // Find all objects used as tools in enabled boolean operations
+  const toolObjectIds = new Set<string>()
+  for (const o of doc.objects) {
+    for (const op of o.stack ?? []) {
+      if (op.enabled && op.kind === 'boolean') {
+        const tools = (op as any).params?.tools
+        if (Array.isArray(tools)) {
+          for (const t of tools) {
+            toolObjectIds.add(t)
+          }
+        }
+      }
+    }
+  }
+
   const targetObjects = doc.objects.filter((obj) => {
     if (selectionOnly) {
       return selectedSet.has(obj.id)
+    }
+    // Export skips tool objects unless explicitly selected
+    if (toolObjectIds.has(obj.id)) {
+      return false
     }
     return obj.visible !== false
   })

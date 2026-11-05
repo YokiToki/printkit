@@ -1,4 +1,5 @@
 import type { Mat4 } from '../editor/scene'
+export type { Mat4 }
 
 export function identityMat4(): Mat4 {
   return [

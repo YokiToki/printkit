@@ -465,7 +465,7 @@ export async function evaluateStack(
       }
     }
 
-    currentSolid = nextSolid
+    currentSolid = nextSolid ?? null
 
     const toolInfoKey =
       op.kind === 'boolean'

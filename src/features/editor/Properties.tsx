@@ -15,6 +15,10 @@ import {
   IconPlus,
 } from '@tabler/icons-react'
 import type { EditorObject } from '../../editor/scene'
+import type { Op } from '../../editor/stack'
+import { addOp, updateOp, removeOp, toggleOp, moveOp } from '../../editor/stack'
+import type { ObjectStatus } from '../../geometry/model'
+import { StackSection } from './stack/StackSection'
 import {
   boundsOf,
   centerOnBed,
@@ -46,6 +50,14 @@ export interface PropertiesProps {
   onEditFeature?: (objectId: string, featureIndex: number) => void
   onDeleteFeature?: (objectId: string, featureIndex: number) => void
   onAddFeature?: (objectId: string, kind: 'extrude' | 'revolve') => void
+  objectStatuses?: Record<string, ObjectStatus>
+  onAddOp?: (objectId: string, op: Op) => void
+  onUpdateOp?: (objectId: string, opId: string, patch: Partial<Op>, mergeKey?: string) => void
+  onRemoveOp?: (objectId: string, opId: string) => void
+  onToggleOp?: (objectId: string, opId: string, enabled?: boolean) => void
+  onMoveOp?: (objectId: string, fromIndex: number, toIndex: number) => void
+  onSetRollback?: (objectId: string, index: number | null) => void
+  onFlatten?: (objectId: string) => void
 }
 
 export function Properties({
@@ -59,6 +71,14 @@ export function Properties({
   onEditFeature,
   onDeleteFeature,
   onAddFeature,
+  objectStatuses,
+  onAddOp,
+  onUpdateOp,
+  onRemoveOp,
+  onToggleOp,
+  onMoveOp,
+  onSetRollback,
+  onFlatten,
 }: PropertiesProps) {
   const { t } = useTranslation()
   const { unit } = useUnit()
@@ -206,6 +226,65 @@ export function Properties({
   const handleSizeChange = (axis: 'x' | 'y' | 'z', newSize: number) => {
     const scaled = scaleToSize(obj, axis, newSize, proportionsLocked, lb)
     onUpdateTransform(obj.id, scaled.transform, `scale-${axis}`)
+  }
+
+  const handleAddOp = (newOp: Op) => {
+    if (onAddOp) {
+      onAddOp(obj.id, newOp)
+    } else {
+      const nextStack = addOp(obj.stack ?? [], newOp)
+      onUpdateObject(obj.id, { stack: nextStack })
+    }
+  }
+
+  const handleUpdateOp = (opId: string, patch: Partial<Op>, mergeKey?: string) => {
+    if (onUpdateOp) {
+      onUpdateOp(obj.id, opId, patch, mergeKey)
+    } else {
+      const nextStack = updateOp(obj.stack ?? [], opId, patch)
+      onUpdateObject(obj.id, { stack: nextStack }, mergeKey)
+    }
+  }
+
+  const handleRemoveOp = (opId: string) => {
+    if (onRemoveOp) {
+      onRemoveOp(obj.id, opId)
+    } else {
+      const nextStack = removeOp(obj.stack ?? [], opId)
+      onUpdateObject(obj.id, { stack: nextStack })
+    }
+  }
+
+  const handleToggleOp = (opId: string, enabled?: boolean) => {
+    if (onToggleOp) {
+      onToggleOp(obj.id, opId, enabled)
+    } else {
+      const nextStack = toggleOp(obj.stack ?? [], opId, enabled)
+      onUpdateObject(obj.id, { stack: nextStack })
+    }
+  }
+
+  const handleMoveOp = (fromIndex: number, toIndex: number) => {
+    if (onMoveOp) {
+      onMoveOp(obj.id, fromIndex, toIndex)
+    } else {
+      const nextStack = moveOp(obj.stack ?? [], fromIndex, toIndex)
+      onUpdateObject(obj.id, { stack: nextStack })
+    }
+  }
+
+  const handleSetRollback = (idx: number | null) => {
+    if (onSetRollback) {
+      onSetRollback(obj.id, idx)
+    } else {
+      onUpdateObject(obj.id, { rollback: idx })
+    }
+  }
+
+  const handleFlatten = () => {
+    if (onFlatten) {
+      onFlatten(obj.id)
+    }
   }
 
   return (
@@ -520,6 +599,21 @@ export function Properties({
           </Section>
         )
       })()}
+
+      {/* Operation Stack Section */}
+      <StackSection
+        object={obj}
+        allObjects={objects}
+        objectStatus={objectStatuses?.[obj.id]}
+        onAddOp={handleAddOp}
+        onUpdateOp={handleUpdateOp}
+        onRemoveOp={handleRemoveOp}
+        onToggleOp={handleToggleOp}
+        onMoveOp={handleMoveOp}
+        onSetRollback={handleSetRollback}
+        onFlatten={handleFlatten}
+        onEditFeature={onEditFeature ? (fIdx) => onEditFeature(obj.id, fIdx) : undefined}
+      />
 
       {/* Mesh Health block for mesh source */}
       {obj.source.kind === 'mesh' && (

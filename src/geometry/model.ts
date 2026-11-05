@@ -245,6 +245,10 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
           baseSolid.delete()
         }
 
+        if (evalRes.failedIndex !== undefined) {
+          console.warn(`[stack] Object ${obj.id} op ${evalRes.failedOpId} failed: ${evalRes.failedReason}`, evalRes.failedParams)
+        }
+
         const opStatuses: OpStatus[] = (obj.stack ?? []).map((op, idx) => {
           if (evalRes.failedIndex !== undefined) {
             if (idx === evalRes.failedIndex) {
@@ -276,6 +280,14 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
 
         if (evalRes.solid) {
           const mesh = meshOf(evalRes.solid)
+          if (obj.source.kind === 'feature') {
+            const cacheKey = JSON.stringify({
+              features: obj.source.features,
+              sketches: p.sketches ?? [],
+              quality: p.quality ?? 'fine',
+            })
+            featureMeshCache.set(cacheKey, copyMeshData(mesh))
+          }
           const isTool = toolUsage.has(obj.id)
 
           if (isTool) {
@@ -304,6 +316,36 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
               })
             }
             evalRes.solid.delete()
+          }
+        } else if (obj.source.kind === 'mesh' && !toolUsage.has(obj.id) && obj.visible) {
+          const indexed = meshRegistry.get(obj.source.meshId)
+          if (indexed) {
+            const b = meshBounds(indexed.vertProperties)
+            let vol = 0
+            const tris = indexed.triVerts
+            const verts = indexed.vertProperties
+            for (let t = 0; t < tris.length; t += 3) {
+              const ia = tris[t] * 3, ib = tris[t + 1] * 3, ic = tris[t + 2] * 3
+              vol +=
+                (verts[ia] * (verts[ib + 1] * verts[ic + 2] - verts[ib + 2] * verts[ic + 1]) -
+                  verts[ia + 1] * (verts[ib] * verts[ic + 2] - verts[ib + 2] * verts[ic]) +
+                  verts[ia + 2] * (verts[ib] * verts[ic + 1] - verts[ib + 1] * verts[ic])) /
+                6
+            }
+            parts.push({
+              label: obj.id,
+              col: 0,
+              row: 0,
+              oversize: false,
+              mesh: {
+                vertProperties: indexed.vertProperties,
+                triVerts: indexed.triVerts,
+                numProp: 3,
+                min: b.min,
+                max: b.max,
+                volume: Math.abs(vol),
+              },
+            })
           }
         }
       }

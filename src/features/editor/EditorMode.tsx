@@ -58,6 +58,11 @@ import { rectangleMacro } from '../../editor/sketch/tools/rectangle'
 import type { ScreenPickResult } from '../viewport/sketchPicking'
 import type { ViewportSketchConfig } from '../viewport/sketchMesh'
 import type { MeshData } from '../../geometry/mesh'
+import type { Op } from '../../editor/stack'
+import { addOp, updateOp, removeOp, toggleOp, moveOp } from '../../editor/stack'
+import { combineObjects, releaseTool } from '../../geometry/features/ops/boolean'
+import { meshRegistry } from '../../geometry/model'
+import type { IndexedMesh } from '../../geometry/stl-import'
 
 export function EditorMode() {
   const { t } = useTranslation()
@@ -427,6 +432,129 @@ export function EditorMode() {
           o.id === objectId ? { ...o, source: { kind: 'feature', features: nextFeatures } } : o,
         ),
       }))
+    }
+  }
+
+  const handleAddOp = (objectId: string, op: Op) => {
+    dispatch(t('editor.history.addOp'), (prev) => ({
+      ...prev,
+      objects: prev.objects.map((o) =>
+        o.id === objectId ? { ...o, stack: addOp(o.stack ?? [], op) } : o
+      ),
+    }))
+  }
+
+  const handleUpdateOp = (objectId: string, opId: string, patch: Partial<Op>, mergeKey?: string) => {
+    dispatch(
+      t('editor.history.editOp'),
+      (prev) => ({
+        ...prev,
+        objects: prev.objects.map((o) =>
+          o.id === objectId ? { ...o, stack: updateOp(o.stack ?? [], opId, patch) } : o
+        ),
+      }),
+      mergeKey
+    )
+  }
+
+  const handleRemoveOp = (objectId: string, opId: string) => {
+    dispatch(t('editor.history.deleteOp'), (prev) => ({
+      ...prev,
+      objects: prev.objects.map((o) =>
+        o.id === objectId ? { ...o, stack: removeOp(o.stack ?? [], opId) } : o
+      ),
+    }))
+  }
+
+  const handleToggleOp = (objectId: string, opId: string, enabled?: boolean) => {
+    dispatch(t('editor.history.toggleOp'), (prev) => ({
+      ...prev,
+      objects: prev.objects.map((o) =>
+        o.id === objectId ? { ...o, stack: toggleOp(o.stack ?? [], opId, enabled) } : o
+      ),
+    }))
+  }
+
+  const handleMoveOp = (objectId: string, fromIndex: number, toIndex: number) => {
+    dispatch(t('editor.history.reorderOp'), (prev) => ({
+      ...prev,
+      objects: prev.objects.map((o) =>
+        o.id === objectId ? { ...o, stack: moveOp(o.stack ?? [], fromIndex, toIndex) } : o
+      ),
+    }))
+  }
+
+  const handleSetRollback = (objectId: string, index: number | null) => {
+    dispatch(t('editor.history.rollback'), (prev) => ({
+      ...prev,
+      objects: prev.objects.map((o) =>
+        o.id === objectId ? { ...o, rollback: index } : o
+      ),
+    }))
+  }
+
+  const handleFlatten = async (objectId: string) => {
+    const meshData = meshesMap[objectId]
+    if (!meshData) return
+    const newMeshId = crypto.randomUUID
+      ? crypto.randomUUID()
+      : `mesh-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const indexed: IndexedMesh = {
+      vertProperties: meshData.vertProperties,
+      triVerts: meshData.triVerts,
+    }
+    const store = await openMeshStore()
+    await store.save(newMeshId, indexed)
+    getModelClient().registerMesh(newMeshId, indexed)
+    meshRegistry.set(newMeshId, indexed)
+
+    dispatch(t('editor.history.flatten', 'Flatten stack'), (prev) => ({
+      ...prev,
+      objects: prev.objects.map((o) =>
+        o.id === objectId
+          ? {
+              ...o,
+              source: { kind: 'mesh', meshId: newMeshId, unit: 'mm' },
+              stack: [],
+              rollback: null,
+            }
+          : o
+      ),
+    }))
+  }
+
+  const handleCombine = (
+    targetId: string,
+    toolIds: string[],
+    mode: 'union' | 'subtract' | 'intersect'
+  ) => {
+    dispatch(t('editor.history.combine', 'Combine'), (prev) =>
+      combineObjects(prev, targetId, toolIds, mode)
+    )
+  }
+
+  const handleReleaseTool = (toolId: string) => {
+    let foundTargetId: string | undefined
+    let foundOpId: string | undefined
+
+    for (const o of doc.objects) {
+      for (const op of o.stack ?? []) {
+        if (op.enabled && op.kind === 'boolean') {
+          const tools = (op as any).params?.tools
+          if (Array.isArray(tools) && tools.includes(toolId)) {
+            foundTargetId = o.id
+            foundOpId = op.id
+            break
+          }
+        }
+      }
+      if (foundTargetId) break
+    }
+
+    if (foundTargetId && foundOpId) {
+      dispatch(t('editor.history.releaseTool', 'Release tool'), (prev) =>
+        releaseTool(prev, foundTargetId!, foundOpId!, toolId)
+      )
     }
   }
 
@@ -1228,6 +1356,8 @@ export function EditorMode() {
                 }
               }}
               onDeleteFeature={handleDeleteFeature}
+              onCombine={handleCombine}
+              onReleaseTool={handleReleaseTool}
               healthMap={healthMap}
             />
           </div>
@@ -1391,6 +1521,14 @@ export function EditorMode() {
                 }}
                 onDeleteFeature={handleDeleteFeature}
                 onAddFeature={(objId, kind) => handleOpenFeatureDialog(kind, objId)}
+                objectStatuses={model?.editor?.statuses}
+                onAddOp={handleAddOp}
+                onUpdateOp={handleUpdateOp}
+                onRemoveOp={handleRemoveOp}
+                onToggleOp={handleToggleOp}
+                onMoveOp={handleMoveOp}
+                onSetRollback={handleSetRollback}
+                onFlatten={handleFlatten}
                 healthMap={healthMap}
                 meshes={meshesMap}
               />
@@ -1522,6 +1660,8 @@ export function EditorMode() {
                     }
                   }}
                   onDeleteFeature={handleDeleteFeature}
+                  onCombine={handleCombine}
+                  onReleaseTool={handleReleaseTool}
                   healthMap={healthMap}
                 />
               ) : activeFeatureDialog ? (
@@ -1581,6 +1721,14 @@ export function EditorMode() {
                     }}
                     onDeleteFeature={handleDeleteFeature}
                     onAddFeature={(objId, kind) => handleOpenFeatureDialog(kind, objId)}
+                    objectStatuses={model?.editor?.statuses}
+                    onAddOp={handleAddOp}
+                    onUpdateOp={handleUpdateOp}
+                    onRemoveOp={handleRemoveOp}
+                    onToggleOp={handleToggleOp}
+                    onMoveOp={handleMoveOp}
+                    onSetRollback={handleSetRollback}
+                    onFlatten={handleFlatten}
                     healthMap={healthMap}
                     meshes={meshesMap}
                   />

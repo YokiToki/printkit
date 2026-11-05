@@ -8,6 +8,7 @@ export const LANGUAGES = ['en', 'ru'] as const
 export type Language = (typeof LANGUAGES)[number]
 
 function syncDocument(lng: string) {
+  if (typeof document === 'undefined') return
   document.documentElement.lang = lng
   document.title = i18n.t('app.title')
 }

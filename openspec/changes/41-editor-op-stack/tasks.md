@@ -21,10 +21,10 @@
 
 ## 4. UI (no artboard exists: built from `ui/` components and tokens)
 
-- [ ] 4.1 Stack section in Properties: rows with drag handle, eye, summary, failed mark, rollback marker, Add menu, per-op forms (`LengthField` / `NumberField`, axis and plane selectors), Flatten with confirmation. Component tests for add, edit, reorder (keyboard and pointer), suppress, delete, rollback, flatten; `stepperAssert` passes.
-- [ ] 4.2 Combine command (menu and context menu) and Release tool; outliner chips (ops count, tool of); ghost drawing of visible tools in `Viewport` with the existing tool colour tokens; export skips tool objects unless selected. Tests: Combine builds the op, release restores, export set, outliner chips.
-- [ ] 4.3 Messages for `stack.error.*` (notSolid, cycle, toolMissing, wallTooThick, tooMany, offsetEmpty) as keys with parameters; log entries per failed op. Test: key parity en/ru and message parameters.
-- [ ] 4.4 History: all stack commands through `dispatch` with merge for typing and one step per reorder. Test: undo/redo each command, merge, redo cleared.
+- [x] 4.1 Stack section in Properties: rows with drag handle, eye, summary, failed mark, rollback marker, Add menu, per-op forms (`LengthField` / `NumberField`, axis and plane selectors), Flatten with confirmation. Component tests for add, edit, reorder (keyboard and pointer), suppress, delete, rollback, flatten; `stepperAssert` passes.
+- [x] 4.2 Combine command (menu and context menu) and Release tool; outliner chips (ops count, tool of); ghost drawing of visible tools in `Viewport` with the existing tool colour tokens; export skips tool objects unless selected. Tests: Combine builds the op, release restores, export set, outliner chips.
+- [x] 4.3 Messages for `stack.error.*` (notSolid, cycle, toolMissing, wallTooThick, tooMany, offsetEmpty) as keys with parameters; log entries per failed op. Test: key parity en/ru and message parameters.
+- [x] 4.4 History: all stack commands through `dispatch` with merge for typing and one step per reorder. Test: undo/redo each command, merge, redo cleared.
 
 ## 5. Version
 

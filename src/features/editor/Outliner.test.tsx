@@ -292,4 +292,118 @@ describe('editor/Outliner', () => {
     fireEvent.click(screen.getByTestId('outliner-delete-feature-body-1-1'))
     expect(onDeleteFeature).toHaveBeenCalledWith('body-1', 1)
   })
+
+  it('renders ops count chip and tool of chip (Task 4.2)', () => {
+    const targetObj: EditorObject = {
+      ...obj1,
+      stack: [
+        {
+          id: 'bool-1',
+          kind: 'boolean',
+          enabled: true,
+          params: { mode: 'subtract', tools: ['obj-2'] },
+        },
+        {
+          id: 'offset-1',
+          kind: 'offset',
+          enabled: true,
+          params: { distance: 0.2 },
+        },
+      ],
+    }
+
+    render(
+      <Outliner
+        objects={[targetObj, obj2]}
+        selection={[]}
+        onSelect={vi.fn()}
+        onToggleVisible={vi.fn()}
+        onToggleLock={vi.fn()}
+        onRename={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onIsolate={vi.fn()}
+        onShowAll={vi.fn()}
+      />
+    )
+
+    // targetObj has 2 ops: should show 2 ops chip
+    const opsChip = screen.getByTestId('outliner-ops-chip-obj-1')
+    expect(opsChip).toBeInTheDocument()
+    expect(opsChip.textContent).toBe('2 ops')
+
+    // obj2 is a tool of Bracket: should show tool chip
+    const toolChip = screen.getByTestId('outliner-tool-chip-obj-2')
+    expect(toolChip).toBeInTheDocument()
+    expect(toolChip.textContent).toBe('tool of Bracket')
+  })
+
+  it('offers Release tool and Combine in context menu (Task 4.2)', () => {
+    const onCombine = vi.fn()
+    const onReleaseTool = vi.fn()
+
+    const targetObj: EditorObject = {
+      ...obj1,
+      stack: [
+        {
+          id: 'bool-1',
+          kind: 'boolean',
+          enabled: true,
+          params: { mode: 'subtract', tools: ['obj-2'] },
+        },
+      ],
+    }
+
+    const { rerender } = render(
+      <Outliner
+        objects={[targetObj, obj2]}
+        selection={['obj-1', 'obj-2']}
+        onSelect={vi.fn()}
+        onToggleVisible={vi.fn()}
+        onToggleLock={vi.fn()}
+        onRename={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onIsolate={vi.fn()}
+        onShowAll={vi.fn()}
+        onCombine={onCombine}
+        onReleaseTool={onReleaseTool}
+      />
+    )
+
+    // Right-click on obj-1 with 2 objects selected -> shows Combine options
+    fireEvent.contextMenu(screen.getByTestId('outliner-row-obj-1'))
+    expect(screen.getByTestId('outliner-action-combine-union')).toBeInTheDocument()
+    expect(screen.getByTestId('outliner-action-combine-subtract')).toBeInTheDocument()
+    expect(screen.getByTestId('outliner-action-combine-intersect')).toBeInTheDocument()
+
+    // Click Combine subtract
+    fireEvent.click(screen.getByTestId('outliner-action-combine-subtract'))
+    expect(onCombine).toHaveBeenCalledWith('obj-1', ['obj-2'], 'subtract')
+
+    // Now right-click on obj-2 (which is a tool) -> shows Release tool
+    rerender(
+      <Outliner
+        objects={[targetObj, obj2]}
+        selection={['obj-2']}
+        onSelect={vi.fn()}
+        onToggleVisible={vi.fn()}
+        onToggleLock={vi.fn()}
+        onRename={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onIsolate={vi.fn()}
+        onShowAll={vi.fn()}
+        onCombine={onCombine}
+        onReleaseTool={onReleaseTool}
+      />
+    )
+
+    fireEvent.contextMenu(screen.getByTestId('outliner-row-obj-2'))
+    expect(screen.getByTestId('outliner-action-release-tool')).toBeInTheDocument()
+
+    // Click Release tool
+    fireEvent.click(screen.getByTestId('outliner-action-release-tool'))
+    expect(onReleaseTool).toHaveBeenCalledWith('obj-2')
+  })
 })

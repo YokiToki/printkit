@@ -17,6 +17,8 @@ import {
   IconLine,
   IconBoxModel,
   IconRotate,
+  IconPlus,
+  IconLayersIntersect,
 } from '@tabler/icons-react'
 import type { EditorObject } from '../../editor/scene'
 import type { Sketch } from '../../editor/sketch/model'
@@ -42,6 +44,8 @@ export interface OutlinerProps {
   onDeleteSketch?: (id: string) => void
   onEditFeature?: (objectId: string, featureIndex: number) => void
   onDeleteFeature?: (objectId: string, featureIndex: number) => void
+  onCombine?: (targetId: string, toolIds: string[], mode: 'union' | 'subtract' | 'intersect') => void
+  onReleaseTool?: (toolId: string) => void
   healthMap?: Map<string, MeshHealth>
 }
 
@@ -64,6 +68,8 @@ export function Outliner({
   onDeleteSketch,
   onEditFeature,
   onDeleteFeature,
+  onCombine,
+  onReleaseTool,
   healthMap,
 }: OutlinerProps) {
   const { t } = useTranslation()
@@ -82,6 +88,21 @@ export function Outliner({
   const [expandedBodyIds, setExpandedBodyIds] = useState<Set<string>>(new Set())
 
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)
+
+  // Build map of tool id -> target object
+  const toolToTargetMap = new Map<string, EditorObject>()
+  for (const o of objects) {
+    for (const op of o.stack ?? []) {
+      if (op.enabled && op.kind === 'boolean') {
+        const tools = (op as any).params?.tools
+        if (Array.isArray(tools)) {
+          for (const tId of tools) {
+            toolToTargetMap.set(tId, o)
+          }
+        }
+      }
+    }
+  }
 
   useEffect(() => {
     if (editingId && editInputRef.current) {
@@ -415,6 +436,24 @@ export function Outliner({
                     )}
                   </div>
 
+                  {/* Chips: Ops count and Tool of */}
+                  {(obj.stack?.length ?? 0) > 0 && (
+                    <span
+                      data-testid={`outliner-ops-chip-${obj.id}`}
+                      className="shrink-0 px-1.5 py-0.2 rounded text-[10px] bg-surface-3 text-text-muted font-mono"
+                    >
+                      {t('editor.stack.opsCount', { count: obj.stack!.length })}
+                    </span>
+                  )}
+                  {toolToTargetMap.get(obj.id) && (
+                    <span
+                      data-testid={`outliner-tool-chip-${obj.id}`}
+                      className="shrink-0 px-1.5 py-0.2 rounded text-[10px] bg-accent/15 text-accent font-medium border border-accent/30"
+                    >
+                      {t('editor.stack.toolOf', { name: toolToTargetMap.get(obj.id)!.name })}
+                    </span>
+                  )}
+
                   {/* Mesh Health / Missing Flags */}
                   {isMissingMesh && (
                     <span
@@ -551,6 +590,76 @@ export function Outliner({
             <IconEyeCheck size={14} />
             <span>{t('editor.outliner.showAll')}</span>
           </button>
+          {toolToTargetMap.has(contextMenu.id) && (
+            <>
+              <div className="h-px bg-border my-1" />
+              <button
+                type="button"
+                data-testid="outliner-action-release-tool"
+                onClick={() => {
+                  onReleaseTool?.(contextMenu.id)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-surface-3 text-text cursor-pointer"
+              >
+                <IconLayersIntersect size={14} className="text-accent" />
+                <span>{t('editor.stack.releaseTool')}</span>
+              </button>
+            </>
+          )}
+          {selection.length > 1 && selection.includes(contextMenu.id) && (
+            <>
+              <div className="h-px bg-border my-1" />
+              <button
+                type="button"
+                data-testid="outliner-action-combine-union"
+                onClick={() => {
+                  onCombine?.(
+                    contextMenu.id,
+                    selection.filter((id) => id !== contextMenu.id),
+                    'union'
+                  )
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-surface-3 text-text cursor-pointer"
+              >
+                <IconPlus size={14} />
+                <span>{t('editor.stack.combine')} · {t('editor.op.union')}</span>
+              </button>
+              <button
+                type="button"
+                data-testid="outliner-action-combine-subtract"
+                onClick={() => {
+                  onCombine?.(
+                    contextMenu.id,
+                    selection.filter((id) => id !== contextMenu.id),
+                    'subtract'
+                  )
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-surface-3 text-text cursor-pointer"
+              >
+                <IconLayersIntersect size={14} />
+                <span>{t('editor.stack.combine')} · {t('editor.op.subtract')}</span>
+              </button>
+              <button
+                type="button"
+                data-testid="outliner-action-combine-intersect"
+                onClick={() => {
+                  onCombine?.(
+                    contextMenu.id,
+                    selection.filter((id) => id !== contextMenu.id),
+                    'intersect'
+                  )
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-surface-3 text-text cursor-pointer"
+              >
+                <IconLayersIntersect size={14} />
+                <span>{t('editor.stack.combine')} · {t('editor.op.intersect')}</span>
+              </button>
+            </>
+          )}
           <div className="h-px bg-border my-1" />
           <button
             type="button"

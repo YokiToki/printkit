@@ -28,7 +28,7 @@
 
 ## 5. Version
 
-- [ ] 5.1 Bump `package.json` to 1.12.0 and add `1.12.0 — 41-editor-op-stack` to `CHANGELOG.md`. Test: `site.test.ts`.
+- [x] 5.1 Bump `package.json` to 1.12.0 and add `1.12.0 — 41-editor-op-stack` to `CHANGELOG.md`. Test: `site.test.ts`.
 
 ## 6. Verification
 

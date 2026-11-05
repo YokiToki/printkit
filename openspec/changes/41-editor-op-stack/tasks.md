@@ -2,8 +2,8 @@
 
 ## 1. Spikes
 
-- [ ] 1.1 Minkowski: check `minkowskiSum`/`minkowskiDifference` in the installed `manifold-3d`; time and memory on a cube, a rounded bracket and a 200k-triangle STL with spheres of 16/24/48 segments; compare the circumscribed/inscribed guarantee against analytic values. Record limits (max triangles, sphere segments, fallback message) in `design.md` Decision 10. If Offset/Hollow cannot be done within reasonable limits, stop for `/opsx:update`.
-- [ ] 1.2 Cache: prototype the per-prefix LRU in a worker test (live-manifold counting, `delete()` on eviction), measure a 5-op stack edit; record in `design.md`.
+- [x] 1.1 Minkowski: check `minkowskiSum`/`minkowskiDifference` in the installed `manifold-3d`; time and memory on a cube, a rounded bracket and a 200k-triangle STL with spheres of 16/24/48 segments; compare the circumscribed/inscribed guarantee against analytic values. Record limits (max triangles, sphere segments, fallback message) in `design.md` Decision 10. If Offset/Hollow cannot be done within reasonable limits, stop for `/opsx:update`.
+- [x] 1.2 Cache: prototype the per-prefix LRU in a worker test (live-manifold counting, `delete()` on eviction), measure a 5-op stack edit; record in `design.md`.
 
 ## 2. Stack model (React-free, `src/editor/`)
 

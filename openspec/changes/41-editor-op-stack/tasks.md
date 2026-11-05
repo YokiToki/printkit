@@ -32,5 +32,5 @@
 
 ## 6. Verification
 
-- [ ] 6.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; scenes of `39` and `40` load and look the same.
-- [ ] 6.2 In the browser, en and ru, desktop and 390 px: subtract a patterned cylinder from a plate, move the tool and watch the holes move, mirror a half bracket, hollow an imported STL with drains, grow a part by 0.2 mm, reorder and suppress operations, roll back, flatten and undo, force a cycle and an open-mesh tool and read the messages; export and check the bbox/volume against the numbers.
+- [x] 6.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; scenes of `39` and `40` load and look the same.
+- [x] 6.2 In the browser, en and ru, desktop and 390 px: subtract a patterned cylinder from a plate, move the tool and watch the holes move, mirror a half bracket, hollow an imported STL with drains, grow a part by 0.2 mm, reorder and suppress operations, roll back, flatten and undo, force a cycle and an open-mesh tool and read the messages; export and check the bbox/volume against the numbers.

@@ -55,7 +55,7 @@ export function FeatureDialog({
 
   // Target body (if op !== 'new')
   const featureBodies = useMemo(
-    () => objects.filter((o) => o.source.kind === 'feature' || o.source.kind === 'primitive'),
+    () => objects.filter((o) => o.source.kind === 'feature' || o.source.kind === 'primitive' || o.source.kind === 'empty'),
     [objects],
   )
   const [targetId, setTargetId] = useState<string>(
@@ -156,7 +156,9 @@ export function FeatureDialog({
       feat = revolveFeat
     }
 
-    onApply(feat, op === 'new' ? undefined : targetId, featureIndex)
+    const effectiveTargetId =
+      featureIndex !== undefined ? (initialTargetObjectId ?? targetId) : op === 'new' ? undefined : targetId
+    onApply(feat, effectiveTargetId, featureIndex)
   }
 
   return (

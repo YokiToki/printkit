@@ -169,17 +169,25 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
       const tools: ToolMesh[] = []
       const statuses: Record<string, ObjectStatus> = {}
 
-      const editorObjs: EditorObject[] = p.objects.map((o) => ({
-        id: o.id,
-        name: o.name ?? o.id,
-        visible: o.visible ?? true,
-        locked: o.locked ?? false,
-        color: o.color ?? 0,
-        source: o.source,
-        transform: o.transform ?? { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
-        stack: o.stack ? o.stack : (o.source.kind === 'feature' ? o.source.features.map(featureToOp) : []),
-        rollback: o.rollback,
-      }))
+      const editorObjs: EditorObject[] = p.objects.map((o) => {
+        let stack = o.stack ?? []
+        let source = o.source
+        if (o.source.kind === 'feature') {
+          stack = [...o.source.features.map(featureToOp), ...stack]
+          source = { kind: 'empty' }
+        }
+        return {
+          id: o.id,
+          name: o.name ?? o.id,
+          visible: o.visible ?? true,
+          locked: o.locked ?? false,
+          color: o.color ?? 0,
+          source,
+          transform: o.transform ?? { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+          stack,
+          rollback: o.rollback,
+        }
+      })
 
       // Find tool objects used by enabled boolean ops
       const toolUsage = new Set<string>()
@@ -286,9 +294,9 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
 
         if (evalRes.solid) {
           const mesh = meshOf(evalRes.solid)
-          if (obj.source.kind === 'feature') {
+          if (oParam?.source?.kind === 'feature') {
             const cacheKey = JSON.stringify({
-              features: obj.source.features,
+              features: oParam.source.features,
               sketches: p.sketches ?? [],
               quality: p.quality ?? 'fine',
             })

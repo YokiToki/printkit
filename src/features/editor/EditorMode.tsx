@@ -59,7 +59,7 @@ import type { ScreenPickResult } from '../viewport/sketchPicking'
 import type { ViewportSketchConfig } from '../viewport/sketchMesh'
 import type { MeshData } from '../../geometry/mesh'
 import type { Op } from '../../editor/stack'
-import { addOp, updateOp, removeOp, toggleOp, moveOp } from '../../editor/stack'
+import { addOp, updateOp, removeOp, toggleOp, moveOp, featureToOp } from '../../editor/stack'
 import { combineObjects, releaseTool } from '../../geometry/features/ops/boolean'
 import { meshRegistry } from '../../geometry/model'
 import type { IndexedMesh } from '../../geometry/stl-import'
@@ -343,6 +343,48 @@ export function EditorMode() {
     }))
   }
 
+  const getInitialFeature = (
+    obj: EditorObject | undefined,
+    featureIndex: number | undefined,
+  ): Feature | undefined => {
+    if (!obj || featureIndex === undefined || featureIndex < 0) return undefined
+    if (obj.source.kind === 'feature') {
+      return obj.source.features[featureIndex]
+    }
+    const op = obj.stack?.[featureIndex]
+    if (op && (op.kind === 'extrude' || op.kind === 'revolve')) {
+      if (op.kind === 'extrude') {
+        const p = op.params as any
+        return {
+          id: op.id,
+          kind: 'extrude',
+          sketch: p.sketchId,
+          sketchId: p.sketchId,
+          regions: p.regions,
+          side: p.side ?? 'one',
+          d1: p.d1 ?? 10,
+          d2: p.d2,
+          op: p.op ?? 'new',
+          top: p.top,
+          bottom: p.bottom,
+        }
+      } else {
+        const p = op.params as any
+        return {
+          id: op.id,
+          kind: 'revolve',
+          sketch: p.sketchId,
+          sketchId: p.sketchId,
+          regions: p.regions,
+          axis: p.axis,
+          angle: p.angle ?? 360,
+          op: p.op ?? 'new',
+        }
+      }
+    }
+    return undefined
+  }
+
   const handleOpenFeatureDialog = (
     kind: 'extrude' | 'revolve',
     targetObjectId?: string,
@@ -351,34 +393,54 @@ export function EditorMode() {
     setActiveFeatureDialog({ kind, targetObjectId, featureIndex })
   }
 
+  const handleEditFeature = (objId: string, fIdx: number) => {
+    const obj = doc.objects.find((o) => o.id === objId)
+    if (obj) {
+      if (obj.source.kind === 'feature' && obj.source.features[fIdx]) {
+        handleOpenFeatureDialog(obj.source.features[fIdx].kind, objId, fIdx)
+      } else if (obj.stack?.[fIdx]) {
+        const kind = obj.stack[fIdx].kind
+        if (kind === 'extrude' || kind === 'revolve') {
+          handleOpenFeatureDialog(kind, objId, fIdx)
+        }
+      }
+    }
+  }
+
   const handleApplyFeature = (
     feature: Feature,
     targetObjectId?: string,
     featureIndex?: number,
   ) => {
+    const op = featureToOp(feature)
+
     if (targetObjectId) {
       const targetObj = doc.objects.find((o) => o.id === targetObjectId)
       if (!targetObj) return
 
-      let nextFeatures: Feature[] = []
-      if (targetObj.source.kind === 'feature') {
-        nextFeatures = [...targetObj.source.features]
-        if (featureIndex !== undefined && featureIndex >= 0 && featureIndex < nextFeatures.length) {
-          nextFeatures[featureIndex] = feature
-        } else {
-          nextFeatures.push(feature)
-        }
-      } else {
-        nextFeatures = [feature]
-      }
-
       dispatch(`Update ${feature.kind}`, (prev) => ({
         ...prev,
-        objects: prev.objects.map((o) =>
-          o.id === targetObjectId
-            ? { ...o, source: { kind: 'feature', features: nextFeatures } }
-            : o,
-        ),
+        objects: prev.objects.map((o) => {
+          if (o.id !== targetObjectId) return o
+
+          let currentStack = o.stack ?? []
+          if (o.source.kind === 'feature') {
+            currentStack = [...o.source.features.map(featureToOp), ...currentStack]
+          }
+
+          let nextStack: Op[] = []
+          if (featureIndex !== undefined && featureIndex >= 0 && featureIndex < currentStack.length) {
+            nextStack = currentStack.map((item, idx) => (idx === featureIndex ? { ...op, id: item.id } : item))
+          } else {
+            nextStack = addOp(currentStack, op)
+          }
+
+          return {
+            ...o,
+            source: o.source.kind === 'feature' ? { kind: 'empty' } : o.source,
+            stack: nextStack,
+          }
+        }),
       }))
     } else {
       const existingNames = doc.objects.map((o) => o.name)
@@ -396,9 +458,9 @@ export function EditorMode() {
         locked: false,
         color: doc.objects.length % 7,
         source: {
-          kind: 'feature',
-          features: [feature],
+          kind: 'empty',
         },
+        stack: [op],
         transform: {
           position: [0, 0, 0],
           rotation: [0, 0, 0],
@@ -420,27 +482,50 @@ export function EditorMode() {
 
   const handleDeleteFeature = (objectId: string, featureIndex: number) => {
     const targetObj = doc.objects.find((o) => o.id === objectId)
-    if (!targetObj || targetObj.source.kind !== 'feature') return
+    if (!targetObj) return
 
-    const nextFeatures = targetObj.source.features.filter((_, idx) => idx !== featureIndex)
-    if (nextFeatures.length === 0) {
-      handleDelete([objectId])
-    } else {
-      dispatch('Delete Feature', (prev) => ({
-        ...prev,
-        objects: prev.objects.map((o) =>
-          o.id === objectId ? { ...o, source: { kind: 'feature', features: nextFeatures } } : o,
-        ),
-      }))
+    if (targetObj.source.kind === 'feature') {
+      const nextFeatures = targetObj.source.features.filter((_, idx) => idx !== featureIndex)
+      if (nextFeatures.length === 0) {
+        handleDelete([objectId])
+      } else {
+        dispatch('Delete Feature', (prev) => ({
+          ...prev,
+          objects: prev.objects.map((o) =>
+            o.id === objectId ? { ...o, source: { kind: 'feature', features: nextFeatures } } : o,
+          ),
+        }))
+      }
+    } else if (targetObj.stack) {
+      const nextStack = targetObj.stack.filter((_, idx) => idx !== featureIndex)
+      if (nextStack.length === 0 && targetObj.source.kind === 'empty') {
+        handleDelete([objectId])
+      } else {
+        dispatch('Delete Feature', (prev) => ({
+          ...prev,
+          objects: prev.objects.map((o) =>
+            o.id === objectId ? { ...o, stack: nextStack } : o,
+          ),
+        }))
+      }
     }
   }
 
   const handleAddOp = (objectId: string, op: Op) => {
     dispatch(t('editor.history.addOp'), (prev) => ({
       ...prev,
-      objects: prev.objects.map((o) =>
-        o.id === objectId ? { ...o, stack: addOp(o.stack ?? [], op) } : o
-      ),
+      objects: prev.objects.map((o) => {
+        if (o.id !== objectId) return o
+        let currentStack = o.stack ?? []
+        if (o.source.kind === 'feature') {
+          currentStack = [...o.source.features.map(featureToOp), ...currentStack]
+        }
+        return {
+          ...o,
+          source: o.source.kind === 'feature' ? { kind: 'empty' } : o.source,
+          stack: addOp(currentStack, op),
+        }
+      }),
     }))
   }
 
@@ -1349,12 +1434,7 @@ export function EditorMode() {
                   setActiveSketchId(null)
                 }
               }}
-              onEditFeature={(objId, fIdx) => {
-                const obj = doc.objects.find((o) => o.id === objId)
-                if (obj?.source.kind === 'feature') {
-                  handleOpenFeatureDialog(obj.source.features[fIdx].kind, objId, fIdx)
-                }
-              }}
+              onEditFeature={handleEditFeature}
               onDeleteFeature={handleDeleteFeature}
               onCombine={handleCombine}
               onReleaseTool={handleReleaseTool}
@@ -1472,14 +1552,12 @@ export function EditorMode() {
                 objects={doc.objects}
                 targetObjectId={activeFeatureDialog.targetObjectId}
                 featureIndex={activeFeatureDialog.featureIndex}
-                initialFeature={
-                  activeFeatureDialog.targetObjectId && activeFeatureDialog.featureIndex !== undefined
-                    ? (
-                        doc.objects.find((o) => o.id === activeFeatureDialog.targetObjectId)
-                          ?.source as { kind: 'feature'; features: Feature[] }
-                      )?.features?.[activeFeatureDialog.featureIndex]
-                    : undefined
-                }
+                initialFeature={getInitialFeature(
+                  activeFeatureDialog.targetObjectId
+                    ? doc.objects.find((o) => o.id === activeFeatureDialog.targetObjectId)
+                    : undefined,
+                  activeFeatureDialog.featureIndex,
+                )}
                 onApply={handleApplyFeature}
                 onCancel={() => setActiveFeatureDialog(null)}
               />
@@ -1513,12 +1591,7 @@ export function EditorMode() {
                 onUpdateObject={handleUpdateObject}
                 onUpdateTransform={handleUpdateTransform}
                 onUpdatePrimitiveParams={handleUpdatePrimitiveParams}
-                onEditFeature={(objId, fIdx) => {
-                  const obj = doc.objects.find((o) => o.id === objId)
-                  if (obj?.source.kind === 'feature') {
-                    handleOpenFeatureDialog(obj.source.features[fIdx].kind, objId, fIdx)
-                  }
-                }}
+                onEditFeature={handleEditFeature}
                 onDeleteFeature={handleDeleteFeature}
                 onAddFeature={(objId, kind) => handleOpenFeatureDialog(kind, objId)}
                 objectStatuses={model?.editor?.statuses}
@@ -1653,12 +1726,7 @@ export function EditorMode() {
                       setActiveSketchId(null)
                     }
                   }}
-                  onEditFeature={(objId, fIdx) => {
-                    const obj = doc.objects.find((o) => o.id === objId)
-                    if (obj?.source.kind === 'feature') {
-                      handleOpenFeatureDialog(obj.source.features[fIdx].kind, objId, fIdx)
-                    }
-                  }}
+                  onEditFeature={handleEditFeature}
                   onDeleteFeature={handleDeleteFeature}
                   onCombine={handleCombine}
                   onReleaseTool={handleReleaseTool}
@@ -1671,14 +1739,12 @@ export function EditorMode() {
                   objects={doc.objects}
                   targetObjectId={activeFeatureDialog.targetObjectId}
                   featureIndex={activeFeatureDialog.featureIndex}
-                  initialFeature={
-                    activeFeatureDialog.targetObjectId && activeFeatureDialog.featureIndex !== undefined
-                      ? (
-                          doc.objects.find((o) => o.id === activeFeatureDialog.targetObjectId)
-                            ?.source as { kind: 'feature'; features: Feature[] }
-                        )?.features?.[activeFeatureDialog.featureIndex]
-                      : undefined
-                  }
+                  initialFeature={getInitialFeature(
+                    activeFeatureDialog.targetObjectId
+                      ? doc.objects.find((o) => o.id === activeFeatureDialog.targetObjectId)
+                      : undefined,
+                    activeFeatureDialog.featureIndex,
+                  )}
                   onApply={handleApplyFeature}
                   onCancel={() => setActiveFeatureDialog(null)}
                 />
@@ -1713,12 +1779,7 @@ export function EditorMode() {
                     onUpdateObject={handleUpdateObject}
                     onUpdateTransform={handleUpdateTransform}
                     onUpdatePrimitiveParams={handleUpdatePrimitiveParams}
-                    onEditFeature={(objId, fIdx) => {
-                      const obj = doc.objects.find((o) => o.id === objId)
-                      if (obj?.source.kind === 'feature') {
-                        handleOpenFeatureDialog(obj.source.features[fIdx].kind, objId, fIdx)
-                      }
-                    }}
+                    onEditFeature={handleEditFeature}
                     onDeleteFeature={handleDeleteFeature}
                     onAddFeature={(objId, kind) => handleOpenFeatureDialog(kind, objId)}
                     objectStatuses={model?.editor?.statuses}

@@ -294,4 +294,72 @@ describe('generate("editor") (Task 3.5)', () => {
     expect(res.editor?.statuses['a']?.error).toBe('stack.error.cycle')
     expect(res.editor?.statuses['b']?.error).toBe('stack.error.cycle')
   })
+
+  it('evaluates boolean operation on an extrude body without disappearing', async () => {
+    const sketch = {
+      id: 'sk-rect',
+      name: 'Rect',
+      plane: { base: 'XY' as const, offset: 0 },
+      visible: true,
+      points: {
+        p1: { x: -10, y: -10 },
+        p2: { x: 10, y: -10 },
+        p3: { x: 10, y: 10 },
+        p4: { x: -10, y: 10 },
+      },
+      curves: {
+        l1: { id: 'l1', kind: 'line' as const, a: 'p1', b: 'p2', construction: false },
+        l2: { id: 'l2', kind: 'line' as const, a: 'p2', b: 'p3', construction: false },
+        l3: { id: 'l3', kind: 'line' as const, a: 'p3', b: 'p4', construction: false },
+        l4: { id: 'l4', kind: 'line' as const, a: 'p4', b: 'p1', construction: false },
+      },
+      constraints: [],
+    }
+
+    const params: EditorModelParams = {
+      objects: [
+        {
+          id: 'extrude-target',
+          visible: true,
+          source: { kind: 'empty' },
+          stack: [
+            {
+              id: 'extrude-op-1',
+              kind: 'extrude',
+              enabled: true,
+              params: {
+                sketchId: 'sk-rect',
+                side: 'one',
+                d1: 10,
+                op: 'new',
+              },
+            },
+            {
+              id: 'sub-op',
+              kind: 'boolean',
+              enabled: true,
+              params: {
+                mode: 'subtract',
+                tools: ['tool-cyl'],
+              },
+            },
+          ],
+        },
+        {
+          id: 'tool-cyl',
+          visible: false,
+          source: { kind: 'primitive', shape: 'cylinder', params: { diameter: 10, height: 20 } },
+        },
+      ],
+      sketches: [sketch],
+    }
+
+    const res = await generate('editor', params)
+    expect(res.parts).toHaveLength(1)
+    expect(res.parts[0].label).toBe('extrude-target')
+    // 20x20x10 block volume is 4000 minus cylinder volume (~785)
+    expect(res.parts[0].mesh.volume).toBeGreaterThan(3100)
+    expect(res.parts[0].mesh.volume).toBeLessThan(3300)
+    expect(res.editor?.statuses['extrude-target'].ops[1].status).toBe('ok')
+  })
 })

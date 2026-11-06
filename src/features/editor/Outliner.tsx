@@ -122,8 +122,9 @@ export function Outliner({
     // Check if any object depends on this sketch
     const hasDependency = objects.some(
       (o) =>
-        o.source.kind === 'feature' &&
-        o.source.features.some((f) => f.sketch === sketchId || f.sketchId === sketchId),
+        (o.source.kind === 'feature' &&
+          o.source.features.some((f) => f.sketch === sketchId || f.sketchId === sketchId)) ||
+        (o.stack ?? []).some((op) => (op.params as any)?.sketchId === sketchId),
     )
     if (hasDependency) {
       setConfirmDeleteSketchId(sketchId)

@@ -120,4 +120,43 @@ describe('FeatureDialog', () => {
       undefined
     )
   })
+
+  it('passes targetObjectId when editing an existing feature even if op is new', async () => {
+    const user = userEvent.setup()
+    const onApply = vi.fn()
+    const onCancel = vi.fn()
+
+    render(
+      <UnitProvider>
+        <FeatureDialog
+          kind="extrude"
+          sketches={[dummySketch]}
+          targetObjectId="body-1"
+          featureIndex={0}
+          initialFeature={{
+            kind: 'extrude',
+            sketch: 'sk-1',
+            side: 'one',
+            op: 'new',
+            d1: 15,
+          }}
+          onApply={onApply}
+          onCancel={onCancel}
+        />
+      </UnitProvider>
+    )
+
+    await user.click(screen.getByTestId('feature-dialog-apply'))
+
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'extrude',
+        sketch: 'sk-1',
+        op: 'new',
+        d1: 15,
+      }),
+      'body-1',
+      0
+    )
+  })
 })

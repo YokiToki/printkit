@@ -161,4 +161,45 @@ describe('boolean.ts (Task 3.1)', () => {
     expect(releasedTarget.stack).toHaveLength(0)
     expect(releasedTool.visible).toBe(true)
   })
+
+  it('combines with target that has an extrude in stack without losing it', () => {
+    const doc: SceneDoc = {
+      schema: 1,
+      objects: [
+        {
+          id: 'target-extrude',
+          name: 'Extrude Body',
+          visible: true,
+          locked: false,
+          color: 0,
+          source: { kind: 'empty' },
+          stack: [
+            {
+              id: 'ext-1',
+              kind: 'extrude',
+              enabled: true,
+              params: { sketchId: 's1', side: 'one', d1: 10, op: 'new' },
+            },
+          ],
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+        {
+          id: 'tool-cyl',
+          name: 'Tool Cylinder',
+          visible: true,
+          locked: false,
+          color: 1,
+          source: { kind: 'primitive', shape: 'cylinder', params: { diameter: 10, height: 20 } },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+      ],
+    }
+
+    const combined = combineObjects(doc, 'target-extrude', ['tool-cyl'], 'subtract')
+    const target = combined.objects.find((o) => o.id === 'target-extrude')!
+
+    expect(target.stack).toHaveLength(2)
+    expect(target.stack![0].kind).toBe('extrude')
+    expect(target.stack![1].kind).toBe('boolean')
+  })
 })

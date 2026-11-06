@@ -146,4 +146,39 @@ describe('EditorMode', () => {
     expect(screen.queryByTestId('feature-dialog')).not.toBeInTheDocument()
     expect(screen.getByText('Extrude')).toBeInTheDocument()
   })
+
+  it('editing an extrude updates the body and does not duplicate it in outliner', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+
+    // Add sketch
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    await user.click(screen.getByTestId('toolbar-add-sketch-xy'))
+    await user.click(screen.getByTestId('sketch-tool-finish'))
+
+    // Extrude
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    await user.click(screen.getByTestId('toolbar-add-extrude'))
+    await user.click(screen.getByTestId('feature-dialog-apply'))
+
+    // Initially 1 body with name Extrude
+    expect(screen.getAllByText('Extrude')).toHaveLength(1)
+
+    // Expand Operations section
+    const expandSectionBtn = screen.getByRole('button', { name: /Expand:.*Operations/i })
+    await user.click(expandSectionBtn)
+
+    // In StackSection, expand op 0 and click edit
+    await user.click(screen.getByTestId('op-expand-btn-0'))
+    const editBtn = screen.getByTestId('op-edit-feature-btn')
+    expect(editBtn).toBeInTheDocument()
+    await user.click(editBtn)
+
+    // FeatureDialog is open for editing
+    expect(screen.getByTestId('feature-dialog')).toBeInTheDocument()
+    await user.click(screen.getByTestId('feature-dialog-apply'))
+
+    // Still exactly 1 body with name Extrude (no duplicate created!)
+    expect(screen.getAllByText('Extrude')).toHaveLength(1)
+  })
 })

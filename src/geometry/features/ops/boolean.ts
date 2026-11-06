@@ -3,7 +3,7 @@ import type { Mat4 } from '../../matrix'
 import type { BooleanParams } from '../../../editor/stack'
 import type { MeshHealth } from '../../../editor/health'
 import type { SceneDoc } from '../../../editor/scene'
-import { addOp, removeOp, updateOp } from '../../../editor/stack'
+import { addOp, featureToOp, removeOp, updateOp } from '../../../editor/stack'
 
 export interface ToolOperand {
   id: string
@@ -111,8 +111,16 @@ export function combineObjects(
 
   const updatedObjects = doc.objects.map((obj) => {
     if (obj.id === targetId) {
-      const nextStack = addOp(obj.stack ?? [], booleanOp)
-      return { ...obj, stack: nextStack }
+      let currentStack = obj.stack ?? []
+      if (obj.source.kind === 'feature') {
+        currentStack = [...obj.source.features.map(featureToOp), ...currentStack]
+      }
+      const nextStack = addOp(currentStack, booleanOp)
+      return {
+        ...obj,
+        source: obj.source.kind === 'feature' ? ({ kind: 'empty' } as const) : obj.source,
+        stack: nextStack,
+      }
     }
     if (toolSet.has(obj.id)) {
       // Hide tool by default as specified in design

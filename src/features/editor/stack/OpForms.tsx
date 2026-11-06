@@ -315,6 +315,7 @@ export function OpForm({
         {onEditFeature && (
           <button
             type="button"
+            data-testid="op-edit-feature-btn"
             onClick={onEditFeature}
             className="w-full py-1.5 px-3 rounded bg-surface-3 hover:bg-surface-4 text-text text-center cursor-pointer border border-border"
           >

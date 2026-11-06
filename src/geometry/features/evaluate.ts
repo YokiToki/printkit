@@ -49,11 +49,13 @@ export interface ToolObjectInfo {
   matrix: Mat4
   name: string
   health?: MeshHealth
+  signature?: string
 }
 
 export interface EvaluationContext {
   w: ManifoldToplevel
   targetId?: string
+  sourceKey?: string
   sketches?: Sketch[] | Record<string, Sketch> | Map<string, Sketch>
   targetMatrix?: Mat4
   toolObjects?: Map<string, ToolObjectInfo>
@@ -70,6 +72,34 @@ export interface EvaluateStackResult {
   failedParams?: Record<string, string | number>
   warning?: string
   recomputedCount?: number
+}
+
+function computeStepKey(
+  prefixKey: string,
+  op: Op,
+  ctx: EvaluationContext,
+  sketchMap: Map<string, Sketch>,
+): string {
+  let extraKey = ''
+  if (op.kind === 'boolean') {
+    const targetMatKey = ctx.targetMatrix?.join(',') ?? ''
+    const toolsKey =
+      (op as any).params.tools
+        ?.map((tId: string) => {
+          const tObj = ctx.toolObjects?.get(tId)
+          return `${tId}:mat=${tObj?.matrix?.join(',') ?? ''}:sig=${tObj?.signature ?? ''}`
+        })
+        .join(';') ?? ''
+    extraKey = `targetMat=${targetMatKey}|tools=${toolsKey}`
+  } else if (op.kind === 'extrude' || op.kind === 'revolve') {
+    const sketchId = (op as any).params.sketchId
+    const s = sketchId ? sketchMap.get(sketchId) : undefined
+    if (s) {
+      extraKey = `sketch=${JSON.stringify(s)}`
+    }
+  }
+
+  return `${prefixKey}|op:${op.id}:${op.kind}:${JSON.stringify(op.params)}:${op.enabled}:${extraKey}`
 }
 
 export async function evaluateStack(
@@ -104,7 +134,7 @@ export async function evaluateStack(
       ? ops.slice(0, rollback)
       : ops
 
-  let baseKey = `obj:${targetId}:q=${quality}`
+  let baseKey = `obj:${targetId}:src=${ctx.sourceKey ?? ''}:q=${quality}`
   let currentSolid: Manifold | null = initialSolid ? initialSolid.asOriginal() : null
   let lastWarning: string | undefined
   let recomputedCount = 0
@@ -127,16 +157,7 @@ export async function evaluateStack(
     let prefixKey = initKey
     for (let i = 0; i < effectiveOps.length; i++) {
       const op = effectiveOps[i]
-      const toolInfoKey =
-        op.kind === 'boolean'
-          ? (op as any).params.tools
-              ?.map((tId: string) => {
-                const tObj = ctx.toolObjects?.get(tId)
-                return `${tId}:${tObj?.matrix?.join(',') ?? ''}`
-              })
-              .join(';')
-          : ''
-      const stepKey = `${prefixKey}|op:${op.id}:${op.kind}:${JSON.stringify(op.params)}:${op.enabled}:${toolInfoKey}`
+      const stepKey = computeStepKey(prefixKey, op, ctx, sketchMap)
       const cachedSolid = cache.get(stepKey)
       if (cachedSolid && startIndex === i) {
         if (currentSolid) currentSolid.delete()
@@ -152,17 +173,7 @@ export async function evaluateStack(
   // Evaluate remaining ops
   let prefixKey = `${baseKey}:init`
   for (let i = 0; i < startIndex; i++) {
-    const op = effectiveOps[i]
-    const toolInfoKey =
-      op.kind === 'boolean'
-        ? (op as any).params.tools
-            ?.map((tId: string) => {
-              const tObj = ctx.toolObjects?.get(tId)
-              return `${tId}:${tObj?.matrix?.join(',') ?? ''}`
-            })
-            .join(';')
-        : ''
-    prefixKey = `${prefixKey}|op:${op.id}:${op.kind}:${JSON.stringify(op.params)}:${op.enabled}:${toolInfoKey}`
+    prefixKey = computeStepKey(prefixKey, effectiveOps[i], ctx, sketchMap)
   }
 
   for (let i = startIndex; i < effectiveOps.length; i++) {
@@ -172,8 +183,7 @@ export async function evaluateStack(
 
     if (!op.enabled) {
       // Disabled op: solid passes through unchanged
-      const toolInfoKey = ''
-      prefixKey = `${prefixKey}|op:${op.id}:${op.kind}:${JSON.stringify(op.params)}:false:${toolInfoKey}`
+      prefixKey = computeStepKey(prefixKey, op, ctx, sketchMap)
       if (cache && currentSolid) {
         cache.set(prefixKey, currentSolid)
       }
@@ -467,16 +477,7 @@ export async function evaluateStack(
 
     currentSolid = nextSolid ?? null
 
-    const toolInfoKey =
-      op.kind === 'boolean'
-        ? (op as any).params.tools
-            ?.map((tId: string) => {
-              const tObj = ctx.toolObjects?.get(tId)
-              return `${tId}:${tObj?.matrix?.join(',') ?? ''}`
-            })
-            .join(';')
-        : ''
-    prefixKey = `${prefixKey}|op:${op.id}:${op.kind}:${JSON.stringify(op.params)}:true:${toolInfoKey}`
+    prefixKey = computeStepKey(prefixKey, op, ctx, sketchMap)
     if (cache && currentSolid) {
       cache.set(prefixKey, currentSolid)
     }

@@ -231,9 +231,15 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
           }
         }
 
+        const sourceKey = JSON.stringify({
+          source: obj.source,
+          sketches: obj.source.kind === 'feature' ? p.sketches : undefined,
+        })
+
         const evalRes = await evaluateStack(baseSolid, obj.stack ?? [], obj.rollback, {
           w,
           targetId: obj.id,
+          sourceKey,
           targetMatrix: objMatrix,
           sketches: p.sketches,
           quality: p.quality,
@@ -296,6 +302,11 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
               matrix: objMatrix,
               name: obj.name,
               health: meshH,
+              signature: JSON.stringify({
+                source: obj.source,
+                stack: obj.stack,
+                rollback: obj.rollback,
+              }),
             })
             if (obj.visible) {
               tools.push({
@@ -348,6 +359,10 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
             })
           }
         }
+      }
+
+      for (const t of evaluatedTools.values()) {
+        t.solid?.delete()
       }
 
       return {

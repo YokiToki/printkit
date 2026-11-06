@@ -135,6 +135,143 @@ describe('generate("editor") (Task 3.5)', () => {
     expect(vol2).toBeGreaterThan(vol1)
   })
 
+  it('updates result when primitive source params change', async () => {
+    const params1: EditorModelParams = {
+      objects: [
+        {
+          id: 'box-param-test',
+          visible: true,
+          source: { kind: 'primitive', shape: 'box', params: { width: 10, depth: 10, height: 10 } },
+        },
+      ],
+    }
+    const res1 = await generate('editor', params1)
+    expect(res1.parts[0].mesh.volume).toBeCloseTo(1000, 0)
+
+    const params2: EditorModelParams = {
+      objects: [
+        {
+          id: 'box-param-test',
+          visible: true,
+          source: { kind: 'primitive', shape: 'box', params: { width: 20, depth: 10, height: 10 } },
+        },
+      ],
+    }
+    const res2 = await generate('editor', params2)
+    expect(res2.parts[0].mesh.volume).toBeCloseTo(2000, 0)
+  })
+
+  it('updates result when tool primitive params change', async () => {
+    const params1: EditorModelParams = {
+      objects: [
+        {
+          id: 'target-box-sub',
+          visible: true,
+          source: { kind: 'primitive', shape: 'box', params: { width: 20, depth: 20, height: 20 } },
+          stack: [
+            {
+              id: 'sub-op',
+              kind: 'boolean',
+              enabled: true,
+              params: { mode: 'subtract', tools: ['tool-cyl-sub'] },
+            },
+          ],
+        },
+        {
+          id: 'tool-cyl-sub',
+          visible: false,
+          source: { kind: 'primitive', shape: 'cylinder', params: { diameter: 10, height: 30 } },
+        },
+      ],
+    }
+    const res1 = await generate('editor', params1)
+    const vol1 = res1.parts[0].mesh.volume
+
+    const params2: EditorModelParams = {
+      objects: [
+        {
+          id: 'target-box-sub',
+          visible: true,
+          source: { kind: 'primitive', shape: 'box', params: { width: 20, depth: 20, height: 20 } },
+          stack: [
+            {
+              id: 'sub-op',
+              kind: 'boolean',
+              enabled: true,
+              params: { mode: 'subtract', tools: ['tool-cyl-sub'] },
+            },
+          ],
+        },
+        {
+          id: 'tool-cyl-sub',
+          visible: false,
+          source: { kind: 'primitive', shape: 'cylinder', params: { diameter: 15, height: 30 } },
+        },
+      ],
+    }
+    const res2 = await generate('editor', params2)
+    const vol2 = res2.parts[0].mesh.volume
+    expect(vol2).toBeLessThan(vol1)
+  })
+
+  it('updates result when target object moves relative to tool', async () => {
+    const params1: EditorModelParams = {
+      objects: [
+        {
+          id: 'target-box-move',
+          visible: true,
+          source: { kind: 'primitive', shape: 'box', params: { width: 20, depth: 20, height: 20 } },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+          stack: [
+            {
+              id: 'sub-op',
+              kind: 'boolean',
+              enabled: true,
+              params: { mode: 'subtract', tools: ['tool-cyl-move'] },
+            },
+          ],
+        },
+        {
+          id: 'tool-cyl-move',
+          visible: false,
+          source: { kind: 'primitive', shape: 'cylinder', params: { diameter: 10, height: 30 } },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+      ],
+    }
+    const res1 = await generate('editor', params1)
+    const vol1 = res1.parts[0].mesh.volume
+
+    // Move target box so tool cylinder only partially intersects / misses
+    const params2: EditorModelParams = {
+      objects: [
+        {
+          id: 'target-box-move',
+          visible: true,
+          source: { kind: 'primitive', shape: 'box', params: { width: 20, depth: 20, height: 20 } },
+          transform: { position: [15, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+          stack: [
+            {
+              id: 'sub-op',
+              kind: 'boolean',
+              enabled: true,
+              params: { mode: 'subtract', tools: ['tool-cyl-move'] },
+            },
+          ],
+        },
+        {
+          id: 'tool-cyl-move',
+          visible: false,
+          source: { kind: 'primitive', shape: 'cylinder', params: { diameter: 10, height: 30 } },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+      ],
+    }
+    const res2 = await generate('editor', params2)
+    const vol2 = res2.parts[0].mesh.volume
+    expect(vol2).toBeGreaterThan(vol1)
+  })
+
   it('reports cycle status', async () => {
     const params: EditorModelParams = {
       objects: [

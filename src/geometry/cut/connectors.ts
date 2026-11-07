@@ -1,4 +1,4 @@
-import type { Manifold, ManifoldToplevel } from 'manifold-3d'
+import type { Manifold, ManifoldToplevel, Mat4 } from 'manifold-3d'
 import { getWasm } from '../wasm'
 import type { PlaneFrame } from './section'
 import type { Vec2, Polygon } from './place'
@@ -70,7 +70,7 @@ export function measureMaterialDepth(
 /**
  * Builds a 4x4 matrix mapping cylinder local coords (z along normal, centered at p0) to world.
  */
-function cylinderToWorldMatrix(frame: PlaneFrame, pos: Vec2): number[] {
+function cylinderToWorldMatrix(frame: PlaneFrame, pos: Vec2): Mat4 {
   const p0 = frame.toWorld(pos)
   // [ u.x  v.x  n.x  p0.x ]
   // [ u.y  v.y  n.y  p0.y ]
@@ -152,7 +152,7 @@ export async function applyCutConnectors(
 
     // Matrix mapping (u, normal, v) to world:
     // x -> u, y -> normal, z -> v
-    const matDovetail: number[] = [
+    const matDovetail: Mat4 = [
       frame.u[0], frame.u[1], frame.u[2], 0,
       frame.normal[0], frame.normal[1], frame.normal[2], 0,
       frame.v[0], frame.v[1], frame.v[2], 0,

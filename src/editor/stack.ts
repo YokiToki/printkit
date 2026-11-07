@@ -1,5 +1,7 @@
 import type { ExtrudeParams } from '../geometry/features/extrude'
 import type { RevolveParams } from '../geometry/features/revolve'
+import type { HoleParams } from '../geometry/features/ops/hole'
+import type { TextOpParams } from '../geometry/features/ops/text'
 
 export type OpKind =
   | 'extrude'
@@ -10,6 +12,8 @@ export type OpKind =
   | 'circularPattern'
   | 'offset'
   | 'hollow'
+  | 'hole'
+  | 'text'
   | (string & {})
 
 export interface BaseOp<K extends string = OpKind, P = Record<string, unknown>> {
@@ -78,6 +82,9 @@ export interface HollowParams {
 }
 export type HollowOp = BaseOp<'hollow', HollowParams>
 
+export type HoleOp = BaseOp<'hole', HoleParams>
+export type TextOp = BaseOp<'text', TextOpParams>
+
 export interface UnknownOp extends BaseOp<string, Record<string, unknown>> {}
 
 export type Op =
@@ -89,6 +96,8 @@ export type Op =
   | CircularPatternOp
   | OffsetOp
   | HollowOp
+  | HoleOp
+  | TextOp
   | UnknownOp
 
 export const DEFAULT_BOOLEAN_PARAMS: BooleanParams = {
@@ -125,6 +134,29 @@ export const DEFAULT_OFFSET_PARAMS: OffsetParams = {
 export const DEFAULT_HOLLOW_PARAMS: HollowParams = {
   wall: 2,
   drains: [],
+}
+
+export const DEFAULT_HOLE_PARAMS: HoleParams = {
+  point: [0, 0, 0],
+  normal: [0, 0, 1],
+  kind: 'simple',
+  diameter: 3.4,
+  depth: 10,
+  through: false,
+}
+
+export const DEFAULT_TEXT_OP_PARAMS: TextOpParams = {
+  point: [0, 0, 0],
+  normal: [0, 0, 1],
+  text: '',
+  size: 8,
+  spacing: 0,
+  lineSpacing: 1,
+  align: 'center',
+  mode: 'emboss',
+  height: 0.6,
+  depth: 0.5,
+  rotation: 0,
 }
 
 export function emptyStack(): Op[] {
@@ -204,6 +236,107 @@ export function normalizeOp(raw: unknown): Op {
       }
       return { id, kind, enabled, label, params: { wall, drains } }
     }
+    case 'hole': {
+      const point: [number, number, number] =
+        Array.isArray(p.point) && p.point.length === 3
+          ? [Number(p.point[0]), Number(p.point[1]), Number(p.point[2])]
+          : [0, 0, 0]
+      const normal: [number, number, number] =
+        Array.isArray(p.normal) && p.normal.length === 3
+          ? [Number(p.normal[0]), Number(p.normal[1]), Number(p.normal[2])]
+          : [0, 0, 1]
+      const up: [number, number, number] | undefined =
+        Array.isArray(p.up) && p.up.length === 3
+          ? [Number(p.up[0]), Number(p.up[1]), Number(p.up[2])]
+          : undefined
+      const holeKind =
+        p.kind === 'counterbore' || p.kind === 'countersink' || p.kind === 'magnet' || p.kind === 'insert'
+          ? p.kind
+          : 'simple'
+      const diameter = typeof p.diameter === 'number' && Number.isFinite(p.diameter) ? Math.max(0.1, p.diameter) : 3.4
+      const depth = typeof p.depth === 'number' && Number.isFinite(p.depth) ? p.depth : undefined
+      const through = typeof p.through === 'boolean' ? p.through : undefined
+      const cbDiameter = typeof p.cbDiameter === 'number' && Number.isFinite(p.cbDiameter) ? p.cbDiameter : undefined
+      const cbDepth = typeof p.cbDepth === 'number' && Number.isFinite(p.cbDepth) ? p.cbDepth : undefined
+      const csDiameter = typeof p.csDiameter === 'number' && Number.isFinite(p.csDiameter) ? p.csDiameter : undefined
+      const csAngle = typeof p.csAngle === 'number' && Number.isFinite(p.csAngle) ? p.csAngle : undefined
+      const preset = typeof p.preset === 'string' ? p.preset : undefined
+      const fit = p.fit === 'loose' || p.fit === 'normal' ? p.fit : undefined
+      const headType = p.headType === 'din912' || p.headType === 'iso7380' ? p.headType : undefined
+      const tolerance = typeof p.tolerance === 'number' && Number.isFinite(p.tolerance) ? p.tolerance : undefined
+
+      return {
+        id,
+        kind: 'hole',
+        enabled,
+        label,
+        params: {
+          point,
+          normal,
+          up,
+          kind: holeKind,
+          diameter,
+          depth,
+          through,
+          cbDiameter,
+          cbDepth,
+          csDiameter,
+          csAngle,
+          preset,
+          fit,
+          headType,
+          tolerance,
+        },
+      }
+    }
+    case 'text': {
+      const point: [number, number, number] =
+        Array.isArray(p.point) && p.point.length === 3
+          ? [Number(p.point[0]), Number(p.point[1]), Number(p.point[2])]
+          : [0, 0, 0]
+      const normal: [number, number, number] =
+        Array.isArray(p.normal) && p.normal.length === 3
+          ? [Number(p.normal[0]), Number(p.normal[1]), Number(p.normal[2])]
+          : [0, 0, 1]
+      const up: [number, number, number] | undefined =
+        Array.isArray(p.up) && p.up.length === 3
+          ? [Number(p.up[0]), Number(p.up[1]), Number(p.up[2])]
+          : undefined
+      const text = typeof p.text === 'string' ? p.text : ''
+      const font = typeof p.font === 'string' ? p.font : undefined
+      const size = typeof p.size === 'number' && Number.isFinite(p.size) ? Math.max(0.5, p.size) : 8
+      const spacing = typeof p.spacing === 'number' && Number.isFinite(p.spacing) ? p.spacing : 0
+      const lineSpacing = typeof p.lineSpacing === 'number' && Number.isFinite(p.lineSpacing) ? p.lineSpacing : 1
+      const align = p.align === 'left' || p.align === 'right' ? p.align : 'center'
+      const mode = p.mode === 'engrave' ? 'engrave' : 'emboss'
+      const height = typeof p.height === 'number' && Number.isFinite(p.height) ? Math.max(0.05, p.height) : 0.6
+      const depth = typeof p.depth === 'number' && Number.isFinite(p.depth) ? Math.max(0.05, p.depth) : 0.5
+      const rotation = typeof p.rotation === 'number' && Number.isFinite(p.rotation) ? p.rotation : 0
+      const polygons = Array.isArray(p.polygons) ? (p.polygons as any) : undefined
+
+      return {
+        id,
+        kind: 'text',
+        enabled,
+        label,
+        params: {
+          point,
+          normal,
+          up,
+          text,
+          font,
+          size,
+          spacing,
+          lineSpacing,
+          align,
+          mode,
+          height,
+          depth,
+          rotation,
+          polygons,
+        },
+      }
+    }
     case 'extrude':
     case 'revolve': {
       return { id, kind, enabled, label, params: p as any }
@@ -271,7 +404,9 @@ export function isKnownOpKind(kind: string): boolean {
     kind === 'linearPattern' ||
     kind === 'circularPattern' ||
     kind === 'offset' ||
-    kind === 'hollow'
+    kind === 'hollow' ||
+    kind === 'hole' ||
+    kind === 'text'
   )
 }
 
@@ -369,6 +504,16 @@ export function opSummary(op: Op): OpSummary {
     case 'hollow': {
       const p = (op as HollowOp).params
       return { key: 'stack.summary.hollow', params: { wall: `${p.wall} mm` } }
+    }
+    case 'hole': {
+      const p = (op as HoleOp).params
+      const dStr = `Ø${p.diameter} mm`
+      return { key: `stack.summary.hole.${p.kind}`, params: { diameter: dStr } }
+    }
+    case 'text': {
+      const p = (op as TextOp).params
+      const snippet = p.text.length > 8 ? p.text.slice(0, 8) + '…' : p.text || '“ ”'
+      return { key: `stack.summary.text.${p.mode}`, params: { text: snippet } }
     }
     default:
       return { key: 'stack.summary.unknown', params: { kind: op.kind } }

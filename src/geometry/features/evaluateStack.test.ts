@@ -178,4 +178,58 @@ describe('evaluateStack (Task 3.4)', () => {
     res.solid!.delete()
     cube.delete()
   })
+
+  it('evaluates hole and text ops and handles empty target failure (Task 3.4)', async () => {
+    const w = await getWasm()
+    const cube = w.Manifold.cube([20, 20, 10], true).translate([0, 0, 5])
+    const initVol = cube.volume()
+
+    const ops: Op[] = [
+      {
+        id: 'op-hole-1',
+        kind: 'hole',
+        enabled: true,
+        params: {
+          point: [0, 0, 10],
+          normal: [0, 0, 1],
+          kind: 'simple',
+          diameter: 4,
+          depth: 5,
+        },
+      },
+      {
+        id: 'op-text-1',
+        kind: 'text',
+        enabled: true,
+        params: {
+          point: [5, 5, 10],
+          normal: [0, 0, 1],
+          text: 'X',
+          size: 4,
+          mode: 'emboss',
+          height: 1.0,
+          polygons: [[[-1, -1], [1, -1], [1, 1], [-1, 1]]],
+        },
+      },
+    ]
+
+    const res = await evaluateStack(cube, ops, null, { w })
+    expect(res.solid).toBeDefined()
+    expectValidSolid(res.solid!)
+    expect(res.failedIndex).toBeUndefined()
+
+    // Hole subtracts volume, text adds volume
+    const holeVol = Math.PI * 2 * 2 * 5 // ~62.8
+    const textVol = 4 * 1.0 // 4
+    expect(res.solid!.volume()).toBeCloseTo(initVol - holeVol + textVol, 0)
+    res.solid!.delete()
+
+    // Failing on empty target
+    const resFail = await evaluateStack(null, ops, null, { w })
+    expect(resFail.solid).toBeUndefined()
+    expect(resFail.failedIndex).toBe(0)
+    expect(resFail.failedReason).toBe('stack.error.targetEmpty')
+
+    cube.delete()
+  })
 })

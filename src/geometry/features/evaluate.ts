@@ -2,7 +2,7 @@ import type { Manifold, ManifoldToplevel } from 'manifold-3d'
 import type { Sketch } from '../../editor/sketch/model'
 import type { Mat4 } from '../matrix'
 import type { MeshHealth } from '../../editor/health'
-import type { Op, BooleanParams, ExtrudeOp, RevolveOp, MirrorOp, LinearPatternOp, CircularPatternOp, OffsetOp, HollowOp } from '../../editor/stack'
+import type { Op, BooleanParams, ExtrudeOp, RevolveOp, MirrorOp, LinearPatternOp, CircularPatternOp, OffsetOp, HollowOp, HoleOp, TextOp } from '../../editor/stack'
 import { featureToOp } from '../../editor/stack'
 import { buildExtrude, type EdgeBreak, type ExtrudeParams } from './extrude'
 import { buildRevolve, type RevolveParams } from './revolve'
@@ -11,6 +11,8 @@ import { applyMirror } from './ops/mirror'
 import { applyLinearPattern, applyCircularPattern } from './ops/pattern'
 import { applyOffset } from './ops/offset'
 import { applyHollow } from './ops/hollow'
+import { applyHole } from './ops/hole'
+import { applyText } from './ops/text'
 import { identityMat4, relativeMatrix } from '../matrix'
 import { PrefixCache } from './cache'
 
@@ -460,6 +462,53 @@ export async function evaluateStack(
           failedParams: res.errorParams,
           recomputedCount,
         }
+      }
+      currentSolid.delete()
+      nextSolid = res.solid
+    } else if (op.kind === 'hole') {
+      if (!currentSolid) {
+        return {
+          solid: undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'stack.error.targetEmpty',
+          recomputedCount,
+        }
+      }
+      const res = applyHole(w, currentSolid, (op as HoleOp).params)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error,
+          recomputedCount,
+        }
+      }
+      currentSolid.delete()
+      nextSolid = res.solid
+    } else if (op.kind === 'text') {
+      if (!currentSolid) {
+        return {
+          solid: undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'stack.error.targetEmpty',
+          recomputedCount,
+        }
+      }
+      const res = applyText(w, currentSolid, (op as TextOp).params)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error,
+          recomputedCount,
+        }
+      }
+      if (res.warning) {
+        lastWarning = res.warning
       }
       currentSolid.delete()
       nextSolid = res.solid

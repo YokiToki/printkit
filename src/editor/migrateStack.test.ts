@@ -115,4 +115,70 @@ describe('migrateStack (Task 2.3)', () => {
     const secondPass = migrateScene(migrated)
     expect(secondPass).toEqual(migrated)
   })
+
+  it('normalises and round-trips hole and text operations (Task 3.4)', () => {
+    const raw = {
+      schema: 1,
+      objects: [
+        {
+          id: 'obj-1',
+          name: 'Bracket',
+          source: { kind: 'empty' },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+          stack: [
+            {
+              id: 'hole-1',
+              kind: 'hole',
+              enabled: true,
+              params: {
+                point: [10, 20, 5],
+                normal: [0, 0, 1],
+                kind: 'counterbore',
+                diameter: 3.4,
+                depth: 8,
+                cbDiameter: 6.5,
+                cbDepth: 3.5,
+                preset: 'M3 DIN 912',
+              },
+            },
+            {
+              id: 'text-1',
+              kind: 'text',
+              enabled: true,
+              params: {
+                point: [0, 0, 10],
+                normal: [0, 0, 1],
+                text: 'PrintKit',
+                size: 6,
+                mode: 'emboss',
+                height: 0.8,
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    const migrated = migrateScene(raw)
+    const obj = migrated.objects[0]
+    expect(obj.stack).toHaveLength(2)
+
+    const holeOp = obj.stack![0]
+    expect(holeOp.kind).toBe('hole')
+    expect(holeOp.enabled).toBe(true)
+    expect((holeOp.params as any).kind).toBe('counterbore')
+    expect((holeOp.params as any).diameter).toBe(3.4)
+    expect((holeOp.params as any).cbDiameter).toBe(6.5)
+
+    const textOp = obj.stack![1]
+    expect(textOp.kind).toBe('text')
+    expect(textOp.enabled).toBe(true)
+    expect((textOp.params as any).text).toBe('PrintKit')
+    expect((textOp.params as any).mode).toBe('emboss')
+    expect((textOp.params as any).height).toBe(0.8)
+
+    // Idempotent round trip
+    const secondPass = migrateScene(migrated)
+    expect(secondPass).toEqual(migrated)
+  })
 })

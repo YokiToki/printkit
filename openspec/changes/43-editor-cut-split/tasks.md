@@ -15,10 +15,10 @@
 
 ## 3. Holes and text operations
 
-- [ ] 3.1 Hole data: `geometry/holeSpec.ts` with M2–M5 clearance, head and insert tables and magnet sizes (hand-written, cited in the README references). Test: table sanity (monotonic, clearance > thread).
-- [ ] 3.2 `geometry/features/ops/hole.ts`: tool solids for each type along `(point, normal, up)`, through extension, evaluator integration as a generated tool. Test: simple/counterbore/countersink volumes against formulas, inclined normal axis, through exits, blind depth.
-- [ ] 3.3 Move text shape code to `geometry/textShapes.ts` (Keychain tests stay green); `geometry/features/ops/text.ts` emboss/engrave with overlap offsets and curved-surface warning. Test: engraved volume ≈ glyph area × depth, embossed body stays one solid, warning on a cylinder.
-- [ ] 3.4 Wire both operations into the stack of `41` (kinds, normalisation, summaries, migration passthrough). Test: round trip through `migrateScene`, failed-op behaviour.
+- [x] 3.1 Hole data: `geometry/holeSpec.ts` with M2–M5 clearance, head and insert tables and magnet sizes (hand-written, cited in the README references). Test: table sanity (monotonic, clearance > thread).
+- [x] 3.2 `geometry/features/ops/hole.ts`: tool solids for each type along `(point, normal, up)`, through extension, evaluator integration as a generated tool. Test: simple/counterbore/countersink volumes against formulas, inclined normal axis, through exits, blind depth.
+- [x] 3.3 Move text shape code to `geometry/textShapes.ts` (Keychain tests stay green); `geometry/features/ops/text.ts` emboss/engrave with overlap offsets and curved-surface warning. Test: engraved volume ≈ glyph area × depth, embossed body stays one solid, warning on a cylinder.
+- [x] 3.4 Wire both operations into the stack of `41` (kinds, normalisation, summaries, migration passthrough). Test: round trip through `migrateScene`, failed-op behaviour.
 
 ## 4. Document and worker
 

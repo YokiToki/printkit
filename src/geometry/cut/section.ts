@@ -1,4 +1,4 @@
-import type { CrossSection, Manifold } from 'manifold-3d'
+import type { CrossSection, Manifold, Mat4 } from 'manifold-3d'
 import { normalizePlane, type PlaneDefinition, type Vec3 } from './plane'
 
 export interface PlaneFrame {
@@ -84,7 +84,7 @@ export function getCutSection(
   const ty = -dot3(frame.origin, frame.v)
   const tz = -dot3(frame.origin, frame.normal)
 
-  const mat: number[] = [
+  const mat: Mat4 = [
     frame.u[0], frame.v[0], frame.normal[0], 0,
     frame.u[1], frame.v[1], frame.normal[1], 0,
     frame.u[2], frame.v[2], frame.normal[2], 0,

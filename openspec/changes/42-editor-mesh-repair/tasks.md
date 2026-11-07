@@ -7,9 +7,9 @@
 
 ## 2. Analysis (React-free, `src/geometry/mesh/`)
 
-- [ ] 2.1 `analyze.ts`: edge map, open edges and boundary loops, non-manifold, degenerate, duplicates, orientation, shells with volumes, area and volume. Fixtures: closed cube, cube minus one triangle, two cubes, flipped cube, duplicated vertices, non-manifold edge. Test each count.
-- [ ] 2.2 `intersections.ts`: grid broad phase and triangle–triangle test, pair cap, progress and abort callbacks. Test: two interpenetrating cubes, touching cubes (no report), cap message, abort.
-- [ ] 2.3 `planarRegion.ts` (shared with `44`): connected flat region from a triangle with tolerance. Test: box faces, a cylinder side is not flat, tolerance behaviour.
+- [x] 2.1 `analyze.ts`: edge map, open edges and boundary loops, non-manifold, degenerate, duplicates, orientation, shells with volumes, area and volume. Fixtures: closed cube, cube minus one triangle, two cubes, flipped cube, duplicated vertices, non-manifold edge. Test each count.
+- [x] 2.2 `intersections.ts`: grid broad phase and triangle–triangle test, pair cap, progress and abort callbacks. Test: two interpenetrating cubes, touching cubes (no report), cap message, abort.
+- [x] 2.3 `planarRegion.ts` (shared with `44`): connected flat region from a triangle with tolerance. Test: box faces, a cylinder side is not flat, tolerance behaviour.
 
 ## 3. Repairs
 

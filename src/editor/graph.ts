@@ -1,4 +1,4 @@
-import type { EditorObject } from './scene'
+import type { EditorObject, CutGroup } from './scene'
 import type { BooleanOp } from './stack'
 
 export interface DependencyGraph {
@@ -9,10 +9,11 @@ export interface DependencyGraph {
   dependents: Map<string, string[]>
 }
 
-export function buildGraph(objects: EditorObject[]): DependencyGraph {
+export function buildGraph(objects: EditorObject[], cuts?: CutGroup[]): DependencyGraph {
   const objMap = new Map<string, EditorObject>()
   const dependencies = new Map<string, string[]>()
   const dependents = new Map<string, string[]>()
+  const cutsMap = cuts ? new Map(cuts.map((c) => [c.id, c])) : null
 
   for (const obj of objects) {
     objMap.set(obj.id, obj)
@@ -23,6 +24,13 @@ export function buildGraph(objects: EditorObject[]): DependencyGraph {
   for (const obj of objects) {
     const stack = obj.stack ?? []
     const deps = new Set<string>()
+
+    if (obj.source.kind === 'cutPart') {
+      const g = cutsMap?.get(obj.source.groupId)
+      if (g && g.sourceObjectId !== obj.id) {
+        deps.add(g.sourceObjectId)
+      }
+    }
 
     for (const op of stack) {
       if (op.kind === 'boolean') {
@@ -62,8 +70,8 @@ export interface TopologicalResult {
  * Returns topological order where dependencies come before the objects that depend on them.
  * If a cycle is detected, returns cycle path of object IDs.
  */
-export function topologicalOrder(objects: EditorObject[]): TopologicalResult {
-  const graph = buildGraph(objects)
+export function topologicalOrder(objects: EditorObject[], cuts?: CutGroup[]): TopologicalResult {
+  const graph = buildGraph(objects, cuts)
   const inDegree = new Map<string, number>()
   const adj = new Map<string, string[]>() // dependency -> dependents
 

@@ -274,4 +274,87 @@ describe('editorParts', () => {
     expect(partsSel).toHaveLength(1)
     expect(partsSel[0].label).toBe('Tool Cylinder')
   })
+
+  it('exports derived cut parts with unique names and loose pins as parts (Task 4.2)', () => {
+    const box = createTestBox()
+    const pin = createTestBox(2, 2, 10)
+
+    const doc: SceneDoc = {
+      ...createEmptyScene(),
+      objects: [
+        {
+          id: 'source-1',
+          name: 'Bracket',
+          visible: false, // hidden source
+          locked: false,
+          color: 0,
+          source: { kind: 'primitive', shape: 'box', params: {} },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+        {
+          id: 'part-1',
+          name: 'Bracket A',
+          visible: true,
+          locked: false,
+          color: 0,
+          source: { kind: 'cutPart', groupId: 'cut-1', partIndex: 0, partLabel: 'A' },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+        {
+          id: 'part-2',
+          name: 'Bracket B',
+          visible: true,
+          locked: false,
+          color: 0,
+          source: { kind: 'cutPart', groupId: 'cut-1', partIndex: 1, partLabel: 'B' },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+        {
+          id: 'part-3',
+          name: 'Bracket A', // duplicate name
+          visible: true,
+          locked: false,
+          color: 0,
+          source: { kind: 'cutPart', groupId: 'cut-2', partIndex: 0, partLabel: 'A' },
+          transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        },
+      ],
+      cuts: [
+        {
+          id: 'cut-1',
+          name: 'Bracket',
+          sourceObjectId: 'source-1',
+          type: 'plane',
+          includePins: true,
+        },
+      ],
+    }
+
+    const meshes = {
+      'source-1': box,
+      'part-1': box,
+      'part-2': box,
+      'part-3': box,
+      'cut-1:pin:0': pin,
+      'cut-1:pin:1': pin,
+    }
+
+    // Default export includes derived parts with unique names and loose pins
+    const parts = editorParts(doc, meshes)
+    expect(parts.map((p) => p.label)).toEqual([
+      'Bracket A',
+      'Bracket B',
+      'Bracket A 2', // disambiguated
+      'Bracket Pin 1',
+      'Bracket Pin 2',
+    ])
+
+    // With includePins: false, loose pins are skipped
+    const partsNoPins = editorParts(doc, meshes, { includePins: false })
+    expect(partsNoPins.map((p) => p.label)).toEqual([
+      'Bracket A',
+      'Bracket B',
+      'Bracket A 2',
+    ])
+  })
 })

@@ -11,6 +11,7 @@ import {
   type SceneDoc,
   type Transform,
 } from './scene'
+import { migrateCuts, type CutPartSource } from './cuts'
 
 export type { SceneDoc } from './scene'
 export const SCENE_STORAGE_KEY = 'editor.scene'
@@ -61,6 +62,21 @@ function normaliseSource(raw: unknown, objectName: string): ObjectSource | null 
 
   if (s.kind === 'empty') {
     return { kind: 'empty' }
+  }
+
+  if (s.kind === 'cutPart') {
+    if (typeof s.groupId !== 'string' || !s.groupId) {
+      log.warn('storage', 'log.editor.unknownSource', { name: objectName })
+      return null
+    }
+    const partIndex = typeof s.partIndex === 'number' && Number.isInteger(s.partIndex) ? s.partIndex : 0
+    const partLabel = typeof s.partLabel === 'string' ? s.partLabel : undefined
+    return {
+      kind: 'cutPart',
+      groupId: s.groupId,
+      partIndex,
+      ...(partLabel ? { partLabel } : {}),
+    }
   }
 
   if (s.kind === 'primitive') {
@@ -240,11 +256,22 @@ export function migrateScene(raw: unknown): SceneDoc {
   }
 
   const sketches = migrateSketches(data.sketches)
+  const cuts = migrateCuts(data.cuts, objects)
+  const validGroupIds = new Set(cuts.map((c) => c.id))
+
+  // Filter out any orphan cutPart objects whose group was dropped
+  const finalObjects = objects.filter((o) => {
+    if (o.source.kind === 'cutPart') {
+      return validGroupIds.has((o.source as CutPartSource).groupId)
+    }
+    return true
+  })
 
   return {
     schema: 1,
-    objects,
+    objects: finalObjects,
     ...(sketches.length > 0 ? { sketches } : {}),
+    ...(cuts.length > 0 ? { cuts } : {}),
   }
 }
 

@@ -22,8 +22,8 @@
 
 ## 4. Document and worker
 
-- [ ] 4.1 `doc.cuts`, `cutPart` sources, normalisation and orphan handling; `generate('editor')` derives parts from groups (source evaluated once per group, cache key by group definition). Test: deleting the group restores the source, parts rebuilt after reload, source edit updates parts, cache hit counts.
-- [ ] 4.2 Export: derived parts with unique names, loose pins as parts, tool/ghost rules of `41` unchanged. Test the export set and names.
+- [x] 4.1 `doc.cuts`, `cutPart` sources, normalisation and orphan handling; `generate('editor')` derives parts from groups (source evaluated once per group, cache key by group definition). Test: deleting the group restores the source, parts rebuilt after reload, source edit updates parts, cache hit counts.
+- [x] 4.2 Export: derived parts with unique names, loose pins as parts, tool/ghost rules of `41` unchanged. Test the export set and names.
 
 ## 5. UI (no artboard exists: built from `ui/` components and tokens)
 

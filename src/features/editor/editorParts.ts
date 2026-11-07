@@ -5,6 +5,7 @@ import type { PartMesh } from '../../geometry/model'
 export interface EditorPartsOptions {
   selectionOnly?: boolean
   selection?: string[]
+  includePins?: boolean
 }
 
 /**
@@ -78,6 +79,41 @@ export function editorParts(
       oversize: false,
       mesh: transformed,
     })
+  }
+
+  // Include loose pins as separate exportable parts
+  if (options?.includePins !== false && doc.cuts) {
+    for (const group of doc.cuts) {
+      if (group.includePins === false) continue
+      const prefix1 = `${group.id}:pin:`
+      const prefix2 = `${group.name ?? 'Part'} Pin `
+
+      const entries: [string, MeshData][] =
+        meshes instanceof Map
+          ? Array.from(meshes.entries())
+          : Object.entries(meshes)
+
+      for (const [key, mesh] of entries) {
+        if (key.startsWith(prefix1) || key.startsWith(prefix2)) {
+          let label = key.startsWith(prefix1)
+            ? `${group.name ?? 'Part'} Pin ${Number(key.slice(prefix1.length)) + 1}`
+            : key
+          let counter = 2
+          while (usedLabels.has(label)) {
+            label = `${label} ${counter}`
+            counter++
+          }
+          usedLabels.add(label)
+          parts.push({
+            label,
+            col: 0,
+            row: 0,
+            oversize: false,
+            mesh,
+          })
+        }
+      }
+    }
   }
 
   return parts

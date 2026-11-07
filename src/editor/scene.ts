@@ -31,6 +31,9 @@ export type PrimitiveSource = {
 
 import type { Feature } from '../geometry/features/evaluate'
 import type { Op } from './stack'
+import type { CutGroup, CutPartSource } from './cuts'
+
+export type { CutGroup, CutPartSource }
 
 export type FeatureSource = {
   kind: 'feature'
@@ -41,7 +44,7 @@ export type EmptySource = {
   kind: 'empty'
 }
 
-export type ObjectSource = MeshSource | PrimitiveSource | FeatureSource | EmptySource
+export type ObjectSource = MeshSource | PrimitiveSource | FeatureSource | EmptySource | CutPartSource
 
 export interface EditorObject {
   id: string
@@ -61,6 +64,7 @@ export interface SceneDoc {
   schema: 1
   objects: EditorObject[]
   sketches?: Sketch[]
+  cuts?: CutGroup[]
 }
 
 export const createEmptyScene = (): SceneDoc => ({

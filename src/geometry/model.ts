@@ -21,6 +21,8 @@ import { topologicalOrder } from '../editor/graph'
 import { meshHealth } from '../editor/health'
 import { toManifold } from './stl-import'
 import { evaluateStack, PrefixCache, type ToolObjectInfo } from './features/evaluate'
+import type { CutGroup, CutPartSource } from '../editor/cuts'
+import { evaluateCutGroup, type EvaluatedGroupResult } from './cut/groupEval'
 
 export interface EditorObjectParam {
   id: string
@@ -38,6 +40,7 @@ export interface EditorObjectParam {
 export interface EditorModelParams {
   objects: EditorObjectParam[]
   sketches?: Sketch[]
+  cuts?: CutGroup[]
   quality?: 'coarse' | 'fine'
 }
 
@@ -201,7 +204,7 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
         }
       }
 
-      const topo = topologicalOrder(editorObjs)
+      const topo = topologicalOrder(editorObjs, p.cuts)
       if (topo.cycle) {
         for (const cid of topo.cycle) {
           statuses[cid] = {
@@ -217,6 +220,8 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
       }
 
       const evaluatedTools = new Map<string, ToolObjectInfo>()
+      const evaluatedSolids = new Map<string, any>()
+      const activeGroupResults = new Map<string, EvaluatedGroupResult>()
 
       for (const obj of topo.order) {
         const oParam = p.objects.find((o) => o.id === obj.id)
@@ -224,6 +229,7 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
 
         let baseSolid: any = null
         let meshH: any = undefined
+        let partOversize = false
 
         if (obj.source.kind === 'primitive') {
           baseSolid = buildPrimitiveManifold(w, obj.source.shape, obj.source.params)
@@ -237,11 +243,47 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
               baseSolid = null
             }
           }
+        } else if (obj.source.kind === 'cutPart') {
+          const cutSource = obj.source as CutPartSource
+          const group = p.cuts?.find((c) => c.id === cutSource.groupId)
+          if (group) {
+            if (!activeGroupResults.has(group.id)) {
+              const srcSolid = evaluatedSolids.get(group.sourceObjectId)
+              if (srcSolid) {
+                const srcObj = p.objects.find((o) => o.id === group.sourceObjectId)
+                const srcSig = JSON.stringify({
+                  source: srcObj?.source,
+                  stack: srcObj?.stack,
+                  rollback: srcObj?.rollback,
+                })
+                const res = await evaluateCutGroup(w, srcSolid, group, srcSig)
+                activeGroupResults.set(group.id, res)
+              }
+            }
+            const groupRes = activeGroupResults.get(group.id)
+            if (groupRes && cutSource.partIndex < groupRes.parts.length) {
+              const evaluatedPart = groupRes.parts[cutSource.partIndex]
+              baseSolid = evaluatedPart.solid.asOriginal()
+              partOversize = !!evaluatedPart.oversize
+            }
+          }
         }
+
+        const cutGroupForObj =
+          obj.source.kind === 'cutPart'
+            ? p.cuts?.find((c) => c.id === (obj.source as any).groupId)
+            : undefined
+        const cutSrcObj = cutGroupForObj
+          ? p.objects.find((o) => o.id === cutGroupForObj.sourceObjectId)
+          : undefined
 
         const sourceKey = JSON.stringify({
           source: obj.source,
           sketches: obj.source.kind === 'feature' ? p.sketches : undefined,
+          cutGroup: cutGroupForObj,
+          cutSource: cutSrcObj
+            ? { source: cutSrcObj.source, stack: cutSrcObj.stack, rollback: cutSrcObj.rollback }
+            : undefined,
         })
 
         const evalRes = await evaluateStack(baseSolid, obj.stack ?? [], obj.rollback, {
@@ -293,6 +335,7 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
         }
 
         if (evalRes.solid) {
+          evaluatedSolids.set(obj.id, evalRes.solid.asOriginal())
           const mesh = meshOf(evalRes.solid)
           if (oParam?.source?.kind === 'feature') {
             const cacheKey = JSON.stringify({
@@ -330,7 +373,7 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
                 label: obj.id,
                 col: 0,
                 row: 0,
-                oversize: false,
+                oversize: partOversize,
                 mesh,
               })
             }
@@ -369,8 +412,54 @@ export async function generate<M extends ModeId>(mode: M, params: ModeParams[M],
         }
       }
 
+      // Add loose pins from cut groups if includePins is not false
+      if (p.cuts) {
+        for (const group of p.cuts) {
+          if (group.includePins !== false) {
+            const groupRes = activeGroupResults.get(group.id)
+            if (groupRes?.loosePins) {
+              for (let i = 0; i < groupRes.loosePins.length; i++) {
+                const pin = groupRes.loosePins[i]
+                parts.push({
+                  label: `${group.name ?? 'Part'} Pin ${i + 1}`,
+                  col: 0,
+                  row: 0,
+                  oversize: false,
+                  mesh: meshOf(pin),
+                })
+              }
+            }
+          }
+        }
+      }
+
       for (const t of evaluatedTools.values()) {
         t.solid?.delete()
+      }
+      for (const s of evaluatedSolids.values()) {
+        try {
+          s.delete()
+        } catch {
+          // already deleted
+        }
+      }
+      for (const g of activeGroupResults.values()) {
+        for (const pt of g.parts) {
+          try {
+            pt.solid.delete()
+          } catch {
+            // already deleted
+          }
+        }
+        if (g.loosePins) {
+          for (const pin of g.loosePins) {
+            try {
+              pin.delete()
+            } catch {
+              // already deleted
+            }
+          }
+        }
       }
 
       return {

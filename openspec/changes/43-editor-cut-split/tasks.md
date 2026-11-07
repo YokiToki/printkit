@@ -2,8 +2,8 @@
 
 ## 1. Spike
 
-- [ ] 1.1 Cut: verify `splitByPlane`, `trimByPlane` and `slice` in the installed `manifold-3d` on a bracket and an imported closed STL; check that both halves are closed and volumes add up, record timings; prototype pole-of-inaccessibility and farthest-point placement on three sections (rectangle, L, ring) and record the result in `design.md` Decision 4.
-- [ ] 1.2 Reuse: list which of `rasterizeText`, `textOutline`, the font loaders and connector presets are feature-private; decide the shared module layout (Decision 5, 8) and note it in `design.md`.
+- [x] 1.1 Cut: verify `splitByPlane`, `trimByPlane` and `slice` in the installed `manifold-3d` on a bracket and an imported closed STL; check that both halves are closed and volumes add up, record timings; prototype pole-of-inaccessibility and farthest-point placement on three sections (rectangle, L, ring) and record the result in `design.md` Decision 4.
+- [x] 1.2 Reuse: list which of `rasterizeText`, `textOutline`, the font loaders and connector presets are feature-private; decide the shared module layout (Decision 5, 8) and note it in `design.md`.
 
 ## 2. Cut geometry (React-free)
 

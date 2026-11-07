@@ -35,7 +35,7 @@
 
 ## 6. Version
 
-- [ ] 6.1 Bump `package.json` to 1.14.0 and add `1.14.0 — 43-editor-cut-split` to `CHANGELOG.md`. Test: `site.test.ts`.
+- [x] 6.1 Bump `package.json` to 1.14.0 and add `1.14.0 — 43-editor-cut-split` to `CHANGELOG.md`. Test: `site.test.ts`.
 
 ## 7. Verification
 

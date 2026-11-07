@@ -299,9 +299,10 @@ export function EditorMode() {
       partLabels = Array.from({ length: count }, (_, i) => `Part ${i + 1}`)
     }
 
+    const cutName = `${targetObj.name} (${t('cut.planeTitle', 'Plane Cut')})`
     const cutGroup: CutGroup = {
       id: groupId,
-      name: `${targetObj.name} Cut`,
+      name: cutName,
       sourceObjectId: targetObj.id,
       type: 'plane',
       plane: {
@@ -313,7 +314,7 @@ export function EditorMode() {
       explodeGap: 0,
     }
 
-    dispatch('Plane Cut', (prev) => createCutGroup(prev, cutGroup, partLabels))
+    dispatch(t('cut.planeTitle', 'Plane Cut'), (prev) => createCutGroup(prev, cutGroup, partLabels))
     setTool('select')
   }
 
@@ -337,9 +338,10 @@ export function EditorMode() {
       }
     }
 
+    const splitName = `${targetObj.name} (${t('cut.splitTitle', 'Split to Bed')})`
     const cutGroup: CutGroup = {
       id: groupId,
-      name: `${targetObj.name} Split`,
+      name: splitName,
       sourceObjectId: targetObj.id,
       type: 'grid',
       grid: params.grid,
@@ -348,7 +350,7 @@ export function EditorMode() {
       explodeGap: params.explodeGap,
     }
 
-    dispatch('Split to Bed', (prev) => createCutGroup(prev, cutGroup, partLabels))
+    dispatch(t('cut.splitTitle', 'Split to Bed'), (prev) => createCutGroup(prev, cutGroup, partLabels))
     setSplitDialogOpen(false)
   }
 
@@ -1101,7 +1103,54 @@ export function EditorMode() {
   const viewportScene = useMemo((): ViewportSceneConfig => {
     const matrices: Record<string, Matrix4Tuple> = {}
     for (const obj of doc.objects) {
-      matrices[obj.id] = matrixOf(obj.transform)
+      let t = obj.transform
+      if (obj.source.kind === 'cutPart') {
+        const cutSource = obj.source as CutPartSource
+        const group = doc.cuts?.find((c) => c.id === cutSource.groupId)
+        if (group && (group.explodeGap ?? 0) > 0) {
+          const gap = group.explodeGap!
+          if (group.type === 'plane') {
+            const planeDef = group.plane?.plane ?? { kind: 'axis', axis: 'z', position: 0 }
+            let normal: [number, number, number] = [0, 0, 1]
+            if (planeDef.kind === 'axis') {
+              normal = planeDef.axis === 'x' ? [1, 0, 0] : planeDef.axis === 'y' ? [0, 1, 0] : [0, 0, 1]
+            } else if (planeDef.kind === 'face') {
+              normal = planeDef.normal
+            }
+            const dir = cutSource.partIndex === 0 ? -1 : 1
+            const offset: [number, number, number] = [
+              normal[0] * (gap / 2) * dir,
+              normal[1] * (gap / 2) * dir,
+              normal[2] * (gap / 2) * dir,
+            ]
+            t = {
+              ...t,
+              position: [
+                t.position[0] + offset[0],
+                t.position[1] + offset[1],
+                t.position[2] + offset[2],
+              ],
+            }
+          } else if (group.type === 'grid') {
+            const cols = (group.grid?.x.length ?? 0) + 1
+            const rows = (group.grid?.y.length ?? 0) + 1
+            const label = cutSource.partLabel ?? 'A1'
+            const col = label.charCodeAt(0) - 65
+            const row = (parseInt(label.slice(1), 10) || 1) - 1
+            const offsetX = (col - (cols - 1) / 2) * gap
+            const offsetY = (row - (rows - 1) / 2) * gap
+            t = {
+              ...t,
+              position: [
+                t.position[0] + offsetX,
+                t.position[1] + offsetY,
+                t.position[2],
+              ],
+            }
+          }
+        }
+      }
+      matrices[obj.id] = matrixOf(t)
     }
 
     return {
@@ -1119,7 +1168,7 @@ export function EditorMode() {
           : undefined,
       projection,
     }
-  }, [doc.objects, selection, tool, snap, snapStepMm, snapStepDeg, projection])
+  }, [doc.objects, doc.cuts, selection, tool, snap, snapStepMm, snapStepDeg, projection])
 
   // Hovered constraint for highlight
   const [hoverConstraintId, setHoverConstraintId] = useState<string | null>(null)

@@ -144,7 +144,7 @@ export function SplitDialog({
                 }`}
                 onClick={() => handlePresetChange(p.id)}
               >
-                {p.name}
+                {p.id === 'custom' ? t('split.custom', 'Custom') : p.name}
               </button>
             ))}
           </div>

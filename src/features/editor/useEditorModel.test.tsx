@@ -109,4 +109,63 @@ describe('editor/useEditorModel', () => {
 
     vi.useRealTimers()
   })
+
+  it('passes doc.cuts to generate parameters and regenerates when cuts change', async () => {
+    vi.useFakeTimers()
+
+    const generateMock = vi.fn().mockImplementation(async (_mode: string, params: any) => {
+      return {
+        parts: (params.cuts?.length ?? 0) > 0
+          ? [
+              { label: 'box-1 A', col: 0, row: 0, oversize: false, mesh: dummyMesh },
+              { label: 'box-1 B', col: 1, row: 0, oversize: false, mesh: dummyMesh },
+            ]
+          : [{ label: 'box-1', col: 0, row: 0, oversize: false, mesh: dummyMesh }],
+      }
+    })
+
+    const initialDoc: SceneDoc = addObject(createEmptyScene(), boxObj)
+
+    const { result, rerender } = renderHook(
+      ({ doc }) => useEditorModel(doc, { client: { generate: generateMock }, debounce: 0 }),
+      { initialProps: { doc: initialDoc } }
+    )
+
+    await act(async () => {
+      vi.advanceTimersByTime(10)
+    })
+
+    expect(generateMock).toHaveBeenCalledTimes(1)
+    expect(generateMock.mock.calls[0][1].cuts).toBeUndefined()
+    expect(result.current.partsById.has('box-1')).toBe(true)
+
+    // Add cut group to doc
+    const cutDoc: SceneDoc = {
+      ...initialDoc,
+      cuts: [
+        {
+          id: 'cg-1',
+          sourceObjectId: 'box-1',
+          type: 'plane',
+          plane: {
+            plane: { kind: 'axis', axis: 'z', position: 5 },
+            mode: 'both',
+          },
+        },
+      ],
+    }
+
+    rerender({ doc: cutDoc })
+
+    await act(async () => {
+      vi.advanceTimersByTime(10)
+    })
+
+    expect(generateMock).toHaveBeenCalledTimes(2)
+    expect(generateMock.mock.calls[1][1].cuts).toEqual(cutDoc.cuts)
+    expect(result.current.partsById.has('box-1 A')).toBe(true)
+    expect(result.current.partsById.has('box-1 B')).toBe(true)
+
+    vi.useRealTimers()
+  })
 })

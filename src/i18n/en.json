@@ -2152,6 +2152,18 @@
   },
   "cut": {
     "title": "Cut",
+    "menuTitle": "Cut & Split",
+    "planeTitle": "Plane Cut",
+    "splitTitle": "Split to Bed",
+    "splitToBed": "Split to bed...",
+    "sourceObject": "Source",
+    "explodeGap": "Explode gap",
+    "partLabel": "Part",
+    "axis": "Axis",
+    "groupTitle": "Cut Groups",
+    "group": "Cut Group",
+    "deleteGroup": "Delete cut group",
+    "updateGroup": "Update cut group",
     "planeDefinition": "Plane definition",
     "position": "Position",
     "offset": "Offset",
@@ -2162,8 +2174,10 @@
     "sliceCount": "Number of slices",
     "enableConnectors": "Add connectors",
     "apply": "Cut",
-    "group": "Cut Group",
-    "deleteGroup": "Delete cut group",
+    "type": {
+      "grid": "Grid",
+      "plane": "Plane"
+    },
     "plane": {
       "axis": "Axis",
       "face": "From face",
@@ -2202,8 +2216,8 @@
       "margin": "Margin",
       "oversizeWarning": "Part exceeds printable bed size",
       "cutsSummary": "Cuts: {{count}}, Parts: {{parts}}",
-      "cutsX": "Cuts along X",
-      "cutsY": "Cuts along Y",
+      "cutsX": "X cuts",
+      "cutsY": "Y cuts",
       "explodeGap": "Explode gap",
       "apply": "Split"
     },
@@ -2239,6 +2253,7 @@
   "text": {
     "title": "Text on Face",
     "content": "Text",
+    "placeholder": "Text...",
     "font": "Font",
     "modeLabel": "Mode",
     "size": "Height",

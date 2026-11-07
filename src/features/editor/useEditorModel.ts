@@ -29,8 +29,9 @@ export function useEditorModel(doc: SceneDoc, opts: UseEditorModelOptions = {}) 
           matrix: hasBooleanOps ? matrixOf(o.transform) : undefined,
         })),
         sketches: doc.sketches,
+        cuts: doc.cuts,
       }),
-    [doc.objects, doc.sketches, hasBooleanOps]
+    [doc.objects, doc.sketches, doc.cuts, hasBooleanOps]
   )
 
   const params: EditorModelParams = useMemo(
@@ -45,6 +46,7 @@ export function useEditorModel(doc: SceneDoc, opts: UseEditorModelOptions = {}) 
         matrix: matrixOf(o.transform),
       })),
       sketches: doc.sketches,
+      cuts: doc.cuts,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sourcesKey]

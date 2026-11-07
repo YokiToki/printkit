@@ -87,7 +87,7 @@ export function TextToolPanel({
           value={text}
           onChange={(e) => setText(e.target.value)}
           className="px-2.5 py-1.5 text-sm rounded bg-surface-2 border border-border text-text-primary focus:border-primary focus:outline-none"
-          placeholder="Text..."
+          placeholder={t('text.placeholder', 'Text...')}
           data-testid="input-text-content"
         />
       </div>

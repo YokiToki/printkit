@@ -121,7 +121,7 @@ export function CutPanel({
       {planeMode === 'axis' && (
         <div className="flex flex-col gap-2">
           <SegmentedControl
-            ariaLabel="Axis"
+            ariaLabel={t('cut.axis', 'Axis')}
             value={axis}
             options={axisOptions}
             onChange={(val) => setAxis(val as 'x' | 'y' | 'z')}

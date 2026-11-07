@@ -358,7 +358,7 @@ export function Outliner({
             >
               <div className="flex items-center gap-1">
                 {cutGroupsOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
-                <span>{t('cut.group.title', 'Cut Groups')}</span>
+                <span>{t('cut.groupTitle', 'Cut Groups')}</span>
               </div>
               <span className="font-mono text-[10px]">{cuts.length}</span>
             </button>
@@ -397,21 +397,21 @@ export function Outliner({
                         </button>
                         <IconScissors size={14} className="text-accent shrink-0" />
                         <span className="text-xs font-medium text-text truncate">
-                          {g.name || (g.type === 'grid' ? t('cut.splitToBed') : t('cut.title'))}
+                          {g.name || (g.type === 'grid' ? t('cut.splitTitle') : t('cut.planeTitle'))}
                         </span>
                         <span className="text-[10px] px-1 py-0.2 bg-surface-3 text-text-subtle rounded shrink-0">
                           {g.type === 'grid' ? t('cut.type.grid') : t('cut.type.plane')}
                         </span>
                       </div>
                       <button
-                        type="button"
-                        data-testid={`outliner-delete-cutgroup-${g.id}`}
-                        onClick={() => onDeleteCutGroup?.(g.id)}
-                        title={t('common.delete', 'Delete')}
-                        className="p-1 hover:text-(--color-error-text) text-text-muted rounded cursor-pointer shrink-0"
-                      >
-                        <IconTrash size={13} />
-                      </button>
+                          type="button"
+                          data-testid={`outliner-delete-cutgroup-${g.id}`}
+                          onClick={() => onDeleteCutGroup?.(g.id)}
+                          title={t('cut.deleteGroup', 'Delete Cut Group')}
+                          className="p-1 hover:text-(--color-error-text) text-text-muted rounded cursor-pointer shrink-0"
+                        >
+                          <IconTrash size={13} />
+                        </button>
                     </div>
 
                     {/* Explode gap and cut info */}
@@ -435,10 +435,10 @@ export function Outliner({
                         {g.type === 'grid' && g.grid && (
                           <div className="text-[10px] text-text-subtle font-mono space-y-0.5">
                             {g.grid.x.length > 0 && (
-                              <div>X cuts: {g.grid.x.map((n) => Math.round(n * 10) / 10).join(', ')} mm</div>
+                              <div>{t('cut.split.cutsX')}: {g.grid.x.map((n) => Math.round(n * 10) / 10).join(', ')} mm</div>
                             )}
                             {g.grid.y.length > 0 && (
-                              <div>Y cuts: {g.grid.y.map((n) => Math.round(n * 10) / 10).join(', ')} mm</div>
+                              <div>{t('cut.split.cutsY')}: {g.grid.y.map((n) => Math.round(n * 10) / 10).join(', ')} mm</div>
                             )}
                           </div>
                         )}

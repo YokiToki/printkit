@@ -271,7 +271,7 @@ export function Toolbar({
                   <div className="h-px bg-border my-1" />
 
                   <div className="px-3 py-1 text-[10px] font-semibold text-text-subtle uppercase tracking-wider">
-                    {t('cut.title', 'Cut & Split')}
+                    {t('cut.menuTitle', 'Cut & Split')}
                   </div>
                   <button
                     type="button"

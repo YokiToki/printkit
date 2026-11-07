@@ -632,6 +632,7 @@ export function Properties({
         <MeshSection
           object={obj}
           meshData={meshes?.[obj.id]}
+          health={healthMap?.get(obj.id)}
           onUpdateObject={onUpdateObject}
           onHighlight={onHighlight}
           onFrame={onFrame}

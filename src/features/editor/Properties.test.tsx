@@ -218,8 +218,8 @@ describe('Properties', () => {
       healthMap: mockHealthMap,
     })
 
-    // Expand Mesh Health section
-    await user.click(screen.getByRole('button', { name: /Expand:.*Mesh health/i }))
+    // Expand Mesh section
+    await user.click(screen.getByRole('button', { name: /Expand:.*Mesh/i }))
 
     expect(screen.getByText(/1200/)).toBeInTheDocument()
     expect(screen.getByText(/Closed solid|Замкнутое тело/i)).toBeInTheDocument()

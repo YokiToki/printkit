@@ -14,6 +14,7 @@ import {
 } from '@tabler/icons-react'
 import type { EditorObject, MeshSource } from '../../../editor/scene'
 import type { Bounds3 } from '../../../editor/transform'
+import type { MeshHealth } from '../../../editor/health'
 import type { MeshData } from '../../../geometry/mesh'
 import type { IndexedMesh } from '../../../geometry/stl-import'
 import { Section } from '../../../ui/Section'
@@ -50,6 +51,7 @@ export interface MeshHighlight {
 export interface MeshSectionProps {
   object: EditorObject
   meshData?: MeshData
+  health?: MeshHealth
   onUpdateObject: (id: string, patch: Partial<EditorObject>, mergeKey?: string) => void
   onHighlight?: (highlight: MeshHighlight | null) => void
   onFrame?: (bounds: Bounds3) => void
@@ -62,6 +64,7 @@ export interface MeshSectionProps {
 export function MeshSection({
   object,
   meshData,
+  health,
   onUpdateObject,
   onHighlight,
   onFrame,
@@ -397,7 +400,33 @@ export function MeshSection({
     }
   }
 
-  const isSolid = analysis?.isSolid ?? false
+  const fallbackAnalysis = useMemo<MeshAnalysis | null>(() => {
+    if (!health) return null
+    return {
+      triangles: health.triangles,
+      vertices: 0,
+      duplicateVertices: 0,
+      openEdges: health.openEdges,
+      boundaryLoops: [],
+      nonManifoldEdges: health.nonManifoldEdges,
+      nonManifoldVertices: 0,
+      degenerateTriangles: health.degenerate,
+      duplicateTriangles: 0,
+      inconsistentTriangles: 0,
+      isNegativeVolume: health.volume < 0,
+      shells: [],
+      surfaceArea: (health as unknown as { area?: number }).area ?? 0,
+      volume: health.volume,
+      isSolid: (health as unknown as { isSolid?: boolean }).isSolid ?? health.closed,
+      openEdgeLines: new Float32Array(0),
+      nonManifoldEdgeLines: new Float32Array(0),
+      degenerateTriIndices: [],
+      duplicateTriIndices: [],
+      flippedTriIndices: [],
+    }
+  }, [health])
+  const activeAnalysis = analysis ?? fallbackAnalysis
+  const isSolid = activeAnalysis?.isSolid ?? false
 
   return (
     <Section
@@ -428,27 +457,27 @@ export function MeshSection({
           </span>
         </div>
 
-        {analysis ? (
+        {activeAnalysis ? (
           <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-text-muted">
             <div>
               {t('mesh.health.triangles')}:{' '}
-              <span className="font-mono text-text">{analysis.triangles}</span>
+              <span className="font-mono text-text">{activeAnalysis.triangles}</span>
             </div>
             <div>
               {t('mesh.health.vertices')}:{' '}
-              <span className="font-mono text-text">{analysis.vertices}</span>
+              <span className="font-mono text-text">{activeAnalysis.vertices}</span>
             </div>
             <div>
               {t('mesh.health.area')}:{' '}
               <span className="font-mono text-text">
-                {Math.round(analysis.surfaceArea)}{' '}
+                {Math.round(activeAnalysis.surfaceArea)}{' '}
                 {unit === 'in' ? 'in²' : 'mm²'}
               </span>
             </div>
             <div>
               {t('mesh.health.volume')}:{' '}
               <span className="font-mono text-text">
-                {Math.round(Math.abs(analysis.volume))}{' '}
+                {Math.round(Math.abs(activeAnalysis.volume))}{' '}
                 {unit === 'in' ? 'in³' : 'mm³'}
               </span>
             </div>
@@ -473,15 +502,15 @@ export function MeshSection({
             </span>
           </button>
 
-          {detailsOpen && analysis && (
+          {detailsOpen && activeAnalysis && (
             <div className="mt-2 space-y-1.5 text-xs">
               {/* Boundary loops */}
               <div className="space-y-1">
                 <div className="flex justify-between text-text-muted">
                   <span>{t('mesh.health.boundaryLoops')}:</span>
-                  <span className="font-mono">{analysis.boundaryLoops.length}</span>
+                  <span className="font-mono">{activeAnalysis.boundaryLoops.length}</span>
                 </div>
-                {analysis.boundaryLoops.map((loop, idx) => (
+                {activeAnalysis.boundaryLoops.map((loop, idx) => (
                   <div
                     key={idx}
                     className="flex items-center justify-between pl-2 text-[11px] text-text-subtle"
@@ -513,16 +542,16 @@ export function MeshSection({
               </div>
 
               {/* Non-manifold edges */}
-              {analysis.nonManifoldEdges > 0 && (
+              {activeAnalysis.nonManifoldEdges > 0 && (
                 <div className="flex items-center justify-between text-warn-text">
                   <span>
-                    {t('mesh.health.nonManifoldEdges')}: {analysis.nonManifoldEdges}
+                    {t('mesh.health.nonManifoldEdges')}: {activeAnalysis.nonManifoldEdges}
                   </span>
                   <button
                     type="button"
                     onClick={() => {
                       const lines: [number, number, number][][] = []
-                      const arr = analysis.nonManifoldEdgeLines
+                      const arr = activeAnalysis.nonManifoldEdgeLines
                       for (let i = 0; i < arr.length; i += 6) {
                         lines.push([
                           [arr[i], arr[i + 1], arr[i + 2]],
@@ -540,10 +569,10 @@ export function MeshSection({
               )}
 
               {/* Degenerate & duplicate */}
-              {(analysis.degenerateTriangles > 0 || analysis.duplicateTriangles > 0) && (
+              {(activeAnalysis.degenerateTriangles > 0 || activeAnalysis.duplicateTriangles > 0) && (
                 <div className="text-warn-text">
-                  {t('mesh.health.degenerate')}: {analysis.degenerateTriangles},{' '}
-                  {t('mesh.health.duplicates')}: {analysis.duplicateTriangles}
+                  {t('mesh.health.degenerate')}: {activeAnalysis.degenerateTriangles},{' '}
+                  {t('mesh.health.duplicates')}: {activeAnalysis.duplicateTriangles}
                 </div>
               )}
 
@@ -551,9 +580,9 @@ export function MeshSection({
               <div className="space-y-1">
                 <div className="flex justify-between text-text-muted">
                   <span>{t('mesh.health.shells')}:</span>
-                  <span className="font-mono">{analysis.shells.length}</span>
+                  <span className="font-mono">{activeAnalysis.shells.length}</span>
                 </div>
-                {analysis.shells.map((s, idx) => (
+                {activeAnalysis.shells.map((s, idx) => (
                   <div
                     key={idx}
                     className="flex items-center justify-between pl-2 text-[11px] text-text-subtle"

@@ -2,8 +2,8 @@
 
 ## 1. Spike
 
-- [ ] 1.1 Level set: check `Manifold.levelSet` in the installed `manifold-3d`; prototype Make Solid on a broken mesh (holes, flipped, self-intersecting) with winding-number sampling at three resolutions; record time, memory and output validity; set the memory budget and the default resolution in `design.md` Decision 3. If it cannot produce valid solids, stop for `/opsx:update`.
-- [ ] 1.2 Decimate: check `simplify` behaviour on a 200k-triangle sphere and a bracket; record deviation vs tolerance and the bisection count (Decision 4).
+- [x] 1.1 Level set: check `Manifold.levelSet` in the installed `manifold-3d`; prototype Make Solid on a broken mesh (holes, flipped, self-intersecting) with winding-number sampling at three resolutions; record time, memory and output validity; set the memory budget and the default resolution in `design.md` Decision 3. If it cannot produce valid solids, stop for `/opsx:update`.
+- [x] 1.2 Decimate: check `simplify` behaviour on a 200k-triangle sphere and a bracket; record deviation vs tolerance and the bisection count (Decision 4).
 
 ## 2. Analysis (React-free, `src/geometry/mesh/`)
 

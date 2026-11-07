@@ -239,3 +239,17 @@ export class MeshClient {
     this.failAll(new MeshSupersededError())
   }
 }
+
+let defaultMeshClient: MeshClient | null = null
+
+export function getMeshClient(): MeshClient {
+  if (!defaultMeshClient) {
+    defaultMeshClient = new MeshClient(
+      typeof Worker !== 'undefined'
+        ? () => new Worker(new URL('./mesh.worker.ts', import.meta.url), { type: 'module' })
+        : () => null
+    )
+  }
+  return defaultMeshClient
+}
+

@@ -34,6 +34,7 @@ export interface OpRowProps {
   onToggleEnabled: () => void
   onDelete: () => void
   onMove: (fromIndex: number, toIndex: number) => void
+  onRepair?: () => void
   children?: ReactNode
 }
 
@@ -71,6 +72,7 @@ export function OpRow({
   onToggleEnabled,
   onDelete,
   onMove,
+  onRepair,
   children,
 }: OpRowProps) {
   const { t } = useTranslation()
@@ -179,13 +181,28 @@ export function OpRow({
           </div>
 
           {isFailed && (
-            <span
-              data-testid={`op-failed-mark-${index}`}
-              title={t(failedInfo.reason, failedInfo.params ?? {})}
-              className="inline-flex items-center text-error-text ml-auto shrink-0"
-            >
-              <IconAlertTriangle size={14} />
-            </span>
+            <div className="flex items-center gap-1 ml-auto shrink-0">
+              <span
+                data-testid={`op-failed-mark-${index}`}
+                title={t(failedInfo.reason, failedInfo.params ?? {})}
+                className="inline-flex items-center text-error-text"
+              >
+                <IconAlertTriangle size={14} />
+              </span>
+              {failedInfo.reason === 'stack.error.notSolid' && onRepair && (
+                <button
+                  type="button"
+                  data-testid={`op-repair-btn-${index}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRepair()
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-accent/15 text-accent hover:bg-accent/25 font-medium cursor-pointer"
+                >
+                  {t('mesh.repairAction', 'Repair')}
+                </button>
+              )}
+            </div>
           )}
         </div>
 

@@ -1,5 +1,5 @@
 import type { ManifoldToplevel } from 'manifold-3d'
-import type { IndexedMesh, TriSoup } from '../stl-import'
+import { toManifold, type IndexedMesh, type TriSoup } from '../stl-import'
 import { analyze } from './analyze'
 import { weld } from './weld'
 
@@ -49,12 +49,7 @@ export function decimate(
   const initialTriangles = welded.triVerts.length / 3
 
   // Load into Manifold
-  const manifoldMesh = {
-    vertProperties: welded.vertProperties,
-    triVerts: welded.triVerts,
-    numProp: 3,
-  }
-  const solid = w.Manifold.ofMesh(manifoldMesh)
+  const solid = toManifold(w, welded)
 
   if (options.tolerance !== undefined) {
     const dec = solid.simplify(options.tolerance)

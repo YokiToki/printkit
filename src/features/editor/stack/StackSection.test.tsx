@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { StackSection } from './StackSection'
 import type { EditorObject } from '../../../editor/scene'
 import type { Op } from '../../../editor/stack'
+import type { ObjectStatus } from '../../../geometry/model'
 import { UnitProvider } from '../../../ui/UnitProvider'
 import { expectAllNumericSteppers } from '../../../ui/stepperAssert'
 import '../../../i18n'
@@ -258,5 +259,30 @@ describe('StackSection (Task 4.1)', () => {
 
     // Check that numeric steppers exist and have valid labels
     await expectAllNumericSteppers()
+  })
+
+  it('renders Repair action when op fails with notSolid and clicking it invokes onRepairMesh', async () => {
+    const onRepairMesh = vi.fn()
+    const failedStatus: ObjectStatus = {
+      objectId: 'obj-1',
+      ops: [
+        {
+          opId: 'op-offset-1',
+          status: 'failed',
+          reason: 'stack.error.notSolid',
+          params: { name: 'Cube', openEdges: 3 },
+        },
+      ],
+    }
+
+    const { user } = setup({
+      objectStatus: failedStatus,
+      onRepairMesh,
+    })
+
+    const repairBtn = screen.getByTestId('op-repair-btn-0')
+    expect(repairBtn).toBeInTheDocument()
+    await user.click(repairBtn)
+    expect(onRepairMesh).toHaveBeenCalled()
   })
 })

@@ -24,6 +24,7 @@ import { buildSketchContent, buildSketchGrid, type ViewportSketchConfig } from '
 import { lookAtPlane, pointerToPlaneCoordinates, screenPick, type ScreenPickResult } from './sketchPicking'
 import { SketchOverlay } from './SketchOverlay'
 import { planeFrame } from '../../editor/sketch/model'
+import type { MeshHighlight } from '../editor/mesh/MeshSection'
 
 export interface BuildPlate { x: number; y: number; /** Поле по краю: пунктирный контур рабочей области. */ margin?: number }
 
@@ -86,6 +87,16 @@ export interface ViewportProps {
   onSelectConstraint?: (id: string) => void
   onHoverConstraint?: (id: string | null) => void
   onPinDimension?: (curveId: string) => void
+  clippingPlane?: { normal: [number, number, number]; constant: number } | null
+  highlight?: MeshHighlight | null
+  measurePickActive?: boolean
+  onMeasurePick?: (hit: {
+    point: [number, number, number]
+    normal: [number, number, number]
+    faceIndex: number
+    objectId?: string
+    screenPos: { x: number; y: number }
+  }) => void
 }
 
 interface Api {
@@ -101,6 +112,8 @@ interface Api {
   setSketch: (s: ViewportSketchConfig | null | undefined) => void
   lookAtSketchPlane: () => void
   projectPoint: (planePt: { x: number; y: number }) => { x: number; y: number } | null
+  setClippingPlane?: (plane: { normal: [number, number, number]; constant: number } | null) => void
+  setHighlight?: (h: MeshHighlight | null) => void
 }
 
 const GIZMO_SIZE = 120
@@ -205,6 +218,10 @@ export function Viewport({
   onSelectConstraint,
   onHoverConstraint,
   onPinDimension,
+  clippingPlane,
+  highlight,
+  measurePickActive,
+  onMeasurePick,
 }: ViewportProps) {
   const { t } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
@@ -233,6 +250,8 @@ export function Viewport({
     onUpdateConstraint,
     onDeleteConstraint,
     onSelectConstraint,
+    measurePickActive,
+    onMeasurePick,
   })
   callbacksRef.current = {
     onPick,
@@ -248,6 +267,8 @@ export function Viewport({
     onUpdateConstraint,
     onDeleteConstraint,
     onSelectConstraint,
+    measurePickActive,
+    onMeasurePick,
   }
 
   const [boxSelectRect, setBoxSelectRect] = useState<Rect2D | null>(null)
@@ -318,6 +339,9 @@ export function Viewport({
     const sketchContentGroup = new THREE.Group()
     sketchGroup.add(sketchGridGroup, sketchContentGroup)
     let sketchViewKey = ''
+
+    const highlightGroup = new THREE.Group()
+    scene.add(highlightGroup)
     const disposeGeometries = (root: THREE.Object3D) => {
       root.traverse((o) => {
         const g = (o as THREE.Mesh).geometry
@@ -673,6 +697,44 @@ export function Viewport({
         return {
           x: ((worldPt.x + 1) / 2) * el.clientWidth,
           y: ((1 - worldPt.y) / 2) * el.clientHeight,
+        }
+      },
+      setClippingPlane(plane) {
+        if (plane) {
+          renderer.clippingPlanes = [
+            new THREE.Plane(new THREE.Vector3(...plane.normal), plane.constant),
+          ]
+        } else {
+          renderer.clippingPlanes = []
+        }
+      },
+      setHighlight(h) {
+        while (highlightGroup.children.length > 0) {
+          const child = highlightGroup.children[0]
+          highlightGroup.remove(child)
+          if ((child as any).geometry) (child as any).geometry.dispose()
+          if ((child as any).material) (child as any).material.dispose()
+        }
+        if (!h) return
+        if (h.lines && h.lines.length > 0) {
+          const pts: number[] = []
+          for (const [p1, p2] of h.lines) pts.push(...p1, ...p2)
+          const geom = new THREE.BufferGeometry()
+          geom.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+          const mat = new THREE.LineBasicMaterial({ color: 0xe5484d, linewidth: 2, depthTest: false })
+          const line = new THREE.LineSegments(geom, mat)
+          line.renderOrder = 999
+          highlightGroup.add(line)
+        }
+        if (h.points && h.points.length > 0) {
+          const pts: number[] = []
+          for (const p of h.points) pts.push(...p)
+          const geom = new THREE.BufferGeometry()
+          geom.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+          const mat = new THREE.PointsMaterial({ color: 0xfa5252, size: 6, depthTest: false })
+          const pMesh = new THREE.Points(geom, mat)
+          pMesh.renderOrder = 999
+          highlightGroup.add(pMesh)
         }
       },
       setPlate(p) {
@@ -1061,8 +1123,22 @@ export function Viewport({
 
           const intersects = ray.intersectObjects(candidateBodies, false)
           if (intersects.length > 0) {
-            const hitLabel = bodyToPart.get(intersects[0].object as THREE.Mesh)
-            callbacksRef.current.onPick?.(hitLabel ?? null, e.shiftKey || e.ctrlKey || e.metaKey)
+            const hit = intersects[0]
+            const hitLabel = bodyToPart.get(hit.object as THREE.Mesh)
+            if (callbacksRef.current.measurePickActive && callbacksRef.current.onMeasurePick) {
+              const normal: [number, number, number] = hit.face
+                ? [hit.face.normal.x, hit.face.normal.y, hit.face.normal.z]
+                : [0, 0, 1]
+              callbacksRef.current.onMeasurePick({
+                point: [hit.point.x, hit.point.y, hit.point.z],
+                normal,
+                faceIndex: hit.faceIndex ?? 0,
+                objectId: hitLabel,
+                screenPos: { x: e.clientX, y: e.clientY },
+              })
+            } else {
+              callbacksRef.current.onPick?.(hitLabel ?? null, e.shiftKey || e.ctrlKey || e.metaKey)
+            }
           } else {
             callbacksRef.current.onPick?.(null, false)
           }
@@ -1208,6 +1284,8 @@ export function Viewport({
   useEffect(() => { api.current?.setPlate(plate ?? null) }, [plate])
   useEffect(() => { api.current?.updateScene(sceneConfig) }, [sceneConfig])
   useEffect(() => { api.current?.setSketch(sketch) }, [sketch])
+  useEffect(() => { api.current?.setClippingPlane?.(clippingPlane ?? null) }, [clippingPlane])
+  useEffect(() => { api.current?.setHighlight?.(highlight ?? null) }, [highlight])
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none">

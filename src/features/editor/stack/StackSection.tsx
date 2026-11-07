@@ -30,6 +30,7 @@ export interface StackSectionProps {
   onSetRollback: (index: number | null) => void
   onFlatten: () => void
   onEditFeature?: (featureIndex: number) => void
+  onRepairMesh?: (targetObjectId?: string) => void
 }
 
 export function StackSection({
@@ -44,6 +45,7 @@ export function StackSection({
   onSetRollback,
   onFlatten,
   onEditFeature,
+  onRepairMesh,
 }: StackSectionProps) {
   const { t } = useTranslation()
   const [expandedOpId, setExpandedOpId] = useState<string | null>(null)
@@ -125,6 +127,11 @@ export function StackSection({
                     onToggleEnabled={() => onToggleOp(op.id)}
                     onDelete={() => onRemoveOp(op.id)}
                     onMove={onMoveOp}
+                    onRepair={
+                      onRepairMesh
+                        ? () => onRepairMesh((op.params as any)?.targetId ?? object.id)
+                        : undefined
+                    }
                   >
                     <OpForm
                       op={op}

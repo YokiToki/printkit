@@ -19,6 +19,7 @@ import type { Op } from '../../editor/stack'
 import { addOp, updateOp, removeOp, toggleOp, moveOp } from '../../editor/stack'
 import type { ObjectStatus } from '../../geometry/model'
 import { StackSection } from './stack/StackSection'
+import { MeshSection, type MeshHighlight } from './mesh/MeshSection'
 import {
   boundsOf,
   centerOnBed,
@@ -58,6 +59,11 @@ export interface PropertiesProps {
   onMoveOp?: (objectId: string, fromIndex: number, toIndex: number) => void
   onSetRollback?: (objectId: string, index: number | null) => void
   onFlatten?: (objectId: string) => void
+  onHighlight?: (highlight: MeshHighlight | null) => void
+  onFrame?: (bounds: Bounds3) => void
+  meshSectionOpen?: boolean
+  onMeshSectionOpenChange?: (open: boolean) => void
+  onRepairMesh?: (targetObjectId?: string) => void
 }
 
 export function Properties({
@@ -79,6 +85,11 @@ export function Properties({
   onMoveOp,
   onSetRollback,
   onFlatten,
+  onHighlight,
+  onFrame,
+  meshSectionOpen,
+  onMeshSectionOpenChange,
+  onRepairMesh,
 }: PropertiesProps) {
   const { t } = useTranslation()
   const { unit } = useUnit()
@@ -613,48 +624,20 @@ export function Properties({
         onSetRollback={handleSetRollback}
         onFlatten={handleFlatten}
         onEditFeature={onEditFeature ? (fIdx) => onEditFeature(obj.id, fIdx) : undefined}
+        onRepairMesh={onRepairMesh}
       />
 
-      {/* Mesh Health block for mesh source */}
+      {/* Mesh block for mesh source */}
       {obj.source.kind === 'mesh' && (
-        <Section title={t('editor.properties.meshHealth')}>
-          <div className="space-y-1.5 pt-2 font-mono text-[11px]">
-            {health ? (
-              <>
-                <div className="flex justify-between">
-                  <span className="text-text-muted">{t('editor.health.status')}</span>
-                  <span className={health.closed ? 'text-success-text' : 'text-warn-text font-bold'}>
-                    {health.closed ? t('editor.health.closed') : t('editor.health.open')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-muted">{t('editor.health.triangles')}</span>
-                  <span className="text-text">{health.triangles}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-muted">{t('editor.health.volume')}</span>
-                  <span className="text-text">
-                    {Math.round(Math.abs(health.volume))} {unit === 'in' ? 'in³' : 'mm³'}
-                  </span>
-                </div>
-                {health.openEdges > 0 && (
-                  <div className="flex justify-between text-warn-text">
-                    <span>{t('editor.health.openEdges')}</span>
-                    <span>{health.openEdges}</span>
-                  </div>
-                )}
-                {health.nonManifoldEdges > 0 && (
-                  <div className="flex justify-between text-warn-text">
-                    <span>{t('editor.health.nonManifoldEdges')}</span>
-                    <span>{health.nonManifoldEdges}</span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-error-text">{t('editor.health.missing')}</div>
-            )}
-          </div>
-        </Section>
+        <MeshSection
+          object={obj}
+          meshData={meshes?.[obj.id]}
+          onUpdateObject={onUpdateObject}
+          onHighlight={onHighlight}
+          onFrame={onFrame}
+          isOpen={meshSectionOpen}
+          onOpenChange={onMeshSectionOpenChange}
+        />
       )}
     </div>
   )

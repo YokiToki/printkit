@@ -12,6 +12,7 @@ import {
   type Transform,
 } from './scene'
 
+export type { SceneDoc } from './scene'
 export const SCENE_STORAGE_KEY = 'editor.scene'
 
 const KNOWN_PRIMITIVES = new Set<PrimitiveShape>(['box', 'cylinder', 'sphere', 'cone', 'torus', 'wedge'])

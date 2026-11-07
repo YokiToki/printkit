@@ -69,6 +69,33 @@ describe('Toolbar and EditorDropZone', () => {
     // Switch tool to scale
     await user.click(screen.getByTestId('toolbar-tool-scale'))
     expect(onToolChange).toHaveBeenCalledWith('scale')
+
+    // Switch tool to measure
+    await user.click(screen.getByTestId('toolbar-tool-measure'))
+    expect(onToolChange).toHaveBeenCalledWith('measure')
+  })
+
+  it('toggles analysis panel', async () => {
+    const user = userEvent.setup()
+    const onToggleAnalysis = vi.fn()
+    render(
+      <Toolbar
+        tool="select"
+        onToolChange={onToolChange}
+        snap={true}
+        onSnapChange={onSnapChange}
+        projection="persp"
+        onProjectionChange={onProjectionChange}
+        onFit={onFit}
+        onAddPrimitive={onAddPrimitive}
+        onImportFiles={onImportFiles}
+        analysisOpen={false}
+        onToggleAnalysis={onToggleAnalysis}
+      />
+    )
+
+    await user.click(screen.getByTestId('toolbar-analysis-toggle'))
+    expect(onToggleAnalysis).toHaveBeenCalledTimes(1)
   })
 
   it('opens Add menu and creates selected primitive', async () => {

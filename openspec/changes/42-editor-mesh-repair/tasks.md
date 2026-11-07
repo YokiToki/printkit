@@ -28,10 +28,10 @@
 
 ## 5. UI (no artboard exists: built from `ui/` components and tokens)
 
-- [ ] 5.1 "Mesh" section in Properties: health summary and details lists with Show (highlight sets and camera framing in `Viewport`), repair buttons with options dialogs, Auto repair report, Make Solid confirmation with the estimate, Decimate and Smooth forms, Revert. Component tests for each action and the messages; stepper assertion.
-- [ ] 5.2 Measure tool: picking with snapping (add `three-mesh-bvh` if picking exceeds 50 ms on a 500k mesh), measurement list, copy, unit display, overlay lines and labels. Test the snapping and math helpers (distance, angle, circle fit, thickness) and the list component.
-- [ ] 5.3 Analysis panel: overhang and thin-wall maps (vertex colours), open-edge and flipped highlights, section slider with clipping planes. Test the colour ramp and thresholds as pure functions; browser check on a tilted part and a hollow part.
-- [ ] 5.4 The "not a closed solid" messages of `41` get a Repair action; strings in en and ru including `mesh.*`, `log.editor.mesh.*`. Test: key parity and the action opens the Mesh section.
+- [x] 5.1 "Mesh" section in Properties: health summary and details lists with Show (highlight sets and camera framing in `Viewport`), repair buttons with options dialogs, Auto repair report, Make Solid confirmation with the estimate, Decimate and Smooth forms, Revert. Component tests for each action and the messages; stepper assertion.
+- [x] 5.2 Measure tool: picking with snapping (add `three-mesh-bvh` if picking exceeds 50 ms on a 500k mesh), measurement list, copy, unit display, overlay lines and labels. Test the snapping and math helpers (distance, angle, circle fit, thickness) and the list component.
+- [x] 5.3 Analysis panel: overhang and thin-wall maps (vertex colours), open-edge and flipped highlights, section slider with clipping planes. Test the colour ramp and thresholds as pure functions; browser check on a tilted part and a hollow part.
+- [x] 5.4 The "not a closed solid" messages of `41` get a Repair action; strings in en and ru including `mesh.*`, `log.editor.mesh.*`. Test: key parity and the action opens the Mesh section.
 
 ## 6. Version
 

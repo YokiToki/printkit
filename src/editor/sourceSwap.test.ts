@@ -44,7 +44,7 @@ describe('4.2 Source swap, undo/redo, originMeshId and GC', () => {
     // Source swap
     const nextDoc: SceneDoc = {
       ...doc,
-      objects: doc.objects.map((obj) => {
+      objects: doc.objects.map((obj: any) => {
         if (obj.id === 'obj-1' && obj.source.kind === 'mesh') {
           return {
             ...obj,
@@ -71,7 +71,7 @@ describe('4.2 Source swap, undo/redo, originMeshId and GC', () => {
 
     // GC: both repairedId and originMeshId (initialId) must be kept! unreferenced-junk removed
     await gcMeshes(doc, store)
-    const keysAfterGC = await store.keys()
+    const keysAfterGC = (await store.keys?.()) ?? []
     expect(keysAfterGC).toContain(repairedId)
     expect(keysAfterGC).toContain(initialId)
     expect(keysAfterGC).not.toContain('unreferenced-junk')
@@ -91,7 +91,7 @@ describe('4.2 Source swap, undo/redo, originMeshId and GC', () => {
     // Revert to imported: resets meshId to originMeshId
     const revertedDoc: SceneDoc = {
       ...doc,
-      objects: doc.objects.map((obj) => {
+      objects: doc.objects.map((obj: any) => {
         if (obj.id === 'obj-1' && obj.source.kind === 'mesh' && obj.source.originMeshId) {
           return {
             ...obj,

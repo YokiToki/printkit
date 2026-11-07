@@ -63,6 +63,18 @@ import { addOp, updateOp, removeOp, toggleOp, moveOp, featureToOp } from '../../
 import { combineObjects, releaseTool } from '../../geometry/features/ops/boolean'
 import { meshRegistry } from '../../geometry/model'
 import type { IndexedMesh } from '../../geometry/stl-import'
+import { MeasurePanel, type MeasurementItem } from './mesh/MeasurePanel'
+import { AnalysisPanel, type AnalysisSettings } from './mesh/AnalysisPanel'
+import type { MeshHighlight } from './mesh/MeshSection'
+import {
+  measureDistance,
+  measureAngle,
+  fitCircle3D,
+  measureWallThickness,
+  snapToMesh,
+  type Vec3,
+} from '../../geometry/mesh/measure'
+import { getSectionPlane } from '../../geometry/mesh/analysisOverlays'
 
 export function EditorMode() {
   const { t } = useTranslation()
@@ -119,6 +131,110 @@ export function EditorMode() {
     svgText?: string | null
   }>({ open: false })
 
+  // Measure & Analysis states
+  const [analysisOpen, setAnalysisOpen] = useState(false)
+  const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>({
+    overhangEnabled: false,
+    overhangThreshold: 45,
+    thinWallEnabled: false,
+    thinWallThreshold: 0.8,
+    sectionEnabled: false,
+    sectionAxis: 'z',
+    sectionOffset: 0,
+  })
+  const [measurements, setMeasurements] = useState<MeasurementItem[]>([])
+  const [pickedMeasurePoints, setPickedMeasurePoints] = useState<Vec3[]>([])
+  const [activeHighlight, setActiveHighlight] = useState<MeshHighlight | null>(null)
+  const [meshSectionOpen, setMeshSectionOpen] = useState(false)
+
+  const handleRepairMesh = (targetId?: string) => {
+    if (targetId) setSelection([targetId])
+    setMeshSectionOpen(true)
+  }
+
+  const clippingPlane = useMemo(() => {
+    if (!analysisSettings.sectionEnabled) return null
+    return getSectionPlane(analysisSettings.sectionAxis, analysisSettings.sectionOffset)
+  }, [analysisSettings.sectionEnabled, analysisSettings.sectionAxis, analysisSettings.sectionOffset])
+
+  const handleMeasurePick = (hit: {
+    point: [number, number, number]
+    normal: [number, number, number]
+    faceIndex: number
+    objectId?: string
+    screenPos: { x: number; y: number }
+  }) => {
+    const obj = doc.objects.find((o) => o.id === hit.objectId)
+    const mesh = obj?.source.kind === 'mesh' ? meshRegistry.get(obj.source.meshId) : undefined
+    let p: Vec3 = hit.point
+    if (mesh) {
+      const snapped = snapToMesh(
+        hit.point,
+        hit.faceIndex,
+        mesh,
+        () => ({ x: hit.screenPos.x, y: hit.screenPos.y }),
+        8
+      )
+      p = snapped.point
+    }
+    const newPoints = [...pickedMeasurePoints, p]
+    setPickedMeasurePoints(newPoints)
+
+    if (mesh) {
+      const thick = measureWallThickness(p, hit.normal, mesh)
+      if (thick !== null && thick > 0) {
+        setMeasurements((prev) => [
+          ...prev,
+          {
+            id: `thick-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            kind: 'thickness',
+            value: thick,
+            points: [p],
+          },
+        ])
+      }
+    }
+
+    if (newPoints.length === 2) {
+      const d = measureDistance(newPoints[0], newPoints[1])
+      setMeasurements((prev) => [
+        ...prev,
+        {
+          id: `dist-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          kind: 'distance',
+          value: d,
+          points: [newPoints[0], newPoints[1]],
+        },
+      ])
+    } else if (newPoints.length >= 3) {
+      const last3 = newPoints.slice(-3)
+      const angle = measureAngle(last3[0], last3[1], last3[2])
+      setMeasurements((prev) => [
+        ...prev,
+        {
+          id: `angle-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          kind: 'angle',
+          value: angle,
+          points: last3,
+        },
+      ])
+
+      const circle = fitCircle3D(newPoints)
+      if (circle && circle.residual < 0.1) {
+        setMeasurements((prev) => [
+          ...prev,
+          {
+            id: `circle-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            kind: 'circle',
+            value: circle.diameter,
+            residual: circle.residual,
+            points: [...newPoints],
+          },
+        ])
+      }
+    }
+  }
+
   const dofInfo = useMemo(() => {
     if (!activeSketch) return { dof: 0, conflicts: [], redundant: [], entityStatus: {} }
     const res = computeDof(activeSketch)
@@ -145,7 +261,9 @@ export function EditorMode() {
   // Save UI settings on change
   const handleToolChange = (newTool: TransformTool) => {
     setTool(newTool)
-    saveEditorUi({ tool: newTool })
+    if (newTool !== 'measure') {
+      saveEditorUi({ tool: newTool })
+    }
   }
 
   const handleSnapChange = (newSnap: boolean) => {
@@ -820,7 +938,7 @@ export function EditorMode() {
       locked: doc.objects.filter((o) => o.locked).map((o) => o.id),
       hidden: doc.objects.filter((o) => !o.visible).map((o) => o.id),
       gizmo:
-        tool === 'select'
+        tool === 'select' || tool === 'measure'
           ? undefined
           : {
               mode: tool,
@@ -1370,6 +1488,8 @@ export function EditorMode() {
           onImportSvgFile={(file) => handleOpenSvgImport(file)}
           hasSketches={(doc.sketches?.length ?? 0) > 0}
           onOpenFeatureDialog={(k) => handleOpenFeatureDialog(k)}
+          analysisOpen={analysisOpen}
+          onToggleAnalysis={() => setAnalysisOpen(!analysisOpen)}
         />
       )}
 
@@ -1509,12 +1629,42 @@ export function EditorMode() {
               }}
               onHoverConstraint={setHoverConstraintId}
               onPinDimension={handlePinDimension}
+              clippingPlane={clippingPlane}
+              highlight={activeHighlight}
+              measurePickActive={tool === 'measure'}
+              onMeasurePick={handleMeasurePick}
             />
           </EditorDropZone>
 
           {/* Measurements and status */}
           <MeasurementsBar model={model} />
           <ActivityLogPanel />
+
+          {/* Floating Measure Panel */}
+          {tool === 'measure' && (
+            <div className="absolute top-3 left-14 z-20">
+              <MeasurePanel
+                measurements={measurements}
+                onClear={() => {
+                  setMeasurements([])
+                  setPickedMeasurePoints([])
+                }}
+                onRemoveItem={(id) => setMeasurements((prev) => prev.filter((m) => m.id !== id))}
+                onClose={() => setTool('select')}
+              />
+            </div>
+          )}
+
+          {/* Floating Analysis Panel */}
+          {analysisOpen && (
+            <div className="absolute top-3 right-14 z-20">
+              <AnalysisPanel
+                settings={analysisSettings}
+                onChange={(patch) => setAnalysisSettings((prev) => ({ ...prev, ...patch }))}
+                onClose={() => setAnalysisOpen(false)}
+              />
+            </div>
+          )}
         </main>
 
         {/* Right: Properties / Constraints (desktop collapsible) */}
@@ -1604,6 +1754,10 @@ export function EditorMode() {
                 onFlatten={handleFlatten}
                 healthMap={healthMap}
                 meshes={meshesMap}
+                onHighlight={setActiveHighlight}
+                meshSectionOpen={meshSectionOpen}
+                onMeshSectionOpenChange={setMeshSectionOpen}
+                onRepairMesh={handleRepairMesh}
               />
             )}
           </div>
@@ -1792,6 +1946,10 @@ export function EditorMode() {
                     onFlatten={handleFlatten}
                     healthMap={healthMap}
                     meshes={meshesMap}
+                    onHighlight={setActiveHighlight}
+                    meshSectionOpen={meshSectionOpen}
+                    onMeshSectionOpenChange={setMeshSectionOpen}
+                    onRepairMesh={handleRepairMesh}
                   />
                   <div className="mt-4">
                     <EditorExportFooter

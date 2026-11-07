@@ -11,12 +11,14 @@ import {
   IconFocusCentered,
   IconKeyboard,
   IconChevronDown,
+  IconRuler,
+  IconEyeCheck,
 } from '@tabler/icons-react'
 import type { PrimitiveShape } from '../../editor/scene'
 import type { PlaneDefinition } from '../../editor/sketch/model'
 import { loadEditorUi, saveEditorUi } from './editorUiStore'
 
-export type TransformTool = 'select' | 'translate' | 'rotate' | 'scale'
+export type TransformTool = 'select' | 'translate' | 'rotate' | 'scale' | 'measure'
 
 export interface ToolbarProps {
   tool: TransformTool
@@ -36,6 +38,8 @@ export interface ToolbarProps {
   onImportSvgFile?: (file: File) => void
   onImportSvgClick?: () => void
   hasSketches?: boolean
+  analysisOpen?: boolean
+  onToggleAnalysis?: () => void
 }
 
 const PRIMITIVE_LIST: PrimitiveShape[] = ['box', 'cylinder', 'sphere', 'cone', 'torus', 'wedge']
@@ -58,6 +62,8 @@ export function Toolbar({
   onImportSvgFile,
   onImportSvgClick,
   hasSketches = false,
+  analysisOpen = false,
+  onToggleAnalysis,
 }: ToolbarProps) {
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -336,6 +342,20 @@ export function Toolbar({
           >
             <IconDimensions size={16} stroke={1.75} />
           </button>
+          <button
+            type="button"
+            data-testid="toolbar-tool-measure"
+            aria-pressed={tool === 'measure'}
+            title={`${t('mesh.measure.title')} (M)`}
+            onClick={() => onToolChange('measure')}
+            className={`inline-flex h-full min-w-7 items-center justify-center rounded-control px-2 text-xs font-medium cursor-pointer ${
+              tool === 'measure'
+                ? 'bg-surface-3 text-text shadow-[inset_0_0_0_1px_var(--color-border-strong)]'
+                : 'text-text-muted hover:text-text'
+            }`}
+          >
+            <IconRuler size={16} stroke={1.75} />
+          </button>
         </div>
 
         {/* Right section: Snap, Projection, Fit, Hotkeys */}
@@ -396,6 +416,21 @@ export function Toolbar({
               </>
             )}
           </div>
+
+          {/* Projection toggle: Persp / Ortho */}
+          <button
+            type="button"
+            data-testid="toolbar-analysis-toggle"
+            aria-pressed={analysisOpen}
+            title={t('mesh.analysis.title')}
+            onClick={onToggleAnalysis}
+            className={`inline-flex h-8 items-center gap-1 px-2 rounded-control border border-border bg-bg cursor-pointer ${
+              analysisOpen ? 'bg-accent-muted text-white' : 'text-text-muted hover:text-text'
+            }`}
+          >
+            <IconEyeCheck size={15} stroke={1.75} />
+            <span className="text-[11px] font-medium hidden sm:inline">{t('mesh.analysis.title')}</span>
+          </button>
 
           {/* Projection toggle: Persp / Ortho */}
           <button

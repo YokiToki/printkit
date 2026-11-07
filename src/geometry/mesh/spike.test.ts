@@ -132,7 +132,7 @@ describe('Task 1.1 Spike: Level set & Make Solid', () => {
       console.log(`  Cells: ${cellsX}x${cellsY}x${cellsZ} = ${totalCells} (${(memoryEstimateBytes / 1024).toFixed(1)} KB)`)
       console.log(`  Output tris: ${mesh.numTri}, Volume: ${vol.toFixed(1)}, Status: ${status}`)
 
-      expect(status === 'NoError' || status === 0).toBe(true)
+      expect(status === 'NoError' || (status as any) === 0).toBe(true)
       expect(mesh.numTri).toBeGreaterThan(0)
       expect(vol).toBeGreaterThan(6000) // 20^3 is 8000
     }

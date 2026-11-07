@@ -39,5 +39,5 @@
 
 ## 7. Verification
 
-- [ ] 7.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; the Gridfinity baseplate split and connectors work as before.
-- [ ] 7.2 In the browser, en and ru, desktop and 390 px: split a long model for a Bambu bed with pegs and magnets, print-check the part sizes in the export panel, move a cut and see parts update, cut at 30° from a face, put M3 counterbored holes and magnet pockets on a top face and a tilted face, add engraved and embossed text including Cyrillic, export STL/3MF and verify bbox, volumes and part names.
+- [x] 7.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; the Gridfinity baseplate split and connectors work as before.
+- [x] 7.2 In the browser, en and ru, desktop and 390 px: split a long model for a Bambu bed with pegs and magnets, print-check the part sizes in the export panel, move a cut and see parts update, cut at 30° from a face, put M3 counterbored holes and magnet pockets on a top face and a tilted face, add engraved and embossed text including Cyrillic, export STL/3MF and verify bbox, volumes and part names.

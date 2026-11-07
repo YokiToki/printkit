@@ -13,12 +13,12 @@
 
 ## 3. Repairs
 
-- [ ] 3.1 `weld.ts`, `removeDegenerate.ts`, `orient.ts`, `shells.ts` with reports. Test: each with counts, the weld tolerance, flipped shell only, small shells kept/removed by thresholds.
-- [ ] 3.2 `fillHoles.ts` (flat with ear clipping and fan fallback, smooth with relaxation, size limit, skipped list). Test: triangle hole, square hole, a ring-shaped open end, a skipped loop; result closed and volume within tolerance.
-- [ ] 3.3 `makeSolid.ts` per the spike with the memory estimate. Test: broken fixtures become valid Manifold input, volume within tolerance, refusal over budget.
-- [ ] 3.4 `autoRepair.ts` and `report` text keys. Test: the typical broken fixture end to end, unrepairable case listing leftovers.
-- [ ] 3.5 `decimate.ts` and `smooth.ts`. Test: triangle counts and deviation bounds, volume change under 1 % for smooth, boundary and sharp edges fixed, open mesh refused.
-- [ ] 3.6 `orientation.ts`: `layOnFace`, `bestOrientations` with the scoring. Test: a tilted block gets the flat side down, the scores order axis-aligned flips of an L-shaped part as expected.
+- [x] 3.1 `weld.ts`, `removeDegenerate.ts`, `orient.ts`, `shells.ts` with reports. Test: each with counts, the weld tolerance, flipped shell only, small shells kept/removed by thresholds.
+- [x] 3.2 `fillHoles.ts` (flat with ear clipping and fan fallback, smooth with relaxation, size limit, skipped list). Test: triangle hole, square hole, a ring-shaped open end, a skipped loop; result closed and volume within tolerance.
+- [x] 3.3 `makeSolid.ts` per the spike with the memory estimate. Test: broken fixtures become valid Manifold input, volume within tolerance, refusal over budget.
+- [x] 3.4 `autoRepair.ts` and `report` text keys. Test: the typical broken fixture end to end, unrepairable case listing leftovers.
+- [x] 3.5 `decimate.ts` and `smooth.ts`. Test: triangle counts and deviation bounds, volume change under 1 % for smooth, boundary and sharp edges fixed, open mesh refused.
+- [x] 3.6 `orientation.ts`: `layOnFace`, `bestOrientations` with the scoring. Test: a tilted block gets the flat side down, the scores order axis-aligned flips of an L-shaped part as expected.
 
 ## 4. Worker and plumbing
 

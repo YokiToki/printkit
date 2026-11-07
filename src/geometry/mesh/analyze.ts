@@ -101,8 +101,7 @@ export function analyze(mesh: TriSoup | IndexedMesh, options: AnalyzeOptions = {
     if (z < minZ) minZ = z; if (z > maxZ) maxZ = z
   }
 
-  const diag = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ)
-  const tol = options.tolerance ?? Math.max(diag * 1e-6, 1e-6)
+  const tol = options.tolerance ?? 1e-7
   const invTol = 1 / tol
 
   // Spatial hash welding to identify shared vertices

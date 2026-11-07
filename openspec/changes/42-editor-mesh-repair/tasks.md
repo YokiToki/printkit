@@ -39,5 +39,5 @@
 
 ## 7. Verification
 
-- [ ] 7.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; earlier editor features unchanged.
+- [x] 7.1 `npm test` and `npm run build` are green, the dev server starts, no console errors; earlier editor features unchanged.
 - [ ] 7.2 In the browser, en and ru: import three real broken STLs, read the diagnosis, repair step by step and with Auto repair, Make Solid the worst one, use the repaired mesh in a Boolean, decimate and smooth, Lay on Face and Best orientation, measure a hole and a wall against known sizes, view the overhang and thin-wall maps and the section; check the 500k-triangle performance and cancellation; undo through all and revert to imported.

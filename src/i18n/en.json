@@ -13,7 +13,9 @@
     "ready": "Updated",
     "fit": "Fit to view",
     "download": "Download",
-    "changed": "changed"
+    "changed": "changed",
+    "cancel": "Cancel",
+    "apply": "Apply"
   },
   "units": {
     "label": "Units",
@@ -2134,7 +2136,132 @@
       "circularPattern": "Circular pattern ({{count}}x around {{axis}})",
       "offset": "Offset {{distance}}",
       "hollow": "Hollow ({{wall}})",
+      "hole": {
+        "simple": "Hole {{diameter}}",
+        "counterbore": "Counterbore {{diameter}}",
+        "countersink": "Countersink {{diameter}}",
+        "insert": "Insert {{diameter}}",
+        "magnet": "Magnet {{diameter}}"
+      },
+      "text": {
+        "emboss": "Emboss {{text}}",
+        "engrave": "Engrave {{text}}"
+      },
       "unknown": "Unknown ({{kind}})"
+    }
+  },
+  "cut": {
+    "title": "Cut",
+    "planeDefinition": "Plane definition",
+    "position": "Position",
+    "offset": "Offset",
+    "facePicked": "Face selected",
+    "pickFaceHint": "Click a planar face in viewport",
+    "threePointsHint": "Click 3 points on mesh to define plane",
+    "modeLabel": "Cut mode",
+    "sliceCount": "Number of slices",
+    "enableConnectors": "Add connectors",
+    "apply": "Cut",
+    "group": "Cut Group",
+    "deleteGroup": "Delete cut group",
+    "plane": {
+      "axis": "Axis",
+      "face": "From face",
+      "threePoints": "3 points"
+    },
+    "mode": {
+      "both": "Both parts",
+      "keepBelow": "Keep lower",
+      "keepAbove": "Keep upper",
+      "slice": "Slice into N"
+    },
+    "connector": {
+      "title": "Connectors",
+      "pegs": "Pegs",
+      "pins": "Pins",
+      "magnets": "Magnets",
+      "dovetail": "Dovetail",
+      "preset": "Preset",
+      "diameter": "Diameter",
+      "depth": "Depth",
+      "neck": "Neck width",
+      "tip": "Tip width",
+      "clearance": "Clearance",
+      "count": "Count",
+      "sectionPreview": "Section preview",
+      "add": "Add marker",
+      "outside": "Connector leaves part boundary",
+      "thin": "Too little material behind cut (< 2 mm)",
+      "overlap": "Connectors overlap"
+    },
+    "split": {
+      "title": "Split to Bed",
+      "printerPreset": "Printer / Bed preset",
+      "bedWidth": "Bed width",
+      "bedDepth": "Bed depth",
+      "margin": "Margin",
+      "oversizeWarning": "Part exceeds printable bed size",
+      "cutsSummary": "Cuts: {{count}}, Parts: {{parts}}",
+      "cutsX": "Cuts along X",
+      "cutsY": "Cuts along Y",
+      "explodeGap": "Explode gap",
+      "apply": "Split"
+    },
+    "error": {
+      "notSolid": "Object is not a closed solid"
+    }
+  },
+  "hole": {
+    "title": "Hole",
+    "type": "Type",
+    "thread": "Thread size",
+    "magnetPreset": "Magnet size",
+    "diameter": "Diameter",
+    "depth": "Depth",
+    "through": "Through hole",
+    "cbDiameter": "Head diameter",
+    "cbDepth": "Head depth",
+    "csDiameter": "Countersink diameter",
+    "csAngle": "Angle (°)",
+    "offsets": "Face plane offset",
+    "apply": "Add hole",
+    "kind": {
+      "simple": "Simple",
+      "counterbore": "Counterbore",
+      "countersink": "Countersink",
+      "insert": "Heat insert",
+      "magnet": "Magnet"
+    },
+    "error": {
+      "cutFailed": "Hole cut failed"
+    }
+  },
+  "text": {
+    "title": "Text on Face",
+    "content": "Text",
+    "font": "Font",
+    "modeLabel": "Mode",
+    "size": "Height",
+    "height": "Relief height",
+    "depth": "Depth",
+    "spacing": "Letter spacing",
+    "rotation": "Rotation",
+    "alignLabel": "Alignment",
+    "apply": "Apply text",
+    "mode": {
+      "emboss": "Emboss",
+      "engrave": "Engrave"
+    },
+    "align": {
+      "left": "Left",
+      "center": "Center",
+      "right": "Right"
+    },
+    "warning": {
+      "curved": "Target surface is curved; text projection may distort"
+    },
+    "error": {
+      "failed": "Text operation failed"
     }
   }
 }

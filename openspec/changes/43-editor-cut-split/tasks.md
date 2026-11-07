@@ -27,11 +27,11 @@
 
 ## 5. UI (no artboard exists: built from `ui/` components and tokens)
 
-- [ ] 5.1 Cut tool: plane widget in `Viewport` with the gizmo, axis snapping, plane from face (uses `42` picking), three points, mode selector (both / keep one / slice N), cut position field (`LengthField`), preview of the section in an inset panel. Component tests for the form and helpers for the plane maths; browser check.
-- [ ] 5.2 Split dialog and group UI in the outliner (group, parts, source, explode gap slider, per-cut positions), oversize marks. Component tests.
-- [ ] 5.3 `ConnectorEditor`: type and preset pickers, size/depth/clearance fields, count, margin, section preview with draggable markers, issue list with keys. Component tests: drag, add, remove, issues shown.
-- [ ] 5.4 Hole tool: surface picking marker, form with type and preset, offsets, depth/through, live preview; Text tool form with font picker (reuse the list), size, spacing, depth/height, rotation, placement by click; both create stack operations. Component tests and a browser check on an inclined face.
-- [ ] 5.5 Strings in `en.json` and `ru.json` (`cut.*`, `hole.*`, `text.*`, `cut.connector.*`, log keys); key parity.
+- [x] 5.1 Cut tool: plane widget in `Viewport` with the gizmo, axis snapping, plane from face (uses `42` picking), three points, mode selector (both / keep one / slice N), cut position field (`LengthField`), preview of the section in an inset panel. Component tests for the form and helpers for the plane maths; browser check.
+- [x] 5.2 Split dialog and group UI in the outliner (group, parts, source, explode gap slider, per-cut positions), oversize marks. Component tests.
+- [x] 5.3 `ConnectorEditor`: type and preset pickers, size/depth/clearance fields, count, margin, section preview with draggable markers, issue list with keys. Component tests: drag, add, remove, issues shown.
+- [x] 5.4 Hole tool: surface picking marker, form with type and preset, offsets, depth/through, live preview; Text tool form with font picker (reuse the list), size, spacing, depth/height, rotation, placement by click; both create stack operations. Component tests and a browser check on an inclined face.
+- [x] 5.5 Strings in `en.json` and `ru.json` (`cut.*`, `hole.*`, `text.*`, `cut.connector.*`, log keys); key parity.
 
 ## 6. Version
 

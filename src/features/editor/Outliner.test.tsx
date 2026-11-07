@@ -406,4 +406,87 @@ describe('editor/Outliner', () => {
     fireEvent.click(screen.getByTestId('outliner-action-release-tool'))
     expect(onReleaseTool).toHaveBeenCalledWith('obj-2')
   })
+
+  it('renders cut groups, explode gap, per-cut positions, and oversize marks', () => {
+    const onDeleteCutGroup = vi.fn()
+    const onUpdateCutGroup = vi.fn()
+
+    const sourceObj: EditorObject = {
+      id: 'src-1',
+      name: 'Source Box',
+      visible: false,
+      locked: false,
+      color: 0,
+      source: { kind: 'primitive', shape: 'box', params: { x: 100, y: 100, z: 20 } },
+      transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+    }
+
+    const partA: EditorObject = {
+      id: 'part-a',
+      name: 'Source Box A1',
+      visible: true,
+      locked: false,
+      color: 0,
+      source: { kind: 'cutPart', groupId: 'cg-1', partIndex: 0, partLabel: 'A1' },
+      transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+    }
+
+    const partB: EditorObject = {
+      id: 'part-b',
+      name: 'Source Box B1',
+      visible: true,
+      locked: false,
+      color: 0,
+      source: { kind: 'cutPart', groupId: 'cg-1', partIndex: 1, partLabel: 'B1' },
+      transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+    }
+
+    render(
+      <Outliner
+        objects={[sourceObj, partA, partB, obj2]}
+        selection={['part-a']}
+        cuts={[
+          {
+            id: 'cg-1',
+            name: 'Bed Split',
+            sourceObjectId: 'src-1',
+            type: 'grid',
+            grid: { x: [50], y: [], z: [] },
+            explodeGap: 10,
+          },
+        ]}
+        oversizePartIds={new Set(['part-b'])}
+        onDeleteCutGroup={onDeleteCutGroup}
+        onUpdateCutGroup={onUpdateCutGroup}
+        onSelect={vi.fn()}
+        onToggleVisible={vi.fn()}
+        onToggleLock={vi.fn()}
+        onRename={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onIsolate={vi.fn()}
+        onShowAll={vi.fn()}
+      />
+    )
+
+    // Cut group header rendered
+    expect(screen.getByTestId('outliner-cutgroup-cg-1')).toBeInTheDocument()
+    expect(screen.getByText('Bed Split')).toBeInTheDocument()
+    expect(screen.getByText('X cuts: 50 mm')).toBeInTheDocument()
+
+    // Source object and derived parts
+    expect(screen.getByTestId('outliner-cutgroup-source-src-1')).toBeInTheDocument()
+    expect(screen.getByTestId('outliner-row-part-a')).toBeInTheDocument()
+    expect(screen.getByTestId('outliner-row-part-b')).toBeInTheDocument()
+
+    // Oversize badge on part B
+    expect(screen.getByTestId('outliner-part-oversize-part-b')).toBeInTheDocument()
+
+    // Standalone obj-2 in bodies
+    expect(screen.getByTestId('outliner-row-obj-2')).toBeInTheDocument()
+
+    // Delete cut group button
+    fireEvent.click(screen.getByTestId('outliner-delete-cutgroup-cg-1'))
+    expect(onDeleteCutGroup).toHaveBeenCalledWith('cg-1')
+  })
 })

@@ -52,7 +52,7 @@ import {
   deleteSelectionCommand,
   dragPointCommand,
 } from './sketch/sketchCommands'
-import { newId, type PlaneDefinition, type Constraint, type Sketch, addLine, addPoint } from '../../editor/sketch/model'
+import { newId, type PlaneDefinition as SketchPlaneDefinition, type Constraint, type Sketch, addLine, addPoint } from '../../editor/sketch/model'
 import { dimensionFor, constraintEntities } from '../../editor/sketch/measure'
 import { rectangleMacro } from '../../editor/sketch/tools/rectangle'
 import type { ScreenPickResult } from '../viewport/sketchPicking'
@@ -66,6 +66,16 @@ import type { IndexedMesh } from '../../geometry/stl-import'
 import { MeasurePanel, type MeasurementItem } from './mesh/MeasurePanel'
 import { AnalysisPanel, type AnalysisSettings } from './mesh/AnalysisPanel'
 import type { MeshHighlight } from './mesh/MeshSection'
+import { CutPanel, type CutOperationMode } from './cut/CutPanel'
+import { SplitDialog } from './cut/SplitDialog'
+import { HoleToolPanel } from './ops/HoleToolPanel'
+import { TextToolPanel } from './ops/TextToolPanel'
+import { createCutGroup, deleteCutGroup, updateCutGroup, type CutGroup, type CutPartSource } from '../../editor/cuts'
+import type { HoleOp, TextOp } from '../../editor/stack'
+import type { HoleParams } from '../../geometry/features/ops/hole'
+import type { TextOpParams } from '../../geometry/features/ops/text'
+import type { CutConnectorConfig } from '../../geometry/cut/connectors'
+import type { PlaneDefinition as CutPlaneDefinition } from '../../geometry/cut/plane'
 import {
   measureDistance,
   measureAngle,
@@ -147,6 +157,12 @@ export function EditorMode() {
   const [activeHighlight, setActiveHighlight] = useState<MeshHighlight | null>(null)
   const [meshSectionOpen, setMeshSectionOpen] = useState(false)
 
+  // Cut, Split, Hole and Text states
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false)
+  const [pickedPoint, setPickedPoint] = useState<[number, number, number] | null>(null)
+  const [pickedNormal, setPickedNormal] = useState<[number, number, number] | null>(null)
+  const [pickedFace, setPickedFace] = useState<{ normal: [number, number, number]; origin: [number, number, number] } | undefined>(undefined)
+
   const handleRepairMesh = (targetId?: string) => {
     if (targetId) setSelection([targetId])
     setMeshSectionOpen(true)
@@ -164,6 +180,18 @@ export function EditorMode() {
     objectId?: string
     screenPos: { x: number; y: number }
   }) => {
+    if (tool === 'hole' || tool === 'text') {
+      setPickedPoint(hit.point)
+      setPickedNormal(hit.normal)
+      if (hit.objectId) setSelection([hit.objectId])
+      return
+    }
+    if (tool === 'cut') {
+      setPickedFace({ normal: hit.normal, origin: hit.point })
+      if (hit.objectId) setSelection([hit.objectId])
+      return
+    }
+
     const obj = doc.objects.find((o) => o.id === hit.objectId)
     const mesh = obj?.source.kind === 'mesh' ? meshRegistry.get(obj.source.meshId) : undefined
     let p: Vec3 = hit.point
@@ -235,6 +263,125 @@ export function EditorMode() {
     }
   }
 
+  const oversizePartIds = useMemo(() => {
+    const ids = new Set<string>()
+    if (!model?.parts) return ids
+    for (const p of model.parts) {
+      if (p.oversize) {
+        const obj = doc.objects.find(
+          (o) => o.source.kind === 'cutPart' && (o.source as CutPartSource).partLabel === p.label
+        )
+        if (obj) ids.add(obj.id)
+      }
+    }
+    return ids
+  }, [model?.parts, doc.objects])
+
+  const handleApplyCut = (params: {
+    plane: CutPlaneDefinition
+    mode: CutOperationMode
+    sliceCount?: number
+    connector?: CutConnectorConfig
+  }) => {
+    const targetObj = selection[0] ? doc.objects.find((o) => o.id === selection[0]) : doc.objects.find((o) => o.visible)
+    if (!targetObj) return
+
+    const groupId = `cut-${Date.now()}`
+    let partLabels: string[] = []
+    if (params.mode === 'both') {
+      partLabels = ['A', 'B']
+    } else if (params.mode === 'keepNegative') {
+      partLabels = ['A']
+    } else if (params.mode === 'keepPositive') {
+      partLabels = ['B']
+    } else if (params.mode === 'slice') {
+      const count = params.sliceCount ?? 3
+      partLabels = Array.from({ length: count }, (_, i) => `Part ${i + 1}`)
+    }
+
+    const cutGroup: CutGroup = {
+      id: groupId,
+      name: `${targetObj.name} Cut`,
+      sourceObjectId: targetObj.id,
+      type: 'plane',
+      plane: {
+        mode: params.mode,
+        plane: params.plane,
+        sliceCount: params.sliceCount,
+      },
+      connector: params.connector,
+      explodeGap: 0,
+    }
+
+    dispatch('Plane Cut', (prev) => createCutGroup(prev, cutGroup, partLabels))
+    setTool('select')
+  }
+
+  const handleApplySplit = (params: {
+    grid: { x: number[]; y: number[]; z: number[] }
+    bed: { width: number; depth: number; margin: number }
+    connector?: CutConnectorConfig
+    explodeGap: number
+  }) => {
+    const targetObj = selection[0] ? doc.objects.find((o) => o.id === selection[0]) : doc.objects.find((o) => o.visible)
+    if (!targetObj) return
+
+    const groupId = `split-${Date.now()}`
+    const cols = params.grid.x.length + 1
+    const rows = params.grid.y.length + 1
+    const partLabels: string[] = []
+    for (let c = 0; c < cols; c++) {
+      const colLetter = String.fromCharCode(65 + c)
+      for (let r = 0; r < rows; r++) {
+        partLabels.push(`${colLetter}${r + 1}`)
+      }
+    }
+
+    const cutGroup: CutGroup = {
+      id: groupId,
+      name: `${targetObj.name} Split`,
+      sourceObjectId: targetObj.id,
+      type: 'grid',
+      grid: params.grid,
+      bed: params.bed,
+      connector: params.connector,
+      explodeGap: params.explodeGap,
+    }
+
+    dispatch('Split to Bed', (prev) => createCutGroup(prev, cutGroup, partLabels))
+    setSplitDialogOpen(false)
+  }
+
+  const handleApplyHole = (params: HoleParams) => {
+    const targetId = selection[0] ?? doc.objects.find((o) => o.visible)?.id
+    if (!targetId) return
+
+    const op: HoleOp = {
+      id: `hole-${Date.now()}`,
+      kind: 'hole',
+      enabled: true,
+      params,
+    }
+
+    handleAddOp(targetId, op)
+    setTool('select')
+  }
+
+  const handleApplyText = (params: TextOpParams) => {
+    const targetId = selection[0] ?? doc.objects.find((o) => o.visible)?.id
+    if (!targetId) return
+
+    const op: TextOp = {
+      id: `text-${Date.now()}`,
+      kind: 'text',
+      enabled: true,
+      params,
+    }
+
+    handleAddOp(targetId, op)
+    setTool('select')
+  }
+
   const dofInfo = useMemo(() => {
     if (!activeSketch) return { dof: 0, conflicts: [], redundant: [], entityStatus: {} }
     const res = computeDof(activeSketch)
@@ -261,7 +408,7 @@ export function EditorMode() {
   // Save UI settings on change
   const handleToolChange = (newTool: TransformTool) => {
     setTool(newTool)
-    if (newTool !== 'measure') {
+    if (newTool === 'select' || newTool === 'translate' || newTool === 'rotate' || newTool === 'scale') {
       saveEditorUi({ tool: newTool })
     }
   }
@@ -298,6 +445,15 @@ export function EditorMode() {
 
   // Pre-calculate mesh health for all mesh objects
   const [healthMap, setHealthMap] = useState<Map<string, MeshHealth>>(new Map())
+
+  const selectedObjectBounds = useMemo(() => {
+    const targetId = selection[0]
+    const mesh = targetId ? meshesMap[targetId] : undefined
+    if (mesh) {
+      return { min: mesh.min, max: mesh.max }
+    }
+    return { min: [-50, -50, 0] as [number, number, number], max: [50, 50, 50] as [number, number, number] }
+  }, [selection, meshesMap])
   useEffect(() => {
     let cancelled = false
     const computeHealth = async () => {
@@ -878,6 +1034,18 @@ export function EditorMode() {
         action: () => handleToolChange('scale'),
       },
       {
+        id: 'cut',
+        key: 'c',
+        labelKey: 'cut.title',
+        action: () => handleToolChange('cut'),
+      },
+      {
+        id: 'text',
+        key: 't',
+        labelKey: 'text.title',
+        action: () => handleToolChange('text'),
+      },
+      {
         id: 'fit-selection',
         key: 'f',
         labelKey: 'editor.view.fitSelection',
@@ -901,7 +1069,11 @@ export function EditorMode() {
         key: 'h',
         labelKey: 'editor.outliner.hide',
         action: () => {
-          for (const id of selection) handleUpdateObject(id, { visible: false })
+          if (selection.length > 0) {
+            for (const id of selection) handleUpdateObject(id, { visible: false })
+          } else {
+            handleToolChange('hole')
+          }
         },
       },
       {
@@ -938,13 +1110,13 @@ export function EditorMode() {
       locked: doc.objects.filter((o) => o.locked).map((o) => o.id),
       hidden: doc.objects.filter((o) => !o.visible).map((o) => o.id),
       gizmo:
-        tool === 'select' || tool === 'measure'
-          ? undefined
-          : {
+        tool === 'translate' || tool === 'rotate' || tool === 'scale'
+          ? {
               mode: tool,
               space: 'local' as const,
               snap: snap ? { grid: snapStepMm, angle: snapStepDeg } : undefined,
-            },
+            }
+          : undefined,
       projection,
     }
   }, [doc.objects, selection, tool, snap, snapStepMm, snapStepDeg, projection])
@@ -1101,7 +1273,7 @@ export function EditorMode() {
   }
 
   // Sketch add handler
-  const handleAddSketch = (plane: PlaneDefinition) => {
+  const handleAddSketch = (plane: SketchPlaneDefinition) => {
     const existingNames = (doc.sketches ?? []).map((s) => s.name)
     const name = newName(t('sketch.defaultName', 'Sketch'), existingNames)
     let newSketchId = ''
@@ -1488,6 +1660,7 @@ export function EditorMode() {
           onImportSvgFile={(file) => handleOpenSvgImport(file)}
           hasSketches={(doc.sketches?.length ?? 0) > 0}
           onOpenFeatureDialog={(k) => handleOpenFeatureDialog(k)}
+          onOpenSplitDialog={() => setSplitDialogOpen(true)}
           analysisOpen={analysisOpen}
           onToggleAnalysis={() => setAnalysisOpen(!analysisOpen)}
         />
@@ -1559,6 +1732,10 @@ export function EditorMode() {
               onCombine={handleCombine}
               onReleaseTool={handleReleaseTool}
               healthMap={healthMap}
+              cuts={doc.cuts}
+              onDeleteCutGroup={(gId) => dispatch('Delete Cut Group', (prev) => deleteCutGroup(prev, gId))}
+              onUpdateCutGroup={(gId, patch) => dispatch('Update Cut Group', (prev) => updateCutGroup(prev, gId, patch))}
+              oversizePartIds={oversizePartIds}
             />
           </div>
         </aside>
@@ -1631,7 +1808,7 @@ export function EditorMode() {
               onPinDimension={handlePinDimension}
               clippingPlane={clippingPlane}
               highlight={activeHighlight}
-              measurePickActive={tool === 'measure'}
+              measurePickActive={tool === 'measure' || tool === 'hole' || tool === 'text' || tool === 'cut'}
               onMeasurePick={handleMeasurePick}
             />
           </EditorDropZone>
@@ -1682,7 +1859,13 @@ export function EditorMode() {
                   : t('sketch.feature.revolve', 'Revolve')
                 : activeSketch
                   ? activeSketch.name
-                  : t('editor.properties.transform')}
+                  : tool === 'cut'
+                    ? t('cut.title')
+                    : tool === 'hole'
+                      ? t('hole.title')
+                      : tool === 'text'
+                        ? t('text.title')
+                        : t('editor.properties.transform')}
             </span>
             <button
               type="button"
@@ -1733,6 +1916,26 @@ export function EditorMode() {
                 }
                 onAddConstraint={handleAddConstraint}
                 onHoverConstraint={setHoverConstraintId}
+              />
+            ) : tool === 'cut' ? (
+              <CutPanel
+                onApply={handleApplyCut}
+                onCancel={() => setTool('select')}
+                pickedFace={pickedFace}
+              />
+            ) : tool === 'hole' ? (
+              <HoleToolPanel
+                initialPoint={pickedPoint ?? [0, 0, 0]}
+                initialNormal={pickedNormal ?? [0, 0, 1]}
+                onApply={handleApplyHole}
+                onCancel={() => setTool('select')}
+              />
+            ) : tool === 'text' ? (
+              <TextToolPanel
+                initialPoint={pickedPoint ?? [0, 0, 0]}
+                initialNormal={pickedNormal ?? [0, 0, 1]}
+                onApply={handleApplyText}
+                onCancel={() => setTool('select')}
               />
             ) : (
               <Properties
@@ -1826,7 +2029,13 @@ export function EditorMode() {
                       : t('sketch.feature.revolve', 'Revolve')
                     : activeSketch
                       ? activeSketch.name
-                      : t('editor.properties.transform')}
+                      : tool === 'cut'
+                        ? t('cut.title')
+                        : tool === 'hole'
+                          ? t('hole.title')
+                          : tool === 'text'
+                            ? t('text.title')
+                            : t('editor.properties.transform')}
               </b>
               <button
                 type="button"
@@ -1885,6 +2094,10 @@ export function EditorMode() {
                   onCombine={handleCombine}
                   onReleaseTool={handleReleaseTool}
                   healthMap={healthMap}
+                  cuts={doc.cuts}
+                  onDeleteCutGroup={(gId) => dispatch('Delete Cut Group', (prev) => deleteCutGroup(prev, gId))}
+                  onUpdateCutGroup={(gId, patch) => dispatch('Update Cut Group', (prev) => updateCutGroup(prev, gId, patch))}
+                  oversizePartIds={oversizePartIds}
                 />
               ) : activeFeatureDialog ? (
                 <FeatureDialog
@@ -1924,6 +2137,26 @@ export function EditorMode() {
                   }
                   onAddConstraint={handleAddConstraint}
                   onHoverConstraint={setHoverConstraintId}
+                />
+              ) : tool === 'cut' ? (
+                <CutPanel
+                  onApply={handleApplyCut}
+                  onCancel={() => setTool('select')}
+                  pickedFace={pickedFace}
+                />
+              ) : tool === 'hole' ? (
+                <HoleToolPanel
+                  initialPoint={pickedPoint ?? [0, 0, 0]}
+                  initialNormal={pickedNormal ?? [0, 0, 1]}
+                  onApply={handleApplyHole}
+                  onCancel={() => setTool('select')}
+                />
+              ) : tool === 'text' ? (
+                <TextToolPanel
+                  initialPoint={pickedPoint ?? [0, 0, 0]}
+                  initialNormal={pickedNormal ?? [0, 0, 1]}
+                  onApply={handleApplyText}
+                  onCancel={() => setTool('select')}
                 />
               ) : (
                 <>
@@ -1974,6 +2207,14 @@ export function EditorMode() {
           activeSketch={activeSketch}
           onImport={handleSvgImport}
           onClose={() => setSvgImportState({ open: false })}
+        />
+      )}
+
+      {splitDialogOpen && (
+        <SplitDialog
+          objectBounds={selectedObjectBounds}
+          onApply={handleApplySplit}
+          onCancel={() => setSplitDialogOpen(false)}
         />
       )}
     </div>

@@ -73,6 +73,43 @@ describe('Toolbar and EditorDropZone', () => {
     // Switch tool to measure
     await user.click(screen.getByTestId('toolbar-tool-measure'))
     expect(onToolChange).toHaveBeenCalledWith('measure')
+
+    // Switch tool to cut
+    await user.click(screen.getByTestId('toolbar-tool-cut'))
+    expect(onToolChange).toHaveBeenCalledWith('cut')
+
+    // Switch tool to hole
+    await user.click(screen.getByTestId('toolbar-tool-hole'))
+    expect(onToolChange).toHaveBeenCalledWith('hole')
+
+    // Switch tool to text
+    await user.click(screen.getByTestId('toolbar-tool-text'))
+    expect(onToolChange).toHaveBeenCalledWith('text')
+  })
+
+  it('opens split dialog from add menu', async () => {
+    const user = userEvent.setup()
+    const onOpenSplitDialog = vi.fn()
+    render(
+      <Toolbar
+        tool="select"
+        onToolChange={onToolChange}
+        snap={true}
+        onSnapChange={onSnapChange}
+        projection="persp"
+        onProjectionChange={onProjectionChange}
+        onFit={onFit}
+        onAddPrimitive={onAddPrimitive}
+        onImportFiles={onImportFiles}
+        onOpenSplitDialog={onOpenSplitDialog}
+      />
+    )
+
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    const splitBtn = screen.getByTestId('toolbar-split-dialog')
+    expect(splitBtn).toBeInTheDocument()
+    await user.click(splitBtn)
+    expect(onOpenSplitDialog).toHaveBeenCalledTimes(1)
   })
 
   it('toggles analysis panel', async () => {

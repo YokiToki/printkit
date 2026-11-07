@@ -13,12 +13,23 @@ import {
   IconChevronDown,
   IconRuler,
   IconEyeCheck,
+  IconScissors,
+  IconCircleDot,
+  IconLetterT,
 } from '@tabler/icons-react'
 import type { PrimitiveShape } from '../../editor/scene'
 import type { PlaneDefinition } from '../../editor/sketch/model'
 import { loadEditorUi, saveEditorUi } from './editorUiStore'
 
-export type TransformTool = 'select' | 'translate' | 'rotate' | 'scale' | 'measure'
+export type TransformTool =
+  | 'select'
+  | 'translate'
+  | 'rotate'
+  | 'scale'
+  | 'measure'
+  | 'cut'
+  | 'hole'
+  | 'text'
 
 export interface ToolbarProps {
   tool: TransformTool
@@ -35,6 +46,7 @@ export interface ToolbarProps {
   onImportFiles: (files: File[], unit: 'mm' | 'in') => void
   onAddSketch?: (plane: PlaneDefinition) => void
   onOpenFeatureDialog?: (kind: 'extrude' | 'revolve') => void
+  onOpenSplitDialog?: () => void
   onImportSvgFile?: (file: File) => void
   onImportSvgClick?: () => void
   hasSketches?: boolean
@@ -59,6 +71,7 @@ export function Toolbar({
   onImportFiles,
   onAddSketch,
   onOpenFeatureDialog,
+  onOpenSplitDialog,
   onImportSvgFile,
   onImportSvgClick,
   hasSketches = false,
@@ -258,6 +271,23 @@ export function Toolbar({
                   <div className="h-px bg-border my-1" />
 
                   <div className="px-3 py-1 text-[10px] font-semibold text-text-subtle uppercase tracking-wider">
+                    {t('cut.title', 'Cut & Split')}
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="toolbar-split-dialog"
+                    onClick={() => {
+                      onOpenSplitDialog?.()
+                      setAddMenuOpen(false)
+                    }}
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs text-text hover:bg-surface-3 cursor-pointer"
+                  >
+                    <span>{t('cut.splitToBed', 'Split to bed...')}</span>
+                  </button>
+
+                  <div className="h-px bg-border my-1" />
+
+                  <div className="px-3 py-1 text-[10px] font-semibold text-text-subtle uppercase tracking-wider">
                     {t('editor.toolbar.primitives', 'Primitives')}
                   </div>
                   {PRIMITIVE_LIST.map((shape) => (
@@ -355,6 +385,48 @@ export function Toolbar({
             }`}
           >
             <IconRuler size={16} stroke={1.75} />
+          </button>
+          <button
+            type="button"
+            data-testid="toolbar-tool-cut"
+            aria-pressed={tool === 'cut'}
+            title={`${t('cut.title')} (C)`}
+            onClick={() => onToolChange('cut')}
+            className={`inline-flex h-full min-w-7 items-center justify-center rounded-control px-2 text-xs font-medium cursor-pointer ${
+              tool === 'cut'
+                ? 'bg-surface-3 text-text shadow-[inset_0_0_0_1px_var(--color-border-strong)]'
+                : 'text-text-muted hover:text-text'
+            }`}
+          >
+            <IconScissors size={16} stroke={1.75} />
+          </button>
+          <button
+            type="button"
+            data-testid="toolbar-tool-hole"
+            aria-pressed={tool === 'hole'}
+            title={`${t('hole.title')} (H)`}
+            onClick={() => onToolChange('hole')}
+            className={`inline-flex h-full min-w-7 items-center justify-center rounded-control px-2 text-xs font-medium cursor-pointer ${
+              tool === 'hole'
+                ? 'bg-surface-3 text-text shadow-[inset_0_0_0_1px_var(--color-border-strong)]'
+                : 'text-text-muted hover:text-text'
+            }`}
+          >
+            <IconCircleDot size={16} stroke={1.75} />
+          </button>
+          <button
+            type="button"
+            data-testid="toolbar-tool-text"
+            aria-pressed={tool === 'text'}
+            title={`${t('text.title')} (T)`}
+            onClick={() => onToolChange('text')}
+            className={`inline-flex h-full min-w-7 items-center justify-center rounded-control px-2 text-xs font-medium cursor-pointer ${
+              tool === 'text'
+                ? 'bg-surface-3 text-text shadow-[inset_0_0_0_1px_var(--color-border-strong)]'
+                : 'text-text-muted hover:text-text'
+            }`}
+          >
+            <IconLetterT size={16} stroke={1.75} />
           </button>
         </div>
 

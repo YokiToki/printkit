@@ -19,10 +19,13 @@ import {
   IconRotate,
   IconPlus,
   IconLayersIntersect,
+  IconScissors,
 } from '@tabler/icons-react'
 import type { EditorObject } from '../../editor/scene'
 import type { Sketch } from '../../editor/sketch/model'
 import type { MeshHealth } from '../../editor/health'
+import type { CutGroup, CutPartSource } from '../../editor/cuts'
+import { LengthField } from '../../ui/LengthField'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 
 export interface OutlinerProps {
@@ -30,6 +33,10 @@ export interface OutlinerProps {
   selection: string[]
   sketches?: Sketch[]
   activeSketchId?: string | null
+  cuts?: CutGroup[]
+  onDeleteCutGroup?: (groupId: string) => void
+  onUpdateCutGroup?: (groupId: string, patch: Partial<CutGroup>) => void
+  oversizePartIds?: Set<string>
   onSelect: (ids: string[], additive?: boolean) => void
   onToggleVisible: (id: string) => void
   onToggleLock: (id: string) => void
@@ -54,6 +61,10 @@ export function Outliner({
   selection,
   sketches = [],
   activeSketchId,
+  cuts = [],
+  onDeleteCutGroup,
+  onUpdateCutGroup,
+  oversizePartIds,
   onSelect,
   onToggleVisible,
   onToggleLock,
@@ -84,8 +95,21 @@ export function Outliner({
   const [confirmDeleteSketchId, setConfirmDeleteSketchId] = useState<string | null>(null)
 
   const [sketchesOpen, setSketchesOpen] = useState(true)
+  const [cutGroupsOpen, setCutGroupsOpen] = useState(true)
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(() => new Set(cuts.map((c) => c.id)))
   const [bodiesOpen, setBodiesOpen] = useState(true)
   const [expandedBodyIds, setExpandedBodyIds] = useState<Set<string>>(new Set())
+
+  const activeCutGroupMap = new Map<string, CutGroup>()
+  for (const g of cuts) {
+    activeCutGroupMap.set(g.id, g)
+  }
+  const isCutGroupMember = (obj: EditorObject) => {
+    if (obj.source.kind === 'cutPart' && activeCutGroupMap.has((obj.source as CutPartSource).groupId)) return true
+    if (cuts.some((g) => g.sourceObjectId === obj.id)) return true
+    return false
+  }
+  const standaloneObjects = objects.filter((o) => !isCutGroupMember(o))
 
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)
 
@@ -323,9 +347,177 @@ export function Outliner({
           </div>
         )}
 
+        {/* Cut Groups section */}
+        {cuts.length > 0 && (
+          <div className="flex flex-col space-y-1">
+            <button
+              type="button"
+              data-testid="outliner-cutgroups-toggle"
+              onClick={() => setCutGroupsOpen(!cutGroupsOpen)}
+              className="flex items-center justify-between px-2 py-1 text-text-muted hover:text-text font-semibold uppercase text-[10px] tracking-wider cursor-pointer"
+            >
+              <div className="flex items-center gap-1">
+                {cutGroupsOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
+                <span>{t('cut.group.title', 'Cut Groups')}</span>
+              </div>
+              <span className="font-mono text-[10px]">{cuts.length}</span>
+            </button>
+
+            {cutGroupsOpen &&
+              cuts.map((g) => {
+                const sourceObj = objects.find((o) => o.id === g.sourceObjectId)
+                const parts = objects.filter(
+                  (o) => o.source.kind === 'cutPart' && (o.source as CutPartSource).groupId === g.id
+                )
+                const isGroupExpanded = expandedGroupIds.has(g.id)
+
+                return (
+                  <div
+                    key={g.id}
+                    data-testid={`outliner-cutgroup-${g.id}`}
+                    className="flex flex-col rounded-md border border-border bg-surface-2/40 p-1.5 space-y-1"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 min-w-0 flex-1">
+                        <button
+                          type="button"
+                          data-testid={`outliner-cutgroup-expand-${g.id}`}
+                          onClick={() => {
+                            setExpandedGroupIds((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(g.id)) next.delete(g.id)
+                              else next.add(g.id)
+                              return next
+                            })
+                          }}
+                          className="p-0.5 text-text-muted hover:text-text rounded cursor-pointer shrink-0"
+                        >
+                          {isGroupExpanded ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
+                        </button>
+                        <IconScissors size={14} className="text-accent shrink-0" />
+                        <span className="text-xs font-medium text-text truncate">
+                          {g.name || (g.type === 'grid' ? t('cut.splitToBed') : t('cut.title'))}
+                        </span>
+                        <span className="text-[10px] px-1 py-0.2 bg-surface-3 text-text-subtle rounded shrink-0">
+                          {g.type === 'grid' ? t('cut.type.grid') : t('cut.type.plane')}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        data-testid={`outliner-delete-cutgroup-${g.id}`}
+                        onClick={() => onDeleteCutGroup?.(g.id)}
+                        title={t('common.delete', 'Delete')}
+                        className="p-1 hover:text-(--color-error-text) text-text-muted rounded cursor-pointer shrink-0"
+                      >
+                        <IconTrash size={13} />
+                      </button>
+                    </div>
+
+                    {/* Explode gap and cut info */}
+                    {isGroupExpanded && (
+                      <div className="flex flex-col space-y-1.5 pt-1 pl-4 border-l-2 border-border/60">
+                        <div className="flex items-center justify-between text-xs text-text-muted gap-2">
+                          <span className="shrink-0">{t('cut.explodeGap', 'Explode')}</span>
+                          <div className="w-24">
+                            <LengthField
+                              label={t('cut.explodeGap', 'Explode')}
+                              data-testid={`outliner-cutgroup-gap-${g.id}`}
+                              value={g.explodeGap ?? 0}
+                              onChange={(val) => onUpdateCutGroup?.(g.id, { explodeGap: val })}
+                              min={0}
+                              max={100}
+                              step={1}
+                            />
+                          </div>
+                        </div>
+
+                        {g.type === 'grid' && g.grid && (
+                          <div className="text-[10px] text-text-subtle font-mono space-y-0.5">
+                            {g.grid.x.length > 0 && (
+                              <div>X cuts: {g.grid.x.map((n) => Math.round(n * 10) / 10).join(', ')} mm</div>
+                            )}
+                            {g.grid.y.length > 0 && (
+                              <div>Y cuts: {g.grid.y.map((n) => Math.round(n * 10) / 10).join(', ')} mm</div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Source object row */}
+                        {sourceObj && (
+                          <div
+                            data-testid={`outliner-cutgroup-source-${sourceObj.id}`}
+                            className="flex items-center justify-between px-1.5 py-1 rounded text-text-muted bg-surface-1/50 text-xs"
+                          >
+                            <span className="truncate flex-1 italic opacity-70">
+                              {sourceObj.name} ({t('cut.sourceObject', 'Source')})
+                            </span>
+                            <button
+                              type="button"
+                              data-testid={`outliner-toggle-vis-${sourceObj.id}`}
+                              onClick={() => onToggleVisible(sourceObj.id)}
+                              className="p-0.5 text-text-muted hover:text-text rounded cursor-pointer"
+                            >
+                              {sourceObj.visible ? <IconEye size={13} /> : <IconEyeOff size={13} />}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Derived parts */}
+                        <div className="flex flex-col space-y-0.5">
+                          {parts.map((p) => {
+                            const isSelected = selection.includes(p.id)
+                            const isOversize = oversizePartIds?.has(p.id)
+
+                            return (
+                              <div
+                                key={p.id}
+                                data-testid={`outliner-row-${p.id}`}
+                                onClick={(e) => handleRowClick(e, p.id)}
+                                className={`flex items-center justify-between px-1.5 py-1 rounded text-xs cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-surface-3 text-text font-medium ring-1 ring-border-strong'
+                                    : 'text-text-muted hover:bg-surface-2 hover:text-text'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                  <button
+                                    type="button"
+                                    data-testid={`outliner-toggle-vis-${p.id}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      onToggleVisible(p.id)
+                                    }}
+                                    className="p-0.5 text-text-muted hover:text-text rounded cursor-pointer shrink-0"
+                                  >
+                                    {p.visible ? <IconEye size={13} /> : <IconEyeOff size={13} />}
+                                  </button>
+                                  <span className="truncate flex-1">{p.name}</span>
+                                  {isOversize && (
+                                    <span
+                                      data-testid={`outliner-part-oversize-${p.id}`}
+                                      className="text-[10px] px-1 py-0.2 bg-(--color-warn)/20 text-(--color-warn-text) font-medium rounded shrink-0 flex items-center gap-0.5"
+                                    >
+                                      <IconAlertTriangle size={10} />
+                                      {t('cut.oversize', 'Oversize')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+          </div>
+        )}
+
         {/* Bodies / Objects section */}
         <div className="flex flex-col space-y-0.5">
-          {sketches.length > 0 && (
+          {(sketches.length > 0 || cuts.length > 0) && (
             <button
               type="button"
               data-testid="outliner-bodies-toggle"
@@ -336,17 +528,17 @@ export function Outliner({
                 {bodiesOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
                 <span>{t('sketch.outliner.bodies', 'Bodies')}</span>
               </div>
-              <span className="font-mono text-[10px]">{objects.length}</span>
+              <span className="font-mono text-[10px]">{standaloneObjects.length}</span>
             </button>
           )}
 
           {bodiesOpen && (
-            objects.length === 0 ? (
+            standaloneObjects.length === 0 ? (
               <div className="p-4 text-center text-text-muted italic">
                 {t('editor.outliner.empty')}
               </div>
             ) : (
-              objects.map((obj, index) => {
+              standaloneObjects.map((obj, index) => {
                 const isSelected = selection.includes(obj.id)
                 const health = healthMap?.get(obj.id)
                 const isMissingMesh = obj.source.kind === 'mesh' && !health

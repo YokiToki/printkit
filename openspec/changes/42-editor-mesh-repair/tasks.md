@@ -35,7 +35,7 @@
 
 ## 6. Version
 
-- [ ] 6.1 Bump `package.json` to 1.13.0 and add `1.13.0 — 42-editor-mesh-repair` to `CHANGELOG.md`. Test: `site.test.ts`.
+- [x] 6.1 Bump `package.json` to 1.13.0 and add `1.13.0 — 42-editor-mesh-repair` to `CHANGELOG.md`. Test: `site.test.ts`.
 
 ## 7. Verification
 

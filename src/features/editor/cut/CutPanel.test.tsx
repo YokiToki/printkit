@@ -99,4 +99,58 @@ describe('CutPanel', () => {
       })
     )
   })
+
+  it('computes section from targetMesh and auto-places connectors', () => {
+    const onApply = vi.fn()
+    // 20x20x20 cube from -10 to 10
+    const vertices = new Float32Array([
+      -10, -10, -10,
+       10, -10, -10,
+       10,  10, -10,
+      -10,  10, -10,
+      -10, -10,  10,
+       10, -10,  10,
+       10,  10,  10,
+      -10,  10,  10,
+    ])
+    const indices = new Uint32Array([
+      0, 2, 1, 0, 3, 2,
+      4, 5, 6, 4, 6, 7,
+      0, 1, 5, 0, 5, 4,
+      2, 3, 7, 2, 7, 6,
+      0, 4, 7, 0, 7, 3,
+      1, 2, 6, 1, 6, 5,
+    ])
+
+    render(
+      <CutPanel
+        initialPosition={0}
+        targetMesh={{
+          vertProperties: vertices,
+          triVerts: indices,
+          numProp: 3,
+          min: [-10, -10, -10],
+          max: [10, 10, 10],
+          volume: 8000,
+        }}
+        onApply={onApply}
+        onCancel={vi.fn()}
+      />
+    )
+
+    // Toggle connectors
+    const toggle = screen.getByRole('switch')
+    fireEvent.click(toggle)
+
+    // Apply
+    fireEvent.click(screen.getByTestId('btn-cut-apply'))
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connector: expect.objectContaining({
+          kind: 'pegs',
+          positions: expect.arrayContaining([expect.any(Array)]),
+        }),
+      })
+    )
+  })
 })

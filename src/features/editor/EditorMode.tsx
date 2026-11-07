@@ -1971,6 +1971,7 @@ export function EditorMode() {
                 onApply={handleApplyCut}
                 onCancel={() => setTool('select')}
                 pickedFace={pickedFace}
+                targetMesh={selection[0] ? meshesMap[selection[0]] : doc.objects.find((o) => o.visible)?.id ? meshesMap[doc.objects.find((o) => o.visible)!.id] : undefined}
               />
             ) : tool === 'hole' ? (
               <HoleToolPanel
@@ -2192,6 +2193,7 @@ export function EditorMode() {
                   onApply={handleApplyCut}
                   onCancel={() => setTool('select')}
                   pickedFace={pickedFace}
+                  targetMesh={selection[0] ? meshesMap[selection[0]] : doc.objects.find((o) => o.visible)?.id ? meshesMap[doc.objects.find((o) => o.visible)!.id] : undefined}
                 />
               ) : tool === 'hole' ? (
                 <HoleToolPanel
@@ -2262,6 +2264,7 @@ export function EditorMode() {
       {splitDialogOpen && (
         <SplitDialog
           objectBounds={selectedObjectBounds}
+          targetMesh={selection[0] ? meshesMap[selection[0]] : doc.objects.find((o) => o.visible)?.id ? meshesMap[doc.objects.find((o) => o.visible)!.id] : undefined}
           onApply={handleApplySplit}
           onCancel={() => setSplitDialogOpen(false)}
         />

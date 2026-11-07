@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SegmentedControl } from '../../../ui/SegmentedControl'
 import { LengthField } from '../../../ui/LengthField'
@@ -9,6 +9,9 @@ import type { PlaneDefinition } from '../../../geometry/cut/plane'
 import type { CutConnectorConfig } from '../../../geometry/cut/connectors'
 import { ConnectorEditor } from './ConnectorEditor'
 import type { Polygon } from '../../../geometry/cut/place'
+import { placeConnectors } from '../../../geometry/cut/place'
+import { getMeshSectionPolygons } from '../../../geometry/cut/section'
+import type { MeshData } from '../../../geometry/mesh'
 import { IconScissors, IconCheck, IconX } from '@tabler/icons-react'
 
 export type PlaneSourceMode = 'axis' | 'face' | 'threePoints'
@@ -25,6 +28,7 @@ export interface CutPanelProps {
   onCancel: () => void
   sectionPolygons?: Polygon[]
   pickedFace?: { normal: [number, number, number]; origin: [number, number, number] }
+  targetMesh?: MeshData
 }
 
 export function CutPanel({
@@ -33,6 +37,7 @@ export function CutPanel({
   onCancel,
   sectionPolygons = [],
   pickedFace,
+  targetMesh,
 }: CutPanelProps) {
   const { t } = useTranslation()
 
@@ -71,6 +76,39 @@ export function CutPanel({
       position,
     }
   }, [planeMode, axis, position, pickedFace])
+
+  const computedSectionPolygons = useMemo(() => {
+    if (sectionPolygons && sectionPolygons.length > 0) return sectionPolygons
+    if (targetMesh) {
+      return getMeshSectionPolygons(targetMesh, planeDef)
+    }
+    return []
+  }, [sectionPolygons, targetMesh, planeDef])
+
+  const handleToggleConnectors = (enabled: boolean) => {
+    setEnableConnectors(enabled)
+    if (enabled && connectorConfig.positions.length === 0 && computedSectionPolygons.length > 0) {
+      const placed = placeConnectors(computedSectionPolygons, { count: 2, margin: 4 })
+      if (placed.length > 0) {
+        setConnectorConfig((prev) => ({
+          ...prev,
+          positions: placed.map((p) => p.point),
+        }))
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (enableConnectors && connectorConfig.positions.length === 0 && computedSectionPolygons.length > 0) {
+      const placed = placeConnectors(computedSectionPolygons, { count: 2, margin: 4 })
+      if (placed.length > 0) {
+        setConnectorConfig((prev) => ({
+          ...prev,
+          positions: placed.map((p) => p.point),
+        }))
+      }
+    }
+  }, [enableConnectors, computedSectionPolygons])
 
   const planeModeOptions = [
     { value: 'axis', label: t('cut.plane.axis') },
@@ -189,14 +227,14 @@ export function CutPanel({
           <Toggle
             label={t('cut.enableConnectors')}
             checked={enableConnectors}
-            onChange={setEnableConnectors}
+            onChange={handleToggleConnectors}
           />
 
           {enableConnectors && (
             <ConnectorEditor
               config={connectorConfig}
               onChange={setConnectorConfig}
-              polygons={sectionPolygons}
+              polygons={computedSectionPolygons}
             />
           )}
         </div>

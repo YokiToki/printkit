@@ -109,4 +109,54 @@ describe('geometry/cut/section.ts & place.ts (Task 2.4)', () => {
     expect(manual[2].valid).toBe(false)
     expect(manual[2].issue).toBe('outside')
   })
+
+  it('slices indexed triangle mesh into 2D polygon loops without WASM', async () => {
+    const { getMeshSectionPolygons } = await import('./section')
+    // A 20x20x20 cube from -10 to 10
+    // 8 vertices, 12 triangles
+    const vertices = new Float32Array([
+      -10, -10, -10, // 0
+       10, -10, -10, // 1
+       10,  10, -10, // 2
+      -10,  10, -10, // 3
+      -10, -10,  10, // 4
+       10, -10,  10, // 5
+       10,  10,  10, // 6
+      -10,  10,  10, // 7
+    ])
+    const indices = new Uint32Array([
+      // Bottom
+      0, 2, 1, 0, 3, 2,
+      // Top
+      4, 5, 6, 4, 6, 7,
+      // Front
+      0, 1, 5, 0, 5, 4,
+      // Back
+      2, 3, 7, 2, 7, 6,
+      // Left
+      0, 4, 7, 0, 7, 3,
+      // Right
+      1, 2, 6, 1, 6, 5,
+    ])
+
+    const loops = getMeshSectionPolygons(vertices, indices, {
+      kind: 'axis',
+      axis: 'z',
+      position: 0,
+    })
+
+    expect(loops.length).toBe(1)
+    expect(loops[0].length).toBeGreaterThanOrEqual(4)
+
+    // Check bounds of sliced loop
+    let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity
+    for (const [u, v] of loops[0]) {
+      if (u < minU) minU = u
+      if (u > maxU) maxU = u
+      if (v < minV) minV = v
+      if (v > maxV) maxV = v
+    }
+    expect(maxU - minU).toBeCloseTo(20, 1)
+    expect(maxV - minV).toBeCloseTo(20, 1)
+  })
 })

@@ -119,15 +119,25 @@ export async function applyCutConnectors(
     const depth = config.dovetailDepth ?? 2
     const height = config.dovetailHeight ?? 20
 
-    // Measure material depth at center of cut
-    const pCenter = frame.toWorld([0, 0])
+    // Measure material depth at center of cut or specified position
+    let dPos: Vec2 = config.positions && config.positions.length > 0 ? config.positions[0] : [0, 0]
+    if ((!config.positions || config.positions.length === 0) && sectionPolygons.length > 0) {
+      let sumU = 0, sumV = 0, count = 0
+      for (const poly of sectionPolygons) {
+        for (const pt of poly) {
+          sumU += pt[0]; sumV += pt[1]; count++
+        }
+      }
+      if (count > 0) dPos = [sumU / count, sumV / count]
+    }
+    const pCenter = frame.toWorld(dPos)
     const depthA = measureMaterialDepth(partA, pCenter, [-frame.normal[0], -frame.normal[1], -frame.normal[2]])
     const depthB = measureMaterialDepth(partB, pCenter, frame.normal)
 
     if (depthA < depth + 1.0 || depthB < depth + 1.0) {
       reports.push({
         index: 0,
-        position: [0, 0],
+        position: dPos,
         kind: 'dovetail',
         valid: false,
         issue: 'thin',
@@ -178,7 +188,7 @@ export async function applyCutConnectors(
 
     reports.push({
       index: 0,
-      position: [0, 0],
+      position: dPos,
       kind: 'dovetail',
       valid: true,
     })

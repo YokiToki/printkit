@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LengthField } from '../../../ui/LengthField'
 import { Button } from '../../../ui/Button'
@@ -6,11 +6,15 @@ import { Toggle } from '../../../ui/Toggle'
 import { SegmentedControl } from '../../../ui/SegmentedControl'
 import type { CutConnectorConfig } from '../../../geometry/cut/connectors'
 import { autoCutsAxis } from '../../../geometry/cut/split'
+import { placeConnectors } from '../../../geometry/cut/place'
+import { getMeshSectionPolygons } from '../../../geometry/cut/section'
+import type { MeshData } from '../../../geometry/mesh'
 import { ConnectorEditor } from './ConnectorEditor'
 import { IconLayoutGrid, IconAlertTriangle, IconCheck, IconX } from '@tabler/icons-react'
 
 export interface SplitDialogProps {
   objectBounds: { min: [number, number, number]; max: [number, number, number] }
+  targetMesh?: MeshData
   onApply: (params: {
     grid: { x: number[]; y: number[]; z: number[] }
     bed: { width: number; depth: number; margin: number }
@@ -29,6 +33,7 @@ const BED_PRESETS = [
 
 export function SplitDialog({
   objectBounds,
+  targetMesh,
   onApply,
   onCancel,
 }: SplitDialogProps) {
@@ -67,6 +72,29 @@ export function SplitDialog({
 
   const [cutsX, setCutsX] = useState<number[]>(autoCutsX)
   const [cutsY, setCutsY] = useState<number[]>(autoCutsY)
+
+  const sectionPolygons = useMemo(() => {
+    if (!targetMesh) return []
+    const cutPos = cutsX.length > 0 ? cutsX[0] : (cutsY.length > 0 ? cutsY[0] : 0)
+    const cutAxis = cutsX.length > 0 ? 'x' : 'y'
+    return getMeshSectionPolygons(targetMesh, {
+      kind: 'axis',
+      axis: cutAxis,
+      position: cutPos,
+    })
+  }, [targetMesh, cutsX, cutsY])
+
+  useEffect(() => {
+    if (enableConnectors && connectorConfig.positions.length === 0 && sectionPolygons.length > 0) {
+      const placed = placeConnectors(sectionPolygons, { count: 2, margin: 4 })
+      if (placed.length > 0) {
+        setConnectorConfig((prev) => ({
+          ...prev,
+          positions: placed.map((p) => p.point),
+        }))
+      }
+    }
+  }, [enableConnectors, sectionPolygons])
 
   const handlePresetChange = (presetId: string) => {
     setSelectedPreset(presetId)
@@ -255,6 +283,7 @@ export function SplitDialog({
             <ConnectorEditor
               config={connectorConfig}
               onChange={setConnectorConfig}
+              polygons={sectionPolygons}
             />
           )}
         </div>

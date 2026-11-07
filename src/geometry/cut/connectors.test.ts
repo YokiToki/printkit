@@ -130,4 +130,90 @@ describe('geometry/cut/connectors.ts (Task 2.5)', () => {
     const overlap = w.Manifold.intersection(res.partA, res.partB)
     expect(overlap.volume()).toBeLessThan(1e-3)
   })
+
+  it('evaluates cut group for plane cut with auto-placed connectors', async () => {
+    const w = await getWasm()
+    const { evaluateCutGroup } = await import('./groupEval')
+    const block = w.Manifold.cube([60, 30, 30], true)
+
+    const res = await evaluateCutGroup(
+      w,
+      block,
+      {
+        id: 'cut-test-1',
+        name: 'Cut 1',
+        sourceObjectId: 'obj-1',
+        type: 'plane',
+        plane: {
+          mode: 'both',
+          plane: { kind: 'axis', axis: 'x', position: 0 },
+        },
+        connector: {
+          kind: 'pegs',
+          diameter: 4,
+          depth: 6,
+          positions: [], // empty -> should auto-place!
+        },
+      },
+      'sig-1'
+    )
+
+    expect(res.parts.length).toBe(2)
+    const partA = res.parts.find((p) => p.label === 'A')
+    const partB = res.parts.find((p) => p.label === 'B')
+    expect(partA).toBeDefined()
+    expect(partB).toBeDefined()
+    // Pegs on A add volume, sockets on B subtract volume
+    expect(partA!.solid.volume()).toBeGreaterThan(60 * 30 * 30 / 2)
+    expect(partB!.solid.volume()).toBeLessThan(60 * 30 * 30 / 2)
+  })
+
+  it('evaluates cut group for grid split with connectors between adjacent parts', async () => {
+    const w = await getWasm()
+    const { evaluateCutGroup } = await import('./groupEval')
+    // 100 x 40 x 30 block split along X at 0
+    const block = w.Manifold.cube([100, 40, 30], true)
+
+    const res = await evaluateCutGroup(
+      w,
+      block,
+      {
+        id: 'split-test-1',
+        name: 'Split 1',
+        sourceObjectId: 'obj-1',
+        type: 'grid',
+        grid: {
+          x: [0],
+          y: [],
+          z: [],
+        },
+        bed: {
+          width: 60,
+          depth: 60,
+          margin: 5,
+        },
+        connector: {
+          kind: 'pins',
+          diameter: 3,
+          depth: 6,
+          positions: [], // empty -> auto-place!
+        },
+      },
+      'sig-2'
+    )
+
+    expect(res.parts.length).toBe(2)
+    const partA1 = res.parts.find((p) => p.label === 'A1')
+    const partB1 = res.parts.find((p) => p.label === 'B1')
+    expect(partA1).toBeDefined()
+    expect(partB1).toBeDefined()
+    // Pin holes subtracted from both parts
+    expect(partA1!.solid.volume()).toBeLessThan(50 * 40 * 30)
+    expect(partB1!.solid.volume()).toBeLessThan(50 * 40 * 30)
+
+    // Loose pins should be returned for pins kind!
+    expect(res.loosePins).toBeDefined()
+    expect(res.loosePins!.length).toBeGreaterThan(0)
+    expect(res.loosePins![0].volume()).toBeGreaterThan(0)
+  })
 })

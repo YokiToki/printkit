@@ -418,8 +418,8 @@ export function Outliner({
                     {isGroupExpanded && (
                       <div className="flex flex-col space-y-1.5 pt-1 pl-4 border-l-2 border-border/60">
                         <div className="flex items-center justify-between text-xs text-text-muted gap-2">
-                          <span className="shrink-0">{t('cut.explodeGap', 'Explode')}</span>
-                          <div className="w-24">
+                          {/* <span className="shrink-0">{t('cut.explodeGap', 'Explode')}</span> */}
+                          <div className="w-32">
                             <LengthField
                               label={t('cut.explodeGap', 'Explode')}
                               data-testid={`outliner-cutgroup-gap-${g.id}`}

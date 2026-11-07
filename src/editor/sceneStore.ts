@@ -53,6 +53,7 @@ function normaliseSource(raw: unknown, objectName: string): ObjectSource | null 
     return {
       kind: 'mesh',
       meshId: s.meshId,
+      ...(typeof s.originMeshId === 'string' && s.originMeshId ? { originMeshId: s.originMeshId } : {}),
       unit: s.unit === 'in' ? 'in' : 'mm',
     }
   }
@@ -271,6 +272,9 @@ export async function gcMeshes(doc: SceneDoc, store: MeshStore): Promise<void> {
   for (const obj of doc.objects) {
     if (obj.source.kind === 'mesh') {
       used.add(obj.source.meshId)
+      if (obj.source.originMeshId) {
+        used.add(obj.source.originMeshId)
+      }
     }
   }
   const allKeys = await store.keys()

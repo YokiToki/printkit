@@ -17,6 +17,7 @@ export const DEFAULT_TRANSFORM: Transform = {
 export type MeshSource = {
   kind: 'mesh'
   meshId: string
+  originMeshId?: string
   unit: 'mm' | 'in'
 }
 

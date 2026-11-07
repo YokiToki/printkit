@@ -22,9 +22,9 @@
 
 ## 4. Worker and plumbing
 
-- [ ] 4.1 `mesh.worker.ts` + `MeshClient` (lanes, cancel, progress to the jobs of `31a`, transfer of buffers). Test with the inline fallback like `PhotoClient`: latest wins, cancel, progress.
-- [ ] 4.2 Source swap: a repair stores the new mesh (content hash), sets `source.meshId` and `originMeshId`, undo restores; garbage collection keeps referenced ids. Test: undo/redo, revert after reload, GC.
-- [ ] 4.3 Tune the best-orientation weights on three reference models and record them in `design.md`.
+- [x] 4.1 `mesh.worker.ts` + `MeshClient` (lanes, cancel, progress to the jobs of `31a`, transfer of buffers). Test with the inline fallback like `PhotoClient`: latest wins, cancel, progress.
+- [x] 4.2 Source swap: a repair stores the new mesh (content hash), sets `source.meshId` and `originMeshId`, undo restores; garbage collection keeps referenced ids. Test: undo/redo, revert after reload, GC.
+- [x] 4.3 Tune the best-orientation weights on three reference models and record them in `design.md`.
 
 ## 5. UI (no artboard exists: built from `ui/` components and tokens)
 

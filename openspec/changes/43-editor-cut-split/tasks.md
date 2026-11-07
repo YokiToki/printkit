@@ -7,11 +7,11 @@
 
 ## 2. Cut geometry (React-free)
 
-- [ ] 2.1 `geometry/cut/plane.ts`: plane definitions (axis+position, normal+point, three points, from face frame), `cutSolid`, keep-one-side, slice into N; labels. Test with `expectValidSolid`: volumes add up, bboxes, closed caps, arbitrary 30° plane, open input refused.
-- [ ] 2.2 `geometry/cut/split.ts`: `autoCuts` (fewest parts, even spread, small-section preference within ±10 %), usable bed from `usableBed`, grid split order, oversize flags. Test: 500 × 100 on a 256 bed, rotated block, manual cut kept after a printer change.
-- [ ] 2.3 `geometry/connectorSpec.ts` extracted from `connectors.ts` (presets, clearances) without changing the baseplate: existing `connectors.test.ts`, `split.test.ts` and baseplate volume tests stay green.
-- [ ] 2.4 `geometry/cut/section.ts` and `place.ts`: section polygons at a plane, inset, pole of inaccessibility, farthest-point placement, manual positions in plane coordinates. Test the placement on the three reference sections and thin sections.
-- [ ] 2.5 `geometry/cut/connectors.ts`: peg/socket, pin holes, magnet pockets, dovetail solids, depth limited by the material behind the cut (ray distance), fit checks with `cut.connector.*` keys. Test: volumes of pegs and sockets, depth limit on a thin part, outside/overlap detection, dovetail joins (A key fits B socket with clearance, no overlap beyond it).
+- [x] 2.1 `geometry/cut/plane.ts`: plane definitions (axis+position, normal+point, three points, from face frame), `cutSolid`, keep-one-side, slice into N; labels. Test with `expectValidSolid`: volumes add up, bboxes, closed caps, arbitrary 30° plane, open input refused.
+- [x] 2.2 `geometry/cut/split.ts`: `autoCuts` (fewest parts, even spread, small-section preference within ±10 %), usable bed from `usableBed`, grid split order, oversize flags. Test: 500 × 100 on a 256 bed, rotated block, manual cut kept after a printer change.
+- [x] 2.3 `geometry/connectorSpec.ts` extracted from `connectors.ts` (presets, clearances) without changing the baseplate: existing `connectors.test.ts`, `split.test.ts` and baseplate volume tests stay green.
+- [x] 2.4 `geometry/cut/section.ts` and `place.ts`: section polygons at a plane, inset, pole of inaccessibility, farthest-point placement, manual positions in plane coordinates. Test the placement on the three reference sections and thin sections.
+- [x] 2.5 `geometry/cut/connectors.ts`: peg/socket, pin holes, magnet pockets, dovetail solids, depth limited by the material behind the cut (ray distance), fit checks with `cut.connector.*` keys. Test: volumes of pegs and sockets, depth limit on a thin part, outside/overlap detection, dovetail joins (A key fits B socket with clearance, no overlap beyond it).
 
 ## 3. Holes and text operations
 

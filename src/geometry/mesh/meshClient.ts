@@ -16,6 +16,32 @@ import type { MakeSolidOptions, MakeSolidReport } from './makeSolid'
 import type { AutoRepairOptions, AutoRepairResult } from './autoRepair'
 import type { DecimateOptions, DecimateReport } from './decimate'
 import type { SmoothOptions, SmoothReport } from './smooth'
+import { meshHash, type MeshTopology } from '../topology'
+
+/** Предел числа треугольников для распознавания граней и рёбер. */
+export const MAX_TOPOLOGY_TRIANGLES = 1_500_000
+
+/** Сколько топологий держим в кэше клиента. */
+const TOPOLOGY_CACHE_LIMIT = 4
+
+/** Ошибка: меш слишком велик для распознавания граней и рёбер. */
+export class TopologyLimitError extends Error {
+  constructor(
+    public readonly count: number,
+    public readonly limit: number
+  ) {
+    super('topology.error.tooManyTriangles')
+    this.name = 'TopologyLimitError'
+  }
+}
+
+/** Настройки распознавания граней и рёбер. */
+export interface TopologyJobOptions {
+  /** Порог резкости ребра, градусы. */
+  edgeAngleDeg?: number
+  /** Допуск классификации цепочки, мм. */
+  chainTolerance?: number
+}
 
 export class MeshSupersededError extends Error {
   constructor() {
@@ -24,7 +50,7 @@ export class MeshSupersededError extends Error {
   }
 }
 
-export type MeshLane = 'analyze' | 'intersections' | 'repair'
+export type MeshLane = 'analyze' | 'intersections' | 'repair' | 'topology'
 
 export interface MeshWorkerLike {
   postMessage(msg: MeshWorkerRequest, transfer?: Transferable[]): void
@@ -54,8 +80,11 @@ export class MeshClient {
     analyze: 0,
     intersections: 0,
     repair: 0,
+    topology: 0,
   }
   private pending = new Map<number, PendingJob<any>>()
+  /** Кэш топологий по хэшу сетки. */
+  private topologyCache = new Map<string, MeshTopology>()
 
   constructor(private factory: () => MeshWorkerLike | null = () => null) {}
 
@@ -220,6 +249,49 @@ export class MeshClient {
     return this.request('repair', (id) => ({ kind: 'smooth', id, mesh: indexed, options }))
   }
 
+  /**
+   * Топология меша: области граней и цепочки рёбер. Считается в воркере,
+   * результат кэшируется по хэшу сетки, поэтому повторный запрос той же
+   * формы ничего не пересчитывает.
+   */
+  async topologyOf(
+    mesh: TriSoup | IndexedMesh,
+    options?: TopologyJobOptions,
+    onProgress?: (fraction: number) => void
+  ): Promise<MeshTopology> {
+    const indexed = this.ensureIndexed(mesh)
+    const numTris = Math.floor(indexed.triVerts.length / 3)
+    if (numTris > MAX_TOPOLOGY_TRIANGLES) {
+      throw new TopologyLimitError(numTris, MAX_TOPOLOGY_TRIANGLES)
+    }
+
+    const key = `${meshHash(indexed)}|${options?.edgeAngleDeg ?? ''}|${options?.chainTolerance ?? ''}`
+    const cached = this.topologyCache.get(key)
+    if (cached) {
+      // Кэш LRU: повторное обращение продлевает его жизнь.
+      this.topologyCache.delete(key)
+      this.topologyCache.set(key, cached)
+      return cached
+    }
+
+    // Копия сетки: буферы уезжают в воркер, вызывающий код сохраняет свои.
+    const copy: IndexedMesh = {
+      vertProperties: new Float32Array(indexed.vertProperties),
+      triVerts: new Uint32Array(indexed.triVerts),
+    }
+    const topo = await this.request<MeshTopology>(
+      'topology',
+      (id) => ({ kind: 'topology', id, mesh: copy, options }),
+      onProgress
+    )
+    this.topologyCache.set(key, topo)
+    while (this.topologyCache.size > TOPOLOGY_CACHE_LIMIT) {
+      const oldest = this.topologyCache.keys().next().value
+      if (oldest !== undefined) this.topologyCache.delete(oldest)
+    }
+    return topo
+  }
+
   cancel(lane?: MeshLane) {
     if (lane) {
       for (const [id, job] of this.pending) {
@@ -236,6 +308,7 @@ export class MeshClient {
   dispose() {
     this.worker?.terminate?.()
     this.worker = null
+    this.topologyCache.clear()
     this.failAll(new MeshSupersededError())
   }
 }

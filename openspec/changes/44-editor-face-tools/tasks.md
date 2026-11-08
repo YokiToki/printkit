@@ -21,7 +21,7 @@
 
 ## 4. Worker and viewport
 
-- [ ] 4.1 `topology` computed in the worker with progress jobs and cache by mesh hash; client API `topologyOf(meshId)`. Test with the inline fallback: caching, progress, limit message.
+- [x] 4.1 `topology` computed in the worker with progress jobs and cache by mesh hash; client API `topologyOf(meshId)`. Test with the inline fallback: caching, progress, limit message.
 - [ ] 4.2 Viewport: face/edge highlight layers (per-triangle colours on an overlay mesh, edge polylines), hover and selection, edge picking by screen distance, pointer modes; Object mode unchanged. Test the pure picking helpers and the colour mapping; browser check with hover on a box, cylinder and an imported STL.
 
 ## 5. UI (no artboard exists: built from `ui/` components and tokens)

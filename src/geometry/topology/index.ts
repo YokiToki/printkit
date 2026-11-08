@@ -29,10 +29,26 @@ export function computeTopology(
   mesh: TriSoup | IndexedMesh,
   options: TopologyOptions & EdgeOptions = {}
 ): MeshTopology {
+  return computeTopologySteps(mesh, options)
+}
+
+/**
+ * То же, но с отчётом о ходе работы: индекс → области граней → цепочки рёбер.
+ * Воркер отдаёт эти доли прогресса пользователю.
+ */
+export function computeTopologySteps(
+  mesh: TriSoup | IndexedMesh,
+  options: TopologyOptions & EdgeOptions = {},
+  onProgress?: (fraction: number) => void
+): MeshTopology {
   const opts = { ...DEFAULT_TOPOLOGY_OPTIONS, ...DEFAULT_EDGE_OPTIONS, ...options }
+  onProgress?.(0.1)
   const index = buildMeshIndex(mesh)
+  onProgress?.(0.45)
   const { faces, triToFace } = segmentFaces(index, opts)
+  onProgress?.(0.8)
   const edges = edgeChains(index, triToFace, opts)
+  onProgress?.(1)
   return {
     index,
     faces,

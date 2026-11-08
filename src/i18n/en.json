@@ -2308,5 +2308,16 @@
       "noEdges": "No edge is selected",
       "invalidSize": "The size must be greater than zero"
     }
+  },
+  "topology": {
+    "error": {
+      "tooManyTriangles": "This mesh has {{count}} triangles — face and edge recognition works up to {{limit}}. Decimate or simplify the mesh first."
+    },
+    "status": {
+      "faces": "Faces: {{count}}",
+      "edges": "Edges: {{count}}",
+      "computing": "Recognising faces and edges…",
+      "failed": "Face and edge recognition failed"
+    }
   }
 }

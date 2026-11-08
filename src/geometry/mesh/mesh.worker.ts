@@ -10,6 +10,7 @@ import { makeSolid } from './makeSolid'
 import { autoRepair } from './autoRepair'
 import { decimate } from './decimate'
 import { smooth } from './smooth'
+import { computeTopologySteps } from '../topology'
 import type { IndexedMesh } from '../stl-import'
 
 export type MeshWorkerRequest =
@@ -24,6 +25,7 @@ export type MeshWorkerRequest =
   | { kind: 'autoRepair'; id: number; mesh: IndexedMesh; options?: any }
   | { kind: 'decimate'; id: number; mesh: IndexedMesh; options?: any }
   | { kind: 'smooth'; id: number; mesh: IndexedMesh; options?: any }
+  | { kind: 'topology'; id: number; mesh: IndexedMesh; options?: any }
 
 export type MeshWorkerResponse =
   | { kind: 'progress'; id: number; fraction: number }
@@ -130,6 +132,13 @@ export function createMeshHandler(wasmUrl?: string) {
             { kind: 'result', id, data: res },
             [res.mesh.vertProperties.buffer, res.mesh.triVerts.buffer]
           )
+          break
+        }
+        case 'topology': {
+          const topo = computeTopologySteps(mesh, msg.options ?? {}, (fraction) =>
+            postResponse({ kind: 'progress', id, fraction })
+          )
+          postResponse({ kind: 'result', id, data: topo })
           break
         }
       }

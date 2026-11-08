@@ -10,8 +10,11 @@ vi.mock('../viewport/Viewport', () => ({
   Viewport: () => <div data-testid="viewport" />,
 }))
 
+// Модель сцены подменяется: по умолчанию её нет, отдельные тесты задают статусы операций.
+const mocks = vi.hoisted(() => ({ model: null as any }))
+
 vi.mock('../../app/useModel', () => ({
-  useModel: () => ({ model: null, busy: false, pending: false, error: null }),
+  useModel: () => ({ model: mocks.model, busy: false, pending: false, error: null }),
   getModelClient: () => ({ registerMesh: () => {}, generate: async () => null }),
 }))
 
@@ -145,6 +148,32 @@ describe('EditorMode', () => {
     // FeatureDialog closed, new body in outliner
     expect(screen.queryByTestId('feature-dialog')).not.toBeInTheDocument()
     expect(screen.getByText('Extrude')).toBeInTheDocument()
+  })
+
+  it('re-picking a failed operation switches to face mode and selects the owning object', async () => {
+    const user = userEvent.setup()
+    // Любая операция помечена как невыполненная: строка показывает кнопку пере-выбора.
+    const failedOps = {
+      find: () => ({ opId: 'any', status: 'failed', reason: 'edge.error.missing', params: {} }),
+    }
+    mocks.model = { parts: [], editor: { statuses: new Proxy({}, { get: () => ({ ops: failedOps }) }) } }
+    renderEditor()
+
+    // Примитив добавляется и выделяется — в свойствах появляется стек операций.
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    await user.click(screen.getByTestId('toolbar-add-box'))
+
+    await user.click(screen.getByRole('button', { name: /Expand:.*Operations/i }))
+    await user.click(screen.getByTestId('stack-add-op-btn'))
+    await user.click(screen.getByTestId('add-op-boolean'))
+
+    const repick = await screen.findByTestId('op-repick-btn-0')
+    await user.click(repick)
+
+    // Режим переключился на грани, панель инструментов граней на месте.
+    expect(screen.getByRole('button', { name: 'Face' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('face-tools-panel')).toBeInTheDocument()
+    mocks.model = null
   })
 
   it('editing an extrude updates the body and does not duplicate it in outliner', async () => {

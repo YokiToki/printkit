@@ -144,7 +144,7 @@ export function Toolbar({
     <>
       <header
         data-testid="editor-toolbar"
-        className="flex h-11 items-center justify-between border-b border-border bg-surface-1 px-3 text-xs select-none"
+        className="flex h-11 items-center justify-between gap-2 overflow-x-auto border-b border-border bg-surface-1 px-3 text-xs select-none"
       >
         {/* Left section: Import & Add */}
         <div className="flex items-center gap-2">

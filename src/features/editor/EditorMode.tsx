@@ -1444,12 +1444,14 @@ export function EditorMode() {
 
   /** Перевыбор ссылок операции: возвращаемся в нужный режим граней или рёбер. */
   const handleRePickOp = (opId: string) => {
-    const objectId = topologyObjectId
-    if (!objectId) return
-    const obj = doc.objects.find((o) => o.id === objectId)
-    const op = obj?.stack?.find((o) => o.id === opId)
-    const kind = op?.kind === 'edgeBreak' ? 'edge' : 'face'
+    // Операция лежит в стеке своего объекта: в объектном режиме topologyObjectId пуст,
+    // поэтому владельца ищем по всем объектам сцены.
+    const owner = doc.objects.find((o) => (o.stack ?? []).some((s) => s.id === opId))
+    const op = owner?.stack?.find((o) => o.id === opId)
+    if (!owner || !op) return
+    const kind = op.kind === 'edgeBreak' ? 'edge' : 'face'
     handleSelectionModeChange(kind)
+    setSelection([owner.id])
     setFaceSelection([])
     setEdgeSelection([])
     setFaceOpError(null)

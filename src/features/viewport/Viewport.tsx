@@ -25,6 +25,16 @@ import { lookAtPlane, pointerToPlaneCoordinates, screenPick, type ScreenPickResu
 import { SketchOverlay } from './SketchOverlay'
 import { planeFrame, planeKey } from '../../editor/sketch/model'
 import type { MeshHighlight } from '../editor/mesh/MeshSection'
+import type { MeshTopology } from '../../geometry/topology'
+import {
+  chainSegments,
+  faceByTriangle,
+  faceOverlayColors,
+  pickEdgeByScreenDistance,
+  projectChain,
+  type ScreenPoint,
+} from './topologyView'
+import { buildEdgeOverlayGeometry, buildFaceOverlayGeometry } from './topologyOverlay'
 
 export interface BuildPlate { x: number; y: number; /** Поле по краю: пунктирный контур рабочей области. */ margin?: number }
 
@@ -52,6 +62,22 @@ export interface ViewportSceneConfig {
   hidden?: string[]
   gizmo?: ViewportGizmoConfig
   projection?: 'persp' | 'ortho'
+}
+
+/**
+ * Топология объекта для режимов граней и рёбер: области граней, цепочки рёбер
+ * и текущий выбор.
+ */
+export interface ViewportTopologyConfig {
+  /** Метка объекта, чья топология показана. */
+  label: string
+  topology: MeshTopology
+  /** Что показывать и выбирать: грани или рёбра. */
+  mode: 'face' | 'edge'
+  faceSelection?: number[]
+  edgeSelection?: number[]
+  hoverFace?: number | null
+  hoverEdge?: number | null
 }
 
 export interface ViewportProps {
@@ -89,6 +115,12 @@ export interface ViewportProps {
   onPinDimension?: (curveId: string) => void
   clippingPlane?: { normal: [number, number, number]; constant: number } | null
   highlight?: MeshHighlight | null
+  /** Топология объекта для режимов граней и рёбер. */
+  topology?: ViewportTopologyConfig | null
+  onPickFace?: (faceId: number | null, additive: boolean) => void
+  onPickEdge?: (edgeId: number | null, additive: boolean) => void
+  onHoverFace?: (faceId: number | null) => void
+  onHoverEdge?: (edgeId: number | null) => void
   measurePickActive?: boolean
   onMeasurePick?: (hit: {
     point: [number, number, number]
@@ -114,9 +146,12 @@ interface Api {
   projectPoint: (planePt: { x: number; y: number }) => { x: number; y: number } | null
   setClippingPlane?: (plane: { normal: [number, number, number]; constant: number } | null) => void
   setHighlight?: (h: MeshHighlight | null) => void
+  setTopology?: (t: ViewportTopologyConfig | null) => void
 }
 
 const GIZMO_SIZE = 120
+/** Расстояние выбора ребра от курсора, пиксели. */
+const EDGE_PICK_PX = 6
 /** Отступ гизмо от низа: над нижней строкой измерений (h-9 = 36 px) плюс зазор. */
 const GIZMO_BOTTOM = 44
 const GIZMO_AXIS_R = 0.05 // радиус оси гизмо в его единицах (±1.5 на 120 px)
@@ -220,6 +255,11 @@ export function Viewport({
   onPinDimension,
   clippingPlane,
   highlight,
+  topology,
+  onPickFace,
+  onPickEdge,
+  onHoverFace,
+  onHoverEdge,
   measurePickActive,
   onMeasurePick,
 }: ViewportProps) {
@@ -235,6 +275,9 @@ export function Viewport({
 
   const sketchRef = useRef(sketch)
   sketchRef.current = sketch
+
+  const topologyRef = useRef(topology)
+  topologyRef.current = topology
 
   const callbacksRef = useRef({
     onPick,
@@ -252,6 +295,10 @@ export function Viewport({
     onSelectConstraint,
     measurePickActive,
     onMeasurePick,
+    onPickFace,
+    onPickEdge,
+    onHoverFace,
+    onHoverEdge,
   })
   callbacksRef.current = {
     onPick,
@@ -269,6 +316,10 @@ export function Viewport({
     onSelectConstraint,
     measurePickActive,
     onMeasurePick,
+    onPickFace,
+    onPickEdge,
+    onHoverFace,
+    onHoverEdge,
   }
 
   const [boxSelectRect, setBoxSelectRect] = useState<Rect2D | null>(null)
@@ -412,6 +463,55 @@ export function Viewport({
     let current: ModelResult | null = null
     let assembledNow = false
     let radius = 60
+
+    // Наложки режимов граней и рёбер живут внутри группы объекта — так они
+    // следуют за его матрицей и пересобираются вместе с моделью.
+    let topologyOverlay: THREE.Group | null = null
+    const applyTopology = (cfg: ViewportTopologyConfig | null) => {
+      if (topologyOverlay) {
+        topologyOverlay.parent?.remove(topologyOverlay)
+        topologyOverlay.traverse((o) => {
+          const m = o as THREE.Mesh
+          if (m.geometry) m.geometry.dispose()
+          if ((m as any).material) (m as any).material.dispose()
+        })
+        topologyOverlay = null
+      }
+      if (!cfg) return
+      const part = partGroups.find((p) => p.label === cfg.label)
+      if (!part) return
+      const group = new THREE.Group()
+      group.name = 'topology-overlay'
+      if (cfg.mode === 'face') {
+        const geom = buildFaceOverlayGeometry(cfg.topology, cfg.hoverFace, cfg.faceSelection)
+        const mat = new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+        })
+        const mesh = new THREE.Mesh(geom, mat)
+        mesh.renderOrder = 3
+        mesh.userData.topologyOverlay = true
+        group.add(mesh)
+      } else {
+        const geom = buildEdgeOverlayGeometry(cfg.topology, cfg.hoverEdge, cfg.edgeSelection)
+        const mat = new THREE.LineBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          depthTest: false,
+        })
+        const lines = new THREE.LineSegments(geom, mat)
+        lines.renderOrder = 998
+        lines.userData.topologyOverlay = true
+        group.add(lines)
+      }
+      part.group.add(group)
+      topologyOverlay = group
+    }
 
     const updateGizmo = (sc: ViewportSceneConfig | undefined) => {
       if (!sc || !sc.gizmo || sc.selection.length === 0) {
@@ -737,6 +837,9 @@ export function Viewport({
           highlightGroup.add(pMesh)
         }
       },
+      setTopology(cfg) {
+        applyTopology(cfg)
+      },
       setPlate(p) {
         plateGroup.children.forEach((c) => { const m = c as THREE.Mesh; m.geometry.dispose() })
         plateGroup.clear()
@@ -843,6 +946,8 @@ export function Viewport({
         } else {
           applyGap(gapRef.current)
         }
+        // Наложки граней и рёбер строятся заново: модель пересобрана.
+        applyTopology(topologyRef.current ?? null)
         if (!fitted) { fitted = true; fit() }
       },
     }
@@ -865,6 +970,53 @@ export function Viewport({
     let isDragging = false
     let isBoxSelecting = false
     let isPointerDownOnCanvas = false
+    let lastHoverFace: number | null = null
+    let lastHoverEdge: number | null = null
+
+    /** Выбор грани под курсором: треугольник накладки → область грани. */
+    const pickFaceAt = (x: number, y: number): number | null => {
+      const cfg = topologyRef.current
+      if (!cfg || !topologyOverlay) return null
+      const overlay = topologyOverlay.children.find(
+        (c) => (c as THREE.Mesh).userData?.topologyOverlay
+      ) as THREE.Mesh | undefined
+      if (!overlay) return null
+      const isOrtho = sceneRef.current?.projection === 'ortho'
+      const cam = isOrtho ? orthoCamera : camera
+      const mouse = new THREE.Vector2(
+        (x / (el.clientWidth || 1)) * 2 - 1,
+        1 - (y / (el.clientHeight || 1)) * 2
+      )
+      ray.setFromCamera(mouse, cam)
+      const hit = ray.intersectObject(overlay, false)[0]
+      if (!hit || hit.faceIndex === undefined || hit.faceIndex === null) return null
+      return faceByTriangle(cfg.topology, hit.faceIndex)
+    }
+
+    /** Выбор ребра по расстоянию на экране от курсора до ломаной цепочки. */
+    const pickEdgeAt = (x: number, y: number): number | null => {
+      const cfg = topologyRef.current
+      if (!cfg) return null
+      const part = partGroups.find((p) => p.label === cfg.label)
+      if (!part) return null
+      part.group.updateMatrixWorld()
+      const matrix = part.group.matrixWorld
+      const isOrtho = sceneRef.current?.projection === 'ortho'
+      const cam = isOrtho ? orthoCamera : camera
+      const project = (p: [number, number, number]): ScreenPoint | null => {
+        const v = new THREE.Vector3(p[0], p[1], p[2]).applyMatrix4(matrix).project(cam)
+        if (v.z < -1 || v.z > 1) return null
+        return {
+          x: ((v.x + 1) / 2) * (el.clientWidth || 1),
+          y: ((1 - v.y) / 2) * (el.clientHeight || 1),
+        }
+      }
+      const screenChains = new Map<number, ScreenPoint[]>()
+      for (const chain of cfg.topology.edges) {
+        screenChains.set(chain.id, projectChain(chain, project))
+      }
+      return pickEdgeByScreenDistance(cfg.topology.edges, screenChains, { x, y }, EDGE_PICK_PX)
+    }
 
     // эскиз: координаты указателя на плоскости и масштаб вида (пикселей на мм) для допусков в пикселях
     const sketchPlanePoint = (e: MouseEvent) => {
@@ -918,6 +1070,43 @@ export function Viewport({
     }
 
     const onPointerMove = (e: MouseEvent) => {
+      // Подсветка под курсором в режимах граней и рёбер.
+      const topoCfg = topologyRef.current
+      if (topoCfg && !sketchRef.current) {
+        const rect = el.getBoundingClientRect()
+        const inside =
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        if (inside) {
+          const x = e.clientX - rect.left
+          const y = e.clientY - rect.top
+          if (topoCfg.mode === 'face') {
+            const hit = pickFaceAt(x, y)
+            if (hit !== lastHoverFace) {
+              lastHoverFace = hit
+              callbacksRef.current.onHoverFace?.(hit)
+            }
+          } else {
+            const hit = pickEdgeAt(x, y)
+            if (hit !== lastHoverEdge) {
+              lastHoverEdge = hit
+              callbacksRef.current.onHoverEdge?.(hit)
+            }
+          }
+        } else {
+          if (lastHoverFace !== null) {
+            lastHoverFace = null
+            callbacksRef.current.onHoverFace?.(null)
+          }
+          if (lastHoverEdge !== null) {
+            lastHoverEdge = null
+            callbacksRef.current.onHoverEdge?.(null)
+          }
+        }
+      }
+
       if (sketchRef.current) {
         // окно слушается целиком: над панелями эскиз ничего не должен делать
         const rect = el.getBoundingClientRect()
@@ -1100,6 +1289,18 @@ export function Viewport({
           ray.setFromCamera(new THREE.Vector2((gx / GIZMO_SIZE) * 2 - 1, 1 - (gy / GIZMO_SIZE) * 2), gCam)
           const hit = ray.intersectObjects(hits)[0]
           if (hit) view(hit.object.userData.dir)
+          return
+        }
+
+        // Режимы граней и рёбер: выбираем элемент топологии, а не объект.
+        const topoCfg = topologyRef.current
+        if (topoCfg) {
+          const additive = e.shiftKey || e.ctrlKey || e.metaKey
+          if (topoCfg.mode === 'face') {
+            callbacksRef.current.onPickFace?.(pickFaceAt(x, y), additive)
+          } else {
+            callbacksRef.current.onPickEdge?.(pickEdgeAt(x, y), additive)
+          }
           return
         }
 
@@ -1286,6 +1487,7 @@ export function Viewport({
   useEffect(() => { api.current?.setSketch(sketch) }, [sketch])
   useEffect(() => { api.current?.setClippingPlane?.(clippingPlane ?? null) }, [clippingPlane])
   useEffect(() => { api.current?.setHighlight?.(highlight ?? null) }, [highlight])
+  useEffect(() => { api.current?.setTopology?.(topology ?? null) }, [topology])
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none">

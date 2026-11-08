@@ -29,4 +29,4 @@ The editor of `39`–`44` keeps its scene in the browser's storage: it survives 
 - Stored settings stay compatible (no migration needed); routes: `/` changes meaning and the chooser moves to `/generators` — the reason for a major version. Old deep links `#/gridfinity/box` etc. keep working.
 - Out of scope: cloud storage or accounts, sharing links, version history/branches of a project, merging files, embedding generator parameters as live links (the round trip replaces the mesh), WebMCP tools for the editor (a later extension of `38`), importing other CAD formats (STEP, 3MF project files of slicers), password protection.
 - Version 2.0.0 (major: the route `/` now opens the editor and the product chooser moves to `/generators`).
-- Depends on: `43-editor-cut-split` and `44-editor-face-tools` (the complete document: cuts, stacks, faces), in the linear order of the editor series.
+- Depends on: `44h-editor-mesh-repair-wizard` (the complete editor polish series).

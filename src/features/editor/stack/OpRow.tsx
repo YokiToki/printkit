@@ -19,6 +19,7 @@ import {
   IconArrowsMaximize,
   IconBox,
   IconAdjustments,
+  IconVector,
 } from '@tabler/icons-react'
 import type { Op } from '../../../editor/stack'
 import { opSummary } from '../../../editor/stack'
@@ -35,6 +36,8 @@ export interface OpRowProps {
   onDelete: () => void
   onMove: (fromIndex: number, toIndex: number) => void
   onRepair?: () => void
+  /** Перевыбрать ссылку операции (грани или рёбра). */
+  onRePick?: () => void
   children?: ReactNode
 }
 
@@ -56,6 +59,10 @@ function getOpIcon(kind: string) {
       return <IconArrowsMaximize size={15} className="text-accent shrink-0" />
     case 'hollow':
       return <IconBox size={15} className="text-accent shrink-0" />
+    case 'pushPull':
+      return <IconArrowUp size={15} className="text-accent shrink-0" />
+    case 'edgeBreak':
+      return <IconVector size={15} className="text-accent shrink-0" />
     default:
       return <IconAdjustments size={15} className="text-text-muted shrink-0" />
   }
@@ -73,6 +80,7 @@ export function OpRow({
   onDelete,
   onMove,
   onRepair,
+  onRePick,
   children,
 }: OpRowProps) {
   const { t } = useTranslation()
@@ -189,6 +197,20 @@ export function OpRow({
               >
                 <IconAlertTriangle size={14} />
               </span>
+              {onRePick &&
+                (failedInfo.reason.startsWith('face.') || failedInfo.reason.startsWith('edge.')) && (
+                  <button
+                    type="button"
+                    data-testid={`op-repick-btn-${index}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRePick()
+                    }}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-accent/15 text-accent hover:bg-accent/25 font-medium cursor-pointer"
+                  >
+                    {t('editor.op.repick', 'Re-pick')}
+                  </button>
+                )}
               {failedInfo.reason === 'stack.error.notSolid' && onRepair && (
                 <button
                   type="button"

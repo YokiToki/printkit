@@ -16,7 +16,7 @@ import { useScene } from '../../editor/sceneStore'
 import { useEditorDispatch } from './useEditorDispatch'
 import { meshHealth, type MeshHealth } from '../../editor/health'
 import { openMeshStore, type MeshStore } from '../cutout/meshStore'
-import { Viewport, type Matrix4Tuple, type ViewportSceneConfig } from '../viewport/Viewport'
+import { Viewport, type Matrix4Tuple, type ViewportSceneConfig, type ViewportTopologyConfig } from '../viewport/Viewport'
 import { MeasurementsBar } from '../viewport/MeasurementsBar'
 import { ActivityLogPanel } from '../../app/ActivityLogPanel'
 import { useEditorModel } from './useEditorModel'
@@ -52,7 +52,12 @@ import {
   deleteSelectionCommand,
   dragPointCommand,
 } from './sketch/sketchCommands'
-import { newId, type PlaneDefinition as SketchPlaneDefinition, type Constraint, type Sketch, addLine, addPoint } from '../../editor/sketch/model'
+import { newId, type PlaneDefinition as SketchPlaneDefinition, type Constraint, type Sketch, addLine, addPoint, addProjectedGeometry } from '../../editor/sketch/model'
+import { frameForFace, facePlaneFrame, projectChains, type FacePlaneDefinition } from '../../editor/sketch/plane'
+import { faceRef, edgeRef } from '../../geometry/topology/reference'
+import type { MeshTopology } from '../../geometry/topology'
+import { getMeshClient, TopologyLimitError } from '../../geometry/mesh/meshClient'
+import { FaceToolsPanel, type SelectionMode } from './face/FaceToolsPanel'
 import { dimensionFor, constraintEntities } from '../../editor/sketch/measure'
 import { rectangleMacro } from '../../editor/sketch/tools/rectangle'
 import type { ScreenPickResult } from '../viewport/sketchPicking'
@@ -106,6 +111,28 @@ export function EditorMode() {
   const [snapStepMm, setSnapStepMm] = useState(5)
   const [snapStepDeg, setSnapStepDeg] = useState(15)
   const [projection, setProjection] = useState<'persp' | 'ortho'>('persp')
+
+  // Режимы граней и рёбер
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>('object')
+  const [faceSelection, setFaceSelection] = useState<number[]>([])
+  const [edgeSelection, setEdgeSelection] = useState<number[]>([])
+  const [hoverFace, setHoverFace] = useState<number | null>(null)
+  const [hoverEdge, setHoverEdge] = useState<number | null>(null)
+  const [pushDistance, setPushDistance] = useState(5)
+  const [breakKind, setBreakKind] = useState<'chamfer' | 'fillet'>('chamfer')
+  const [breakSize, setBreakSize] = useState(1)
+  const [sharpness, setSharpness] = useState(30)
+  const [topology, setTopology] = useState<MeshTopology | null>(null)
+  const [topologyError, setTopologyError] = useState<string | null>(null)
+  const [faceOpError, setFaceOpError] = useState<{
+    key: string
+    params?: Record<string, string | number>
+  } | null>(null)
+
+  /** Объект, чья топология используется в режимах граней и рёбер. */
+  const topologyObjectId = selectionMode === 'object' ? null : (selection[0] ?? null)
+  const topologyMesh = topologyObjectId ? meshesMap[topologyObjectId] : undefined
+
 
   // Desktop panel collapse state
   const [outlinerCollapsed, setOutlinerCollapsed] = useState(false)
@@ -1015,7 +1042,10 @@ export function EditorMode() {
         id: 'deselect',
         key: 'Escape',
         labelKey: 'editor.toolbar.select',
-        action: () => setSelection([]),
+        action: () => {
+          setSelection([])
+          if (selectionMode !== 'object') setSelectionMode('object')
+        },
       },
       {
         id: 'move',
@@ -1061,6 +1091,24 @@ export function EditorMode() {
         action: () => fitRef.current(),
       },
       {
+        id: 'mode-object',
+        key: '1',
+        labelKey: 'editor.mode.object',
+        action: () => handleSelectionModeChange('object'),
+      },
+      {
+        id: 'mode-face',
+        key: '2',
+        labelKey: 'editor.mode.face',
+        action: () => handleSelectionModeChange('face'),
+      },
+      {
+        id: 'mode-edge',
+        key: '3',
+        labelKey: 'editor.mode.edge',
+        action: () => handleSelectionModeChange('edge'),
+      },
+      {
         id: 'toggle-projection',
         key: '5',
         labelKey: 'editor.toolbar.perspective',
@@ -1096,7 +1144,7 @@ export function EditorMode() {
         },
       },
     ],
-    [selection, doc.objects, undo, redo, canUndo, canRedo, projection]
+    [selection, doc.objects, undo, redo, canUndo, canRedo, projection, selectionMode]
   )
 
   // Viewport scene descriptor
@@ -1179,6 +1227,20 @@ export function EditorMode() {
     if (!c) return null
     return constraintEntities(activeSketch, c)
   }, [activeSketch, hoverConstraintId])
+
+  // Наложки режимов граней и рёбер во вьюпорте
+  const viewportTopology = useMemo((): ViewportTopologyConfig | null => {
+    if (selectionMode === 'object' || !topology || !topologyObjectId) return null
+    return {
+      label: topologyObjectId,
+      topology,
+      mode: selectionMode,
+      faceSelection,
+      edgeSelection,
+      hoverFace,
+      hoverEdge,
+    }
+  }, [selectionMode, topology, topologyObjectId, faceSelection, edgeSelection, hoverFace, hoverEdge])
 
   // Sketch Viewport config
   const viewportSketch = useMemo((): ViewportSketchConfig | null => {
@@ -1334,6 +1396,184 @@ export function EditorMode() {
     setActiveSketchId(newSketchId)
     setSketchToolState(initialToolState('select'))
   }
+
+  // --- Режимы граней и рёбер -------------------------------------------------
+
+  // Топология считается в воркере и кэшируется по хэшу сетки.
+  useEffect(() => {
+    if (!topologyObjectId || !topologyMesh) {
+      setTopology(null)
+      setTopologyError(null)
+      return
+    }
+    let cancelled = false
+    const client = getMeshClient()
+    client
+      .topologyOf(
+        {
+          vertProperties: topologyMesh.vertProperties,
+          triVerts: topologyMesh.triVerts,
+        },
+        { edgeAngleDeg: sharpness }
+      )
+      .then((topo) => {
+        if (cancelled) return
+        setTopology(topo)
+        setTopologyError(null)
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return
+        setTopology(null)
+        setTopologyError(
+          e instanceof TopologyLimitError ? 'topology.error.tooManyTriangles' : 'topology.status.failed'
+        )
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [topologyObjectId, topologyMesh, sharpness])
+
+  // Смена режима сбрасывает выбор граней и рёбер.
+  useEffect(() => {
+    setFaceSelection([])
+    setEdgeSelection([])
+    setHoverFace(null)
+    setHoverEdge(null)
+    setFaceOpError(null)
+  }, [selectionMode, topologyObjectId])
+
+  /** Перевыбор ссылок операции: возвращаемся в нужный режим граней или рёбер. */
+  const handleRePickOp = (opId: string) => {
+    const objectId = topologyObjectId
+    if (!objectId) return
+    const obj = doc.objects.find((o) => o.id === objectId)
+    const op = obj?.stack?.find((o) => o.id === opId)
+    const kind = op?.kind === 'edgeBreak' ? 'edge' : 'face'
+    handleSelectionModeChange(kind)
+    setFaceSelection([])
+    setEdgeSelection([])
+    setFaceOpError(null)
+  }
+
+  /** Переключение режима выбора: объект, грань или ребро. */
+  const handleSelectionModeChange = (mode: SelectionMode) => {
+    setSelectionMode(mode)
+    if (mode !== 'object') {
+      // В режимах граней и рёбер работаем с одним объектом.
+      if (selection.length > 1) setSelection([selection[0]])
+      setActiveSketchId(null)
+      setTool('select')
+    }
+  }
+
+  const handlePickFace = (faceId: number | null, additive: boolean) => {
+    if (faceId === null) {
+      if (!additive) setFaceSelection([])
+      return
+    }
+    setFaceOpError(null)
+    setFaceSelection((prev) =>
+      additive
+        ? prev.includes(faceId)
+          ? prev.filter((id) => id !== faceId)
+          : [...prev, faceId]
+        : [faceId]
+    )
+  }
+
+  const handlePickEdge = (edgeId: number | null, additive: boolean) => {
+    if (edgeId === null) {
+      if (!additive) setEdgeSelection([])
+      return
+    }
+    setFaceOpError(null)
+    setEdgeSelection((prev) =>
+      additive
+        ? prev.includes(edgeId)
+          ? prev.filter((id) => id !== edgeId)
+          : [...prev, edgeId]
+        : [edgeId]
+    )
+  }
+
+  const handleApplyPushPull = () => {
+    const objectId = topologyObjectId
+    if (!objectId || !topology) return
+    const faces = topology.faces.filter((f) => faceSelection.includes(f.id))
+    if (faces.length === 0) return
+    handleAddOp(objectId, {
+      id: newId('op'),
+      kind: 'pushPull',
+      enabled: true,
+      params: { faces: faces.map(faceRef), distance: pushDistance },
+    })
+  }
+
+  const handleApplyEdgeBreak = () => {
+    const objectId = topologyObjectId
+    if (!objectId || !topology) return
+    const edges = topology.edges.filter((e) => edgeSelection.includes(e.id))
+    if (edges.length === 0) return
+    handleAddOp(objectId, {
+      id: newId('op'),
+      kind: 'edgeBreak',
+      enabled: true,
+      params: { edges: edges.map(edgeRef), kind: breakKind, size: breakSize },
+    })
+  }
+
+  /** Эскиз на грани: плоскости грани и, по запросу, проекция рёбер. */
+  const handleSketchOnFace = (withProjection: boolean) => {
+    const objectId = topologyObjectId
+    if (!objectId || !topology) return
+    const face = topology.faces.find((f) => f.id === faceSelection[0])
+    if (!face) return
+    const frame = frameForFace(face, topology, face.centroid)
+    if (!frame) {
+      setFaceOpError({ key: 'face.error.notPlanar' })
+      return
+    }
+    const plane: FacePlaneDefinition = { face: faceRef(face), frame }
+    const boundary = withProjection
+      ? topology.edges.filter((e) => e.faces[0] === face.id || e.faces[1] === face.id)
+      : []
+    const projected = withProjection
+      ? projectChains(boundary, facePlaneFrame(frame))
+      : null
+
+    const existingNames = (doc.sketches ?? []).map((s) => s.name)
+    const name = newName(t('sketch.defaultName', 'Sketch'), existingNames)
+    let newSketchId = ''
+    dispatch('Add Sketch', (prev) => {
+      const res = addSketchCommand(prev, name, plane)
+      newSketchId = res.sketchId
+      if (!projected) return res.doc
+      return updateSketchInDoc(res.doc, res.sketchId, (s) =>
+        addProjectedGeometry(s, projected, true)
+      )
+    })
+    setActiveSketchId(newSketchId)
+    setSketchToolState(initialToolState('select'))
+  }
+
+  // Ошибка операции из стека (ссылка не нашлась и т.п.).
+  const lastFaceOpStatus = useMemo(() => {
+    const objectId = topologyObjectId
+    if (!objectId) return null
+    const statuses = model?.editor?.statuses?.[objectId]
+    if (!statuses) return null
+    const failed = statuses.ops.find((o) => o.status === 'failed')
+    return failed ?? null
+  }, [model, topologyObjectId])
+
+  useEffect(() => {
+    if (!lastFaceOpStatus || lastFaceOpStatus.status !== 'failed') return
+    if (!lastFaceOpStatus.reason) return
+    if (!lastFaceOpStatus.reason.startsWith('face.') && !lastFaceOpStatus.reason.startsWith('edge.')) {
+      return
+    }
+    setFaceOpError({ key: lastFaceOpStatus.reason, params: lastFaceOpStatus.params })
+  }, [lastFaceOpStatus])
 
   // Sketch constraint addition
   const handleAddConstraint = (kind: Constraint['kind']) => {
@@ -1712,6 +1952,8 @@ export function EditorMode() {
           onOpenSplitDialog={() => setSplitDialogOpen(true)}
           analysisOpen={analysisOpen}
           onToggleAnalysis={() => setAnalysisOpen(!analysisOpen)}
+          selectionMode={selectionMode}
+          onSelectionModeChange={handleSelectionModeChange}
         />
       )}
 
@@ -1826,6 +2068,11 @@ export function EditorMode() {
               model={model}
               scene={viewportScene}
               sketch={viewportSketch}
+              topology={viewportTopology}
+              onPickFace={handlePickFace}
+              onPickEdge={handlePickEdge}
+              onHoverFace={setHoverFace}
+              onHoverEdge={setHoverEdge}
               onPick={handlePick}
               onBoxSelect={handleBoxSelect}
               onGizmoChange={handleGizmoChange}
@@ -1987,6 +2234,29 @@ export function EditorMode() {
                 onApply={handleApplyText}
                 onCancel={() => setTool('select')}
               />
+            ) : selectionMode !== 'object' ? (
+              <FaceToolsPanel
+                mode={selectionMode}
+                topology={topology}
+                faceSelection={faceSelection}
+                edgeSelection={edgeSelection}
+                sharpness={sharpness}
+                onSharpnessChange={setSharpness}
+                distance={pushDistance}
+                onDistanceChange={setPushDistance}
+                onApplyPushPull={handleApplyPushPull}
+                breakKind={breakKind}
+                onBreakKindChange={setBreakKind}
+                size={breakSize}
+                onSizeChange={setBreakSize}
+                onApplyEdgeBreak={handleApplyEdgeBreak}
+                onSketchOnFace={() => handleSketchOnFace(false)}
+                onProjectEdges={() => handleSketchOnFace(true)}
+                error={faceOpError?.key ?? null}
+                errorParams={faceOpError?.params ?? null}
+                limitError={topologyError}
+                busy={pending}
+              />
             ) : (
               <Properties
                 objects={doc.objects}
@@ -2011,6 +2281,7 @@ export function EditorMode() {
                 meshSectionOpen={meshSectionOpen}
                 onMeshSectionOpenChange={setMeshSectionOpen}
                 onRepairMesh={handleRepairMesh}
+                onRePickOp={handleRePickOp}
               />
             )}
           </div>
@@ -2209,6 +2480,29 @@ export function EditorMode() {
                   onApply={handleApplyText}
                   onCancel={() => setTool('select')}
                 />
+              ) : selectionMode !== 'object' ? (
+                <FaceToolsPanel
+                  mode={selectionMode}
+                  topology={topology}
+                  faceSelection={faceSelection}
+                  edgeSelection={edgeSelection}
+                  sharpness={sharpness}
+                  onSharpnessChange={setSharpness}
+                  distance={pushDistance}
+                  onDistanceChange={setPushDistance}
+                  onApplyPushPull={handleApplyPushPull}
+                  breakKind={breakKind}
+                  onBreakKindChange={setBreakKind}
+                  size={breakSize}
+                  onSizeChange={setBreakSize}
+                  onApplyEdgeBreak={handleApplyEdgeBreak}
+                  onSketchOnFace={() => handleSketchOnFace(false)}
+                  onProjectEdges={() => handleSketchOnFace(true)}
+                  error={faceOpError?.key ?? null}
+                  errorParams={faceOpError?.params ?? null}
+                  limitError={topologyError}
+                  busy={pending}
+                />
               ) : (
                 <>
                   <Properties
@@ -2234,6 +2528,7 @@ export function EditorMode() {
                     meshSectionOpen={meshSectionOpen}
                     onMeshSectionOpenChange={setMeshSectionOpen}
                     onRepairMesh={handleRepairMesh}
+                onRePickOp={handleRePickOp}
                   />
                   <div className="mt-4">
                     <EditorExportFooter

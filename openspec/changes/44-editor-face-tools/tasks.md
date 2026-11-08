@@ -26,13 +26,13 @@
 
 ## 5. UI (no artboard exists: built from `ui/` components and tokens)
 
-- [ ] 5.1 Mode switch in the tool bar and hotkeys, status line (faces/edges selected, area, length, kind), sharpness threshold control, limit message. Component tests.
-- [ ] 5.2 `PushPullTool` (drag handle along the normal with snapping, typed distance with `LengthField`, preview), `EdgeBreakTool` (chamfer/fillet toggle, size field, preview, error messages), Sketch on face and Project edges commands in the context menu. Component tests and a browser check.
-- [ ] 5.3 Stack rows for the new operations with re-pick actions on failure; strings in `en.json` and `ru.json` (`face.*`, `edge.*`, `topology.*`, log keys); key parity.
+- [x] 5.1 Mode switch in the tool bar and hotkeys, status line (faces/edges selected, area, length, kind), sharpness threshold control, limit message. Component tests.
+- [x] 5.2 `PushPullTool` (drag handle along the normal with snapping, typed distance with `LengthField`, preview), `EdgeBreakTool` (chamfer/fillet toggle, size field, preview, error messages), Sketch on face and Project edges commands in the context menu. Component tests and a browser check.
+- [x] 5.3 Stack rows for the new operations with re-pick actions on failure; strings in `en.json` and `ru.json` (`face.*`, `edge.*`, `topology.*`, log keys); key parity.
 
 ## 6. Version
 
-- [ ] 6.1 Bump `package.json` to 1.15.0 and add `1.15.0 — 44-editor-face-tools` to `CHANGELOG.md`. Test: `site.test.ts`.
+- [x] 6.1 Bump `package.json` to 1.15.0 and add `1.15.0 — 44-editor-face-tools` to `CHANGELOG.md`. Test: `site.test.ts`.
 
 ## 7. Verification
 

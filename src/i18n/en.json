@@ -1751,7 +1751,8 @@
       "orthographic": "Orthographic view",
       "fit": "Fit view",
       "hotkeys": "Keyboard shortcuts",
-      "dropHint": "Drop STL files here to import"
+      "dropHint": "Drop STL files here to import",
+      "selectionMode": "Selection mode"
     },
     "unitDialog": {
       "title": "Import STL",
@@ -1839,7 +1840,14 @@
       "suppress": "Suppress operation",
       "unsuppress": "Unsuppress operation",
       "moveUp": "Move up",
-      "moveDown": "Move down"
+      "moveDown": "Move down",
+      "pushPull": "Push / Pull",
+      "edgeBreak": "Chamfer / Fillet",
+      "repick": "Re-pick",
+      "breakKind": "Break kind",
+      "size": "Size",
+      "pushPullFaces": "Faces: {{count}}",
+      "edgeBreakEdges": "Edges: {{count}}"
     },
     "history": {
       "addOp": "Add operation",
@@ -1851,6 +1859,11 @@
       "flatten": "Flatten operations",
       "combine": "Combine bodies",
       "releaseTool": "Release tool"
+    },
+    "mode": {
+      "object": "Object",
+      "face": "Face",
+      "edge": "Edge"
     }
   },
   "sketch": {
@@ -2295,7 +2308,26 @@
     },
     "warning": {
       "clamped": "Pull limited to {{max}} mm — deeper would pass through the body"
-    }
+    },
+    "kind": {
+      "planar": "flat",
+      "cylinder": "cylindrical",
+      "cone": "conical",
+      "sphere": "spherical",
+      "smooth": "smooth",
+      "mixed": "mixed"
+    },
+    "status": {
+      "selected": "Faces: {{count}}",
+      "area": "area {{area}} mm²"
+    },
+    "pushPull": {
+      "title": "Push / Pull",
+      "distance": "Distance",
+      "apply": "Apply"
+    },
+    "sketchOnFace": "Sketch on face",
+    "projectEdges": "Project edges"
   },
   "edge": {
     "error": {
@@ -2307,6 +2339,24 @@
       "tooLarge": "Size is too large for this edge — the maximum is {{max}} mm",
       "noEdges": "No edge is selected",
       "invalidSize": "The size must be greater than zero"
+    },
+    "kind": {
+      "line": "straight",
+      "circle": "circular",
+      "free": "free-form",
+      "mixed": "mixed"
+    },
+    "status": {
+      "selected": "Edges: {{count}}",
+      "length": "length {{length}} mm"
+    },
+    "break": {
+      "title": "Chamfer / Fillet",
+      "kind": "Break kind",
+      "chamfer": "Chamfer",
+      "fillet": "Fillet",
+      "size": "Size",
+      "apply": "Apply"
     }
   },
   "topology": {
@@ -2318,6 +2368,12 @@
       "edges": "Edges: {{count}}",
       "computing": "Recognising faces and edges…",
       "failed": "Face and edge recognition failed"
-    }
+    },
+    "sharpness": {
+      "title": "Edge sharpness",
+      "angle": "Angle",
+      "hint": "Edges sharper than this angle are treated as feature edges."
+    },
+    "hint": "Face and edge tools work on the selected object."
   }
 }

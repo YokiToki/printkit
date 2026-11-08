@@ -20,6 +20,8 @@ import {
 import type { PrimitiveShape } from '../../editor/scene'
 import type { PlaneDefinition } from '../../editor/sketch/model'
 import { loadEditorUi, saveEditorUi } from './editorUiStore'
+import { SegmentedControl } from '../../ui/SegmentedControl'
+import type { SelectionMode } from './face/FaceToolsPanel'
 
 export type TransformTool =
   | 'select'
@@ -52,6 +54,9 @@ export interface ToolbarProps {
   hasSketches?: boolean
   analysisOpen?: boolean
   onToggleAnalysis?: () => void
+  /** Режим выбора: объект, грань или ребро. */
+  selectionMode?: SelectionMode
+  onSelectionModeChange?: (mode: SelectionMode) => void
 }
 
 const PRIMITIVE_LIST: PrimitiveShape[] = ['box', 'cylinder', 'sphere', 'cone', 'torus', 'wedge']
@@ -77,6 +82,8 @@ export function Toolbar({
   hasSketches = false,
   analysisOpen = false,
   onToggleAnalysis,
+  selectionMode = 'object',
+  onSelectionModeChange,
 }: ToolbarProps) {
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -428,6 +435,21 @@ export function Toolbar({
           >
             <IconLetterT size={16} stroke={1.75} />
           </button>
+        </div>
+
+        {/* Selection mode: object, face, edge */}
+        <div className="flex items-center gap-1.5">
+          <SegmentedControl
+            ariaLabel={t('editor.toolbar.selectionMode', 'Selection mode')}
+            value={selectionMode}
+            onChange={(m) => onSelectionModeChange?.(m)}
+            size="sm"
+            options={[
+              { value: 'object', label: t('editor.mode.object', 'Object') },
+              { value: 'face', label: t('editor.mode.face', 'Face') },
+              { value: 'edge', label: t('editor.mode.edge', 'Edge') },
+            ]}
+          />
         </div>
 
         {/* Right section: Snap, Projection, Fit, Hotkeys */}

@@ -386,3 +386,43 @@ export function removeCurve(sketch: Sketch, curveId: string): Sketch {
     constraints: nextConstraints,
   }
 }
+
+/**
+ * Добавить спроецированную геометрию в эскиз: точки, прямые, окружности и
+ * дуги. Совпадающие точки уже объединены в проекции, поэтому концы отрезков
+ * ссылаются на одну точку.
+ */
+export function addProjectedGeometry(
+  sketch: Sketch,
+  geometry: ProjectedGeometry,
+  construction = true
+): Sketch {
+  let s = sketch
+  const pointIds: string[] = []
+  for (const p of geometry.points) {
+    const res = addPoint(s, p.x, p.y)
+    s = res.sketch
+    pointIds.push(res.pointId)
+  }
+
+  const curves: Record<string, Curve> = { ...s.curves }
+  for (const c of geometry.curves) {
+    const id = newId('c')
+    if (c.kind === 'line') {
+      curves[id] = { id, kind: 'line', a: pointIds[c.a], b: pointIds[c.b], construction }
+    } else if (c.kind === 'circle') {
+      curves[id] = { id, kind: 'circle', c: pointIds[c.c], r: c.r, construction }
+    } else {
+      curves[id] = {
+        id,
+        kind: 'arc',
+        c: pointIds[c.c],
+        a: pointIds[c.a],
+        b: pointIds[c.b],
+        construction,
+      }
+    }
+  }
+
+  return { ...s, curves }
+}

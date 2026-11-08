@@ -7,6 +7,8 @@ import type {
   CircularPatternOp,
   OffsetOp,
   HollowOp,
+  PushPullOp,
+  EdgeBreakOp,
 } from '../../../editor/stack'
 import type { EditorObject } from '../../../editor/scene'
 import { LengthField } from '../../../ui/LengthField'
@@ -305,6 +307,56 @@ export function OpForm({
           step={0.1}
           onChange={(wall) => onChange({ params: { ...p, wall } }, `hollow-wall-${op.id}`)}
         />
+      </div>
+    )
+  }
+
+  if (op.kind === 'pushPull') {
+    const p = (op as PushPullOp).params
+
+    return (
+      <div className="space-y-3 pt-2 text-xs" data-testid={`op-form-${op.id}`}>
+        <LengthField
+          label={t('editor.op.distance')}
+          value={p.distance}
+          min={-1000}
+          max={1000}
+          step={0.5}
+          onChange={(distance) => onChange({ params: { ...p, distance } }, `pushpull-dist-${op.id}`)}
+        />
+        <p className="text-text-muted">{t('editor.op.pushPullFaces', { count: p.faces.length })}</p>
+      </div>
+    )
+  }
+
+  if (op.kind === 'edgeBreak') {
+    const p = (op as EdgeBreakOp).params
+
+    return (
+      <div className="space-y-3 pt-2 text-xs" data-testid={`op-form-${op.id}`}>
+        <div className="space-y-1">
+          <label className="text-text-muted font-medium block">{t('editor.op.breakKind')}</label>
+          <SegmentedControl
+            ariaLabel={t('editor.op.breakKind')}
+            fill
+            compact
+            value={p.kind}
+            options={[
+              { value: 'chamfer', label: t('edge.break.chamfer') },
+              { value: 'fillet', label: t('edge.break.fillet') },
+            ]}
+            onChange={(kind) => onChange({ params: { ...p, kind } }, `edgebreak-kind-${op.id}`)}
+          />
+        </div>
+        <LengthField
+          label={t('editor.op.size')}
+          value={p.size}
+          min={0.1}
+          max={1000}
+          step={0.5}
+          onChange={(size) => onChange({ params: { ...p, size } }, `edgebreak-size-${op.id}`)}
+        />
+        <p className="text-text-muted">{t('editor.op.edgeBreakEdges', { count: p.edges.length })}</p>
       </div>
     )
   }

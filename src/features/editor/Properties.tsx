@@ -64,6 +64,8 @@ export interface PropertiesProps {
   meshSectionOpen?: boolean
   onMeshSectionOpenChange?: (open: boolean) => void
   onRepairMesh?: (targetObjectId?: string) => void
+  /** Перевыбрать грани или рёбра для операции, которая не нашла ссылку. */
+  onRePickOp?: (opId: string) => void
 }
 
 export function Properties({
@@ -90,6 +92,7 @@ export function Properties({
   meshSectionOpen,
   onMeshSectionOpenChange,
   onRepairMesh,
+  onRePickOp,
 }: PropertiesProps) {
   const { t } = useTranslation()
   const { unit } = useUnit()
@@ -625,6 +628,7 @@ export function Properties({
         onFlatten={handleFlatten}
         onEditFeature={onEditFeature ? (fIdx) => onEditFeature(obj.id, fIdx) : undefined}
         onRepairMesh={onRepairMesh}
+        onRePickOp={onRePickOp}
       />
 
       {/* Mesh block for mesh source */}

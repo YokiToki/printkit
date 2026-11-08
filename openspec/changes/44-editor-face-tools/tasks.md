@@ -16,8 +16,8 @@
 
 - [x] 3.1 `pushPull.ts` for planar regions with holes, several coplanar faces, clamped negative distances, refusal of non-planar. Test with `expectValidSolid`: the cube scenarios of the spec, plate with hole, clamp message value.
 - [x] 3.2 `edgeBreak3d.ts` chamfer and fillet for lines, circles and mixed chains, mitre joins at shared corners, limits (size, dihedral) with message values. Test: volumes of the spec scenarios, all-four-top-edges cube valid and closed, hole rim, concave corner, too-large radius message.
-- [ ] 3.3 Register `pushPull` and `edgeBreak` in the stack (normalisation, summaries, failed reasons `face.error.*`, `edge.error.*`). Test: round trip through `migrateScene`, failed reference blocks later ops, editing size keeps refs.
-- [ ] 3.4 Face-based sketch plane: `{face, frame}` kind in `editor/sketch/plane.ts`, frame rule (longest straight edge, fallback axes), detached state, re-resolution; projection of loops and chains into sketch geometry. Test: frame for box faces, detached behaviour, projected circle and lines with coincident endpoints.
+- [x] 3.3 Register `pushPull` and `edgeBreak` in the stack (normalisation, summaries, failed reasons `face.error.*`, `edge.error.*`). Test: round trip through `migrateScene`, failed reference blocks later ops, editing size keeps refs.
+- [x] 3.4 Face-based sketch plane: `{face, frame}` kind in `editor/sketch/plane.ts`, frame rule (longest straight edge, fallback axes), detached state, re-resolution; projection of loops and chains into sketch geometry. Test: frame for box faces, detached behaviour, projected circle and lines with coincident endpoints.
 
 ## 4. Worker and viewport
 

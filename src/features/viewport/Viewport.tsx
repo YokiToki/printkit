@@ -23,7 +23,7 @@ import { ViewCube } from '../editor/ViewCube'
 import { buildSketchContent, buildSketchGrid, type ViewportSketchConfig } from './sketchMesh'
 import { lookAtPlane, pointerToPlaneCoordinates, screenPick, type ScreenPickResult } from './sketchPicking'
 import { SketchOverlay } from './SketchOverlay'
-import { planeFrame } from '../../editor/sketch/model'
+import { planeFrame, planeKey } from '../../editor/sketch/model'
 import type { MeshHighlight } from '../editor/mesh/MeshSection'
 
 export interface BuildPlate { x: number; y: number; /** Поле по краю: пунктирный контур рабочей области. */ margin?: number }
@@ -654,7 +654,7 @@ export function Viewport({
         controls.enableRotate = false
         sketchContentGroup.add(buildSketchContent(s))
         // камера и сетка меняются только при входе в эскиз или смене плоскости: правка эскиза не должна сбрасывать вид
-        const key = `${s.sketch.id}|${s.plane.base}|${s.plane.offset}`
+        const key = `${s.sketch.id}|${planeKey(s.plane)}`
         if (key !== sketchViewKey) {
           sketchViewKey = key
           disposeGeometries(sketchGridGroup)

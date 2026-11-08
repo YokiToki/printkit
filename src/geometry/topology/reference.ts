@@ -231,3 +231,75 @@ export function resolveEdge(
 }
 
 export { signedArea }
+
+/** Чтение вектора из трёх чисел; при ошибке — null. */
+function readVec3(raw: unknown): Vec3 | null {
+  if (!Array.isArray(raw) || raw.length < 3) return null
+  const x = Number(raw[0])
+  const y = Number(raw[1])
+  const z = Number(raw[2])
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null
+  return [x, y, z]
+}
+
+function readNum(raw: unknown): number | undefined {
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : undefined
+}
+
+/**
+ * Нормализация ссылки на грань: битые значения отбрасываются, ссылка
+ * без корректной точки и нормали не восстанавливается.
+ */
+export function normalizeFaceRef(raw: unknown): FaceRef | null {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const point = readVec3(obj.point)
+  const normal = readVec3(obj.normal)
+  if (!point || !normal) return null
+  const extent = readNum(obj.extent)
+  return {
+    kind: 'face',
+    point,
+    normal,
+    extent: extent !== undefined ? extent : Math.hypot(point[0], point[1], point[2]),
+  }
+}
+
+/**
+ * Нормализация ссылки на ребро. Форма определяется полем `shape`; неизвестная
+ * форма — ссылка не восстанавливается.
+ */
+export function normalizeEdgeRef(raw: unknown): EdgeRef | null {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const shape = obj.shape
+  const length = readNum(obj.length)
+
+  if (shape === 'circle') {
+    const centre = readVec3(obj.centre)
+    const axis = readVec3(obj.axis)
+    const radius = readNum(obj.radius)
+    if (!centre || !axis || radius === undefined) return null
+    return { kind: 'edge', shape: 'circle', centre, axis, radius, length }
+  }
+
+  if (shape === 'free') {
+    if (!Array.isArray(obj.points) || obj.points.length < 2) return null
+    const points: Vec3[] = []
+    for (const p of obj.points) {
+      const v = readVec3(p)
+      if (!v) return null
+      points.push(v)
+    }
+    return { kind: 'edge', shape: 'free', points, length }
+  }
+
+  if (shape === 'line') {
+    const p0 = readVec3(obj.p0)
+    const p1 = readVec3(obj.p1)
+    if (!p0 || !p1) return null
+    return { kind: 'edge', shape: 'line', p0, p1, length }
+  }
+
+  return null
+}

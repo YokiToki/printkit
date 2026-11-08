@@ -2,6 +2,10 @@ import type { ExtrudeParams } from '../geometry/features/extrude'
 import type { RevolveParams } from '../geometry/features/revolve'
 import type { HoleParams } from '../geometry/features/ops/hole'
 import type { TextOpParams } from '../geometry/features/ops/text'
+import type { PushPullParams } from '../geometry/features/ops/pushPull'
+import type { EdgeBreakParams } from '../geometry/features/ops/edgeBreak3d'
+import type { FaceRef, EdgeRef } from '../geometry/topology/reference'
+import { normalizeFaceRef, normalizeEdgeRef } from '../geometry/topology/reference'
 
 export type OpKind =
   | 'extrude'
@@ -14,6 +18,8 @@ export type OpKind =
   | 'hollow'
   | 'hole'
   | 'text'
+  | 'pushPull'
+  | 'edgeBreak'
   | (string & {})
 
 export interface BaseOp<K extends string = OpKind, P = Record<string, unknown>> {
@@ -85,6 +91,11 @@ export type HollowOp = BaseOp<'hollow', HollowParams>
 export type HoleOp = BaseOp<'hole', HoleParams>
 export type TextOp = BaseOp<'text', TextOpParams>
 
+/** Push / Pull: сдвиг плоских граней вдоль нормали. */
+export type PushPullOp = BaseOp<'pushPull', PushPullParams>
+/** Фаска или скругление рёбер. */
+export type EdgeBreakOp = BaseOp<'edgeBreak', EdgeBreakParams>
+
 export interface UnknownOp extends BaseOp<string, Record<string, unknown>> {}
 
 export type Op =
@@ -98,6 +109,8 @@ export type Op =
   | HollowOp
   | HoleOp
   | TextOp
+  | PushPullOp
+  | EdgeBreakOp
   | UnknownOp
 
 export const DEFAULT_BOOLEAN_PARAMS: BooleanParams = {
@@ -157,6 +170,17 @@ export const DEFAULT_TEXT_OP_PARAMS: TextOpParams = {
   height: 0.6,
   depth: 0.5,
   rotation: 0,
+}
+
+export const DEFAULT_PUSH_PULL_PARAMS: PushPullParams = {
+  faces: [],
+  distance: 2,
+}
+
+export const DEFAULT_EDGE_BREAK_PARAMS: EdgeBreakParams = {
+  edges: [],
+  kind: 'chamfer',
+  size: 1,
 }
 
 export function emptyStack(): Op[] {
@@ -337,6 +361,30 @@ export function normalizeOp(raw: unknown): Op {
         },
       }
     }
+    case 'pushPull': {
+      const faces: FaceRef[] = []
+      if (Array.isArray(p.faces)) {
+        for (const raw of p.faces) {
+          const ref = normalizeFaceRef(raw)
+          if (ref) faces.push(ref)
+        }
+      }
+      const distance =
+        typeof p.distance === 'number' && Number.isFinite(p.distance) ? p.distance : 2
+      return { id, kind, enabled, label, params: { faces, distance } }
+    }
+    case 'edgeBreak': {
+      const edges: EdgeRef[] = []
+      if (Array.isArray(p.edges)) {
+        for (const raw of p.edges) {
+          const ref = normalizeEdgeRef(raw)
+          if (ref) edges.push(ref)
+        }
+      }
+      const breakKind = p.kind === 'fillet' ? 'fillet' : 'chamfer'
+      const size = typeof p.size === 'number' && Number.isFinite(p.size) ? Math.max(0.01, p.size) : 1
+      return { id, kind, enabled, label, params: { edges, kind: breakKind, size } }
+    }
     case 'extrude':
     case 'revolve': {
       return { id, kind, enabled, label, params: p as any }
@@ -406,7 +454,9 @@ export function isKnownOpKind(kind: string): boolean {
     kind === 'offset' ||
     kind === 'hollow' ||
     kind === 'hole' ||
-    kind === 'text'
+    kind === 'text' ||
+    kind === 'pushPull' ||
+    kind === 'edgeBreak'
   )
 }
 
@@ -514,6 +564,21 @@ export function opSummary(op: Op): OpSummary {
       const p = (op as TextOp).params
       const snippet = p.text.length > 8 ? p.text.slice(0, 8) + '…' : p.text || '“ ”'
       return { key: `stack.summary.text.${p.mode}`, params: { text: snippet } }
+    }
+    case 'pushPull': {
+      const p = (op as PushPullOp).params
+      const sign = p.distance >= 0 ? `+${p.distance}` : `${p.distance}`
+      return {
+        key: 'stack.summary.pushPull',
+        params: { count: p.faces.length, distance: `${sign} mm` },
+      }
+    }
+    case 'edgeBreak': {
+      const p = (op as EdgeBreakOp).params
+      return {
+        key: `stack.summary.edgeBreak.${p.kind}`,
+        params: { count: p.edges.length, size: `${p.size} mm` },
+      }
     }
     default:
       return { key: 'stack.summary.unknown', params: { kind: op.kind } }

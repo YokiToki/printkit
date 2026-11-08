@@ -2,7 +2,7 @@ import type { Manifold, ManifoldToplevel } from 'manifold-3d'
 import type { Sketch } from '../../editor/sketch/model'
 import type { Mat4 } from '../matrix'
 import type { MeshHealth } from '../../editor/health'
-import type { Op, BooleanParams, ExtrudeOp, RevolveOp, MirrorOp, LinearPatternOp, CircularPatternOp, OffsetOp, HollowOp, HoleOp, TextOp } from '../../editor/stack'
+import type { Op, BooleanParams, ExtrudeOp, RevolveOp, MirrorOp, LinearPatternOp, CircularPatternOp, OffsetOp, HollowOp, HoleOp, TextOp, PushPullOp, EdgeBreakOp } from '../../editor/stack'
 import { featureToOp } from '../../editor/stack'
 import { buildExtrude, type EdgeBreak, type ExtrudeParams } from './extrude'
 import { buildRevolve, type RevolveParams } from './revolve'
@@ -13,6 +13,9 @@ import { applyOffset } from './ops/offset'
 import { applyHollow } from './ops/hollow'
 import { applyHole } from './ops/hole'
 import { applyText } from './ops/text'
+import { applyPushPull } from './ops/pushPull'
+import { applyEdgeBreak } from './ops/edgeBreak3d'
+import { topologyOfSolid } from '../topology/solid'
 import { identityMat4, relativeMatrix } from '../matrix'
 import { PrefixCache } from './cache'
 
@@ -509,6 +512,55 @@ export async function evaluateStack(
       }
       if (res.warning) {
         lastWarning = res.warning
+      }
+      currentSolid.delete()
+      nextSolid = res.solid
+    } else if (op.kind === 'pushPull') {
+      if (!currentSolid) {
+        return {
+          solid: undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'stack.error.targetEmpty',
+          recomputedCount,
+        }
+      }
+      const topo = topologyOfSolid(currentSolid)
+      const res = await applyPushPull(currentSolid, (op as PushPullOp).params, topo)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error,
+          failedParams: res.errorParams,
+          recomputedCount,
+        }
+      }
+      if (res.warning) lastWarning = res.warning
+      currentSolid.delete()
+      nextSolid = res.solid
+    } else if (op.kind === 'edgeBreak') {
+      if (!currentSolid) {
+        return {
+          solid: undefined,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: 'stack.error.targetEmpty',
+          recomputedCount,
+        }
+      }
+      const topo = topologyOfSolid(currentSolid)
+      const res = await applyEdgeBreak(currentSolid, (op as EdgeBreakOp).params, topo)
+      if (res.error || !res.solid) {
+        return {
+          solid: currentSolid,
+          failedIndex: i,
+          failedOpId: op.id,
+          failedReason: res.error,
+          failedParams: res.errorParams,
+          recomputedCount,
+        }
       }
       currentSolid.delete()
       nextSolid = res.solid

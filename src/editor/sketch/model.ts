@@ -1,60 +1,39 @@
-export type BasePlane = 'XY' | 'XZ' | 'YZ'
+import {
+  basePlaneFrame,
+  planeFrame,
+  isFacePlane,
+  planeKey,
+  frameForFace,
+  resolveFacePlane,
+  projectChains,
+  type BasePlane,
+  type BasePlaneDefinition,
+  type FacePlaneDefinition,
+  type FacePlaneFrame,
+  type PlaneDefinition,
+  type PlaneFrame,
+  type ProjectedGeometry,
+  type ProjectedCurve,
+  type ProjectedPoint,
+} from './plane'
 
-export interface PlaneDefinition {
-  base: BasePlane
-  offset: number
-}
-
-export interface PlaneFrame {
-  origin: [number, number, number]
-  normal: [number, number, number]
-  xDir: [number, number, number]
-  yDir: [number, number, number]
-  toWorld: (p: [number, number]) => [number, number, number]
-  toPlane: (p: [number, number, number]) => [number, number]
-}
-
-export function planeFrame(def: PlaneDefinition): PlaneFrame {
-  let origin: [number, number, number]
-  let normal: [number, number, number]
-  let xDir: [number, number, number]
-  let yDir: [number, number, number]
-
-  if (def.base === 'XY') {
-    origin = [0, 0, def.offset]
-    normal = [0, 0, 1]
-    xDir = [1, 0, 0]
-    yDir = [0, 1, 0]
-  } else if (def.base === 'XZ') {
-    origin = [0, def.offset, 0]
-    normal = [0, -1, 0]
-    xDir = [1, 0, 0]
-    yDir = [0, 0, 1]
-  } else {
-    // 'YZ'
-    origin = [def.offset, 0, 0]
-    normal = [1, 0, 0]
-    xDir = [0, 1, 0]
-    yDir = [0, 0, 1]
-  }
-
-  const toWorld = (p: [number, number]): [number, number, number] => [
-    origin[0] + p[0] * xDir[0] + p[1] * yDir[0],
-    origin[1] + p[0] * xDir[1] + p[1] * yDir[1],
-    origin[2] + p[0] * xDir[2] + p[1] * yDir[2],
-  ]
-
-  const toPlane = (p: [number, number, number]): [number, number] => {
-    const dx = p[0] - origin[0]
-    const dy = p[1] - origin[1]
-    const dz = p[2] - origin[2]
-    return [
-      dx * xDir[0] + dy * xDir[1] + dz * xDir[2],
-      dx * yDir[0] + dy * yDir[1] + dz * yDir[2],
-    ]
-  }
-
-  return { origin, normal, xDir, yDir, toWorld, toPlane }
+export {
+  basePlaneFrame,
+  planeFrame,
+  isFacePlane,
+  planeKey,
+  frameForFace,
+  resolveFacePlane,
+  projectChains,
+  type BasePlane,
+  type BasePlaneDefinition,
+  type FacePlaneDefinition,
+  type FacePlaneFrame,
+  type PlaneDefinition,
+  type PlaneFrame,
+  type ProjectedGeometry,
+  type ProjectedCurve,
+  type ProjectedPoint,
 }
 
 export interface SketchPoint {

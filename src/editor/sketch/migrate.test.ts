@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { migrateSketch, migrateSketches } from './migrate'
-import { createSketch, addLine } from './model'
+import { createSketch, addLine, isFacePlane, type BasePlaneDefinition } from './model'
 import { migrateScene } from '../sceneStore'
 import { log } from '../../app/activityLog'
 
@@ -14,8 +14,9 @@ describe('2.6 Sketch Migration and Persistence', () => {
     const partial = migrateSketch({})
     expect(partial).not.toBeNull()
     expect(partial!.name).toBe('Sketch')
-    expect(partial!.plane.base).toBe('XY')
-    expect(partial!.plane.offset).toBe(0)
+    expect(isFacePlane(partial!.plane)).toBe(false)
+    expect((partial!.plane as BasePlaneDefinition).base).toBe('XY')
+    expect((partial!.plane as BasePlaneDefinition).offset).toBe(0)
     expect(partial!.points).toEqual({})
     expect(partial!.curves).toEqual({})
     expect(partial!.constraints).toEqual([])

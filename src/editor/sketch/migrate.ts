@@ -1,11 +1,13 @@
 import { log } from '../../app/activityLog'
-import type { Sketch, SketchPoint, Curve, Constraint, BasePlane } from './model'
+import type { Sketch, SketchPoint, Curve, Constraint } from './model'
+import { normalizeFaceFrame, type PlaneDefinition } from './plane'
+import { normalizeFaceRef } from '../../geometry/topology/reference'
 import { solve } from './solver'
 
 const num = (v: unknown, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? v : fallback
 
-const KNOWN_PLANES = new Set<BasePlane>(['XY', 'XZ', 'YZ'])
+const KNOWN_PLANES = new Set(['XY', 'XZ', 'YZ'])
 
 export function migrateSketch(raw: unknown): Sketch | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -17,12 +19,19 @@ export function migrateSketch(raw: unknown): Sketch | null {
   const name = typeof s.name === 'string' && s.name ? s.name : 'Sketch'
   const visible = typeof s.visible === 'boolean' ? s.visible : true
 
-  // Normalise plane
+  // Normalise plane: either a base plane or a plane attached to a face.
   const rawPlane = (s.plane && typeof s.plane === 'object' ? s.plane : {}) as Record<string, unknown>
-  const basePlane: BasePlane = KNOWN_PLANES.has(rawPlane.base as BasePlane)
-    ? (rawPlane.base as BasePlane)
-    : 'XY'
-  const offset = num(rawPlane.offset, 0)
+  let plane: PlaneDefinition
+  const faceRef = normalizeFaceRef(rawPlane.face)
+  const faceFrame = normalizeFaceFrame(rawPlane.frame)
+  if (faceRef && faceFrame) {
+    plane = { face: faceRef, frame: faceFrame }
+  } else {
+    const basePlane = KNOWN_PLANES.has(rawPlane.base as string)
+      ? (rawPlane.base as 'XY' | 'XZ' | 'YZ')
+      : 'XY'
+    plane = { base: basePlane, offset: num(rawPlane.offset, 0) }
+  }
 
   // Normalise points
   const rawPoints = (s.points && typeof s.points === 'object' ? s.points : {}) as Record<string, unknown>
@@ -129,7 +138,7 @@ export function migrateSketch(raw: unknown): Sketch | null {
   let sketch: Sketch = {
     id,
     name,
-    plane: { base: basePlane, offset },
+    plane,
     visible,
     points,
     curves,

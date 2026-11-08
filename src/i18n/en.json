@@ -2147,6 +2147,11 @@
         "emboss": "Emboss {{text}}",
         "engrave": "Engrave {{text}}"
       },
+      "pushPull": "Push/Pull ({{count}} faces, {{distance}})",
+      "edgeBreak": {
+        "chamfer": "Chamfer ({{count}} edges, {{size}})",
+        "fillet": "Fillet ({{count}} edges, {{size}})"
+      },
       "unknown": "Unknown ({{kind}})"
     }
   },
@@ -2277,6 +2282,31 @@
     },
     "error": {
       "failed": "Text operation failed"
+    }
+  },
+  "face": {
+    "error": {
+      "missing": "The face could not be found — it may have changed after the pick",
+      "ambiguous": "Several faces match the pick — pick the face again",
+      "notPlanar": "This face is not flat, so it cannot be pushed",
+      "noMaterial": "There is no material behind this face to pull it in",
+      "emptyFace": "This face has no usable outline",
+      "noFaces": "No face is selected"
+    },
+    "warning": {
+      "clamped": "Pull limited to {{max}} mm — deeper would pass through the body"
+    }
+  },
+  "edge": {
+    "error": {
+      "missing": "The edge could not be found — it may have changed after the pick",
+      "ambiguous": "Several edges match the pick — pick the edge again",
+      "notLineOrCircle": "This edge is neither straight nor circular, so it cannot be broken",
+      "unsupportedFace": "The faces next to this edge do not support the tool",
+      "dihedral": "The angle between the faces is {{angle}}° — it is out of range",
+      "tooLarge": "Size is too large for this edge — the maximum is {{max}} mm",
+      "noEdges": "No edge is selected",
+      "invalidSize": "The size must be greater than zero"
     }
   }
 }

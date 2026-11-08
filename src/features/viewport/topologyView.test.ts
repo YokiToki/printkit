@@ -6,9 +6,11 @@ import {
   distanceToSegment,
   faceByTriangle,
   faceOverlayColors,
+  faceOverlayVertexColors,
   pickEdgeByScreenDistance,
   projectChain,
   stateOf,
+  topologyClickTarget,
   EDGE_COLORS,
   FACE_COLORS,
   FACE_OPACITY,
@@ -43,6 +45,33 @@ describe('features/viewport/topologyView.ts (44)', () => {
     const hexSel = FACE_COLORS.selected
     expect(selected[tri * 4]).toBeCloseTo(((hexSel >> 16) & 0xff) / 255, 6)
     expect(selected[tri * 4 + 3]).toBeCloseTo(FACE_OPACITY.selected, 6)
+  })
+
+  it('повторяет цвет треугольника на все три вершины', async () => {
+    const w = await getWasm()
+    const cube = w.Manifold.cube([20, 20, 20], true)
+    const topo = topologyOfSolid(cube)
+    const top = topo.faces.find((f) => f.kind === 'planar' && f.normal?.[2] === 1)!
+
+    const colors = faceOverlayVertexColors(topo, null, [top.id])
+    // Атрибут цвета задаётся на вершину: по четыре значения на каждую.
+    expect(colors.length).toBe(topo.triToFace.length * 3 * 4)
+
+    const hex = FACE_COLORS.selected
+    const tri = top.tris[0]
+    for (let k = 0; k < 3; k++) {
+      const o = (tri * 3 + k) * 4
+      expect(colors[o]).toBeCloseTo(((hex >> 16) & 0xff) / 255, 6)
+      expect(colors[o + 1]).toBeCloseTo(((hex >> 8) & 0xff) / 255, 6)
+      expect(colors[o + 2]).toBeCloseTo((hex & 0xff) / 255, 6)
+      expect(colors[o + 3]).toBeCloseTo(FACE_OPACITY.selected, 6)
+    }
+  })
+
+  it('в режиме топологии клик по другому объекту выбирает объект', () => {
+    expect(topologyClickTarget('a', 'a')).toBe('topology')
+    expect(topologyClickTarget('a', null)).toBe('topology')
+    expect(topologyClickTarget('a', 'b')).toBe('object')
   })
 
   it('находит область грани по номеру треугольника', async () => {

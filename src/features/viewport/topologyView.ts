@@ -25,7 +25,7 @@ export const EDGE_COLORS: Record<HighlightState, number> = {
 /** Прозрачность подложки грани по состоянию. */
 export const FACE_OPACITY: Record<HighlightState, number> = {
   normal: 0.22,
-  hover: 0.42,
+  hover: 0.55,
   selected: 0.55,
 }
 
@@ -67,6 +67,43 @@ export function faceOverlayColors(
     colors[t * 4 + 3] = FACE_OPACITY[state]
   }
   return colors
+}
+
+/**
+ * Цвета вершин накладки граней: цвет каждого треугольника повторяется для
+ * его трёх вершин — атрибут цвета в three.js задаётся на вершину, а не на
+ * треугольник, иначе буфер втрое короче геометрии и подсветка теряется.
+ */
+export function faceOverlayVertexColors(
+  topology: MeshTopology,
+  hover: number | null | undefined,
+  selection: number[] | undefined
+): Float32Array {
+  const triColors = faceOverlayColors(topology, hover, selection)
+  const triCount = triColors.length / 4
+  const out = new Float32Array(triCount * 3 * 4)
+  for (let t = 0; t < triCount; t++) {
+    for (let k = 0; k < 3; k++) {
+      const src = t * 4
+      const dst = (t * 3 + k) * 4
+      out[dst] = triColors[src]
+      out[dst + 1] = triColors[src + 1]
+      out[dst + 2] = triColors[src + 2]
+      out[dst + 3] = triColors[src + 3]
+    }
+  }
+  return out
+}
+
+/**
+ * Что делает клик в режиме граней и рёбер: клик по другому объекту выбирает
+ * объект (топология переезжает на него), клик по текущему — элемент топологии.
+ */
+export function topologyClickTarget(
+  topologyLabel: string,
+  hitLabel: string | null | undefined
+): 'object' | 'topology' {
+  return hitLabel && hitLabel !== topologyLabel ? 'object' : 'topology'
 }
 
 /** Идентификатор грани по номеру треугольника. */

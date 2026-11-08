@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three'
 import type { MeshTopology } from '../../geometry/topology'
-import { chainSegments, faceOverlayColors, stateOf, EDGE_COLORS } from './topologyView'
+import { chainSegments, faceOverlayVertexColors, stateOf, EDGE_COLORS } from './topologyView'
 
 /** Геометрия накладки граней: треугольники сетки с цветом по области. */
 export function buildFaceOverlayGeometry(
@@ -27,7 +27,7 @@ export function buildFaceOverlayGeometry(
   }
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  g.setAttribute('color', new THREE.BufferAttribute(faceOverlayColors(topology, hover, selection), 4))
+  g.setAttribute('color', new THREE.BufferAttribute(faceOverlayVertexColors(topology, hover, selection), 4))
   return g
 }
 

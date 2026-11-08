@@ -32,6 +32,7 @@ import {
   faceOverlayColors,
   pickEdgeByScreenDistance,
   projectChain,
+  topologyClickTarget,
   type ScreenPoint,
 } from './topologyView'
 import { buildEdgeOverlayGeometry, buildFaceOverlayGeometry } from './topologyOverlay'
@@ -1018,6 +1019,44 @@ export function Viewport({
       return pickEdgeByScreenDistance(cfg.topology.edges, screenChains, { x, y }, EDGE_PICK_PX)
     }
 
+    /**
+     * Объект под курсором: луч по телам сцены, скрытые и заблокированные
+     * объекты пропускаются. Используется и для обычного выбора, и для
+     * переключения объекта в режимах граней и рёбер.
+     */
+    const pickObjectAt = (
+      x: number,
+      y: number
+    ): { label: string; hit: THREE.Intersection } | null => {
+      if (!sceneRef.current) return null
+      const isOrtho = sceneRef.current.projection === 'ortho'
+      const activeCam = isOrtho ? orthoCamera : camera
+      const mouse = new THREE.Vector2(
+        (x / (el.clientWidth || 1)) * 2 - 1,
+        1 - (y / (el.clientHeight || 1)) * 2
+      )
+      ray.setFromCamera(mouse, activeCam)
+
+      const lockedSet = new Set(sceneRef.current.locked ?? [])
+      const hiddenSet = new Set(sceneRef.current.hidden ?? [])
+
+      const candidateBodies: THREE.Mesh[] = []
+      const bodyToPart = new Map<THREE.Mesh, string>()
+
+      for (const p of partGroups) {
+        if (hiddenSet.has(p.label) || lockedSet.has(p.label)) continue
+        candidateBodies.push(p.body)
+        bodyToPart.set(p.body, p.label)
+      }
+
+      const intersects = ray.intersectObjects(candidateBodies, false)
+      if (intersects.length === 0) return null
+      const hit = intersects[0]
+      const label = bodyToPart.get(hit.object as THREE.Mesh)
+      if (!label) return null
+      return { label, hit }
+    }
+
     // эскиз: координаты указателя на плоскости и масштаб вида (пикселей на мм) для допусков в пикселях
     const sketchPlanePoint = (e: MouseEvent) => {
       if (!sketchRef.current) return null
@@ -1296,6 +1335,12 @@ export function Viewport({
         const topoCfg = topologyRef.current
         if (topoCfg) {
           const additive = e.shiftKey || e.ctrlKey || e.metaKey
+          // Клик по другому объекту выбирает его — топология переезжает на него.
+          const pickedObject = pickObjectAt(x, y)
+          if (pickedObject && topologyClickTarget(topoCfg.label, pickedObject.label) === 'object') {
+            callbacksRef.current.onPick?.(pickedObject.label, false)
+            return
+          }
           if (topoCfg.mode === 'face') {
             callbacksRef.current.onPickFace?.(pickFaceAt(x, y), additive)
           } else {
@@ -1304,45 +1349,35 @@ export function Viewport({
           return
         }
 
-        if (sceneRef.current) {
-          const isOrtho = sceneRef.current.projection === 'ortho'
-          const activeCam = isOrtho ? orthoCamera : camera
-          const mouse = new THREE.Vector2((x / el.clientWidth) * 2 - 1, 1 - (y / el.clientHeight) * 2)
-          ray.setFromCamera(mouse, activeCam)
-
-          const lockedSet = new Set(sceneRef.current.locked ?? [])
-          const hiddenSet = new Set(sceneRef.current.hidden ?? [])
-
-          const candidateBodies: THREE.Mesh[] = []
-          const bodyToPart = new Map<THREE.Mesh, string>()
-
-          for (const p of partGroups) {
-            if (hiddenSet.has(p.label) || lockedSet.has(p.label)) continue
-            candidateBodies.push(p.body)
-            bodyToPart.set(p.body, p.label)
-          }
-
-          const intersects = ray.intersectObjects(candidateBodies, false)
-          if (intersects.length > 0) {
-            const hit = intersects[0]
-            const hitLabel = bodyToPart.get(hit.object as THREE.Mesh)
-            if (callbacksRef.current.measurePickActive && callbacksRef.current.onMeasurePick) {
-              const normal: [number, number, number] = hit.face
-                ? [hit.face.normal.x, hit.face.normal.y, hit.face.normal.z]
-                : [0, 0, 1]
-              callbacksRef.current.onMeasurePick({
-                point: [hit.point.x, hit.point.y, hit.point.z],
-                normal,
-                faceIndex: hit.faceIndex ?? 0,
-                objectId: hitLabel,
-                screenPos: { x: e.clientX, y: e.clientY },
-              })
-            } else {
-              callbacksRef.current.onPick?.(hitLabel ?? null, e.shiftKey || e.ctrlKey || e.metaKey)
-            }
+        const pickedObject = pickObjectAt(x, y)
+        if (pickedObject) {
+          if (callbacksRef.current.measurePickActive && callbacksRef.current.onMeasurePick) {
+            const normal: [number, number, number] = pickedObject.hit.face
+              ? [
+                  pickedObject.hit.face.normal.x,
+                  pickedObject.hit.face.normal.y,
+                  pickedObject.hit.face.normal.z,
+                ]
+              : [0, 0, 1]
+            callbacksRef.current.onMeasurePick({
+              point: [
+                pickedObject.hit.point.x,
+                pickedObject.hit.point.y,
+                pickedObject.hit.point.z,
+              ],
+              normal,
+              faceIndex: pickedObject.hit.faceIndex ?? 0,
+              objectId: pickedObject.label,
+              screenPos: { x: e.clientX, y: e.clientY },
+            })
           } else {
-            callbacksRef.current.onPick?.(null, false)
+            callbacksRef.current.onPick?.(
+              pickedObject.label,
+              e.shiftKey || e.ctrlKey || e.metaKey
+            )
           }
+        } else {
+          callbacksRef.current.onPick?.(null, false)
         }
       }
     }

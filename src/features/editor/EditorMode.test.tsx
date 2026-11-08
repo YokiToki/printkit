@@ -1,13 +1,19 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EditorMode } from './EditorMode'
 import { UnitProvider } from '../../ui/UnitProvider'
 import '../../i18n'
 
+// Пропсы вьюпорта нужны тестам: имитация клика по объекту.
+const viewportProps = vi.hoisted(() => ({ current: null as any }))
+
 vi.mock('../viewport/Viewport', () => ({
-  Viewport: () => <div data-testid="viewport" />,
+  Viewport: (props: any) => {
+    viewportProps.current = props
+    return <div data-testid="viewport" />
+  },
 }))
 
 // Модель сцены подменяется: по умолчанию её нет, отдельные тесты задают статусы операций.
@@ -174,6 +180,42 @@ describe('EditorMode', () => {
     expect(screen.getByRole('button', { name: 'Face' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId('face-tools-panel')).toBeInTheDocument()
     mocks.model = null
+  })
+
+  it('in face mode a click on another object in the viewport selects it', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+
+    // Два примитива в сцене.
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    await user.click(screen.getByTestId('toolbar-add-box'))
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    await user.click(screen.getByTestId('toolbar-add-box'))
+
+    await user.click(screen.getByRole('button', { name: 'Face' }))
+    expect(screen.getByRole('button', { name: 'Face' })).toHaveAttribute('aria-pressed', 'true')
+
+    const rows = () => [
+      ...document.querySelectorAll<HTMLElement>('[data-testid^="outliner-row-"]'),
+    ]
+    const all = rows()
+    expect(all.length).toBe(2)
+    const idOf = (el: HTMLElement) =>
+      el.getAttribute('data-testid')!.replace('outliner-row-', '')
+    const selectedRow = all.find((el) => el.className.includes('ring-1'))!
+    const otherId = idOf(all.find((el) => el !== selectedRow)!)
+
+    // Вьюпорт сообщает о клике по другому объекту — он должен стать выбранным.
+    await act(async () => {
+      viewportProps.current.onPick(otherId, false)
+    })
+
+    const row = document.querySelector<HTMLElement>(
+      `[data-testid="outliner-row-${otherId}"]`
+    )!
+    expect(row.className).toMatch(/ring-1/)
+    // Режим граней сохраняется: топология переезжает на новый объект.
+    expect(screen.getByRole('button', { name: 'Face' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('editing an extrude updates the body and does not duplicate it in outliner', async () => {

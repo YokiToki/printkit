@@ -2,20 +2,20 @@
 
 ## 1. Spike
 
-- [ ] 1.1 Fillet tools: build the prism/revolve tools for a chamfer and a fillet on a box edge, a cylinder rim and a rounded-rectangle outline with a corner; check validity with `expectValidSolid`, volumes against the formulas, corner behaviour with three edges meeting; record tolerances, segment counts and visible defects in `design.md` Decision 5. If corners are unacceptable, restrict to isolated chains and say so in the proposal via `/opsx:update`.
-- [ ] 1.2 Segmentation: time flat-region and feature-edge recognition on a 500k-triangle mesh in a worker; set the triangle limit and the default thresholds (Decisions 1, 2, 8).
+- [x] 1.1 Fillet tools: build the prism/revolve tools for a chamfer and a fillet on a box edge, a cylinder rim and a rounded-rectangle outline with a corner; check validity with `expectValidSolid`, volumes against the formulas, corner behaviour with three edges meeting; record tolerances, segment counts and visible defects in `design.md` Decision 5. If corners are unacceptable, restrict to isolated chains and say so in the proposal via `/opsx:update`.
+- [x] 1.2 Segmentation: time flat-region and feature-edge recognition on a 500k-triangle mesh in a worker; set the triangle limit and the default thresholds (Decisions 1, 2, 8).
 
 ## 2. Topology (React-free, `src/geometry/topology/`)
 
-- [ ] 2.1 `faces.ts`: adjacency, flat regions, smooth patches, whole-mesh segmentation with region ids per triangle, primitive classification (plane, cylinder, cone, sphere) with residuals; builds on `planarRegion` of `42`. Test: box (6 regions), cylinder (3), sphere (1 smooth), L-bracket, tolerance behaviour.
-- [ ] 2.2 `edges.ts`: feature edges by dihedral threshold, chains through degree-2 vertices, line/circle/free classification, convex/concave sign. Test: box (12 lines), cylinder (2 circles + seam handled), rounded rectangle outline (lines and arcs), noisy edge not classified as circle.
-- [ ] 2.3 `reference.ts`: `FaceRef`/`EdgeRef` creation and `resolveFace`/`resolveEdge` with tolerance scaling and `ambiguous`/`missing` results. Test: resolution after a small scale of the source, after a pushed neighbouring face, ambiguous parallel faces, missing after deletion.
-- [ ] 2.4 Tune the thresholds (30° dihedral, 1° coplanar) on five reference models and record them in `design.md`.
+- [x] 2.1 `faces.ts`: adjacency, flat regions, smooth patches, whole-mesh segmentation with region ids per triangle, primitive classification (plane, cylinder, cone, sphere) with residuals; builds on `planarRegion` of `42`. Test: box (6 regions), cylinder (3), sphere (1 smooth), L-bracket, tolerance behaviour.
+- [x] 2.2 `edges.ts`: feature edges by dihedral threshold, chains through degree-2 vertices, line/circle/free classification, convex/concave sign. Test: box (12 lines), cylinder (2 circles + seam handled), rounded rectangle outline (lines and arcs), noisy edge not classified as circle.
+- [x] 2.3 `reference.ts`: `FaceRef`/`EdgeRef` creation and `resolveFace`/`resolveEdge` with tolerance scaling and `ambiguous`/`missing` results. Test: resolution after a small scale of the source, after a pushed neighbouring face, ambiguous parallel faces, missing after deletion.
+- [x] 2.4 Tune the thresholds (30° dihedral, 1° coplanar) on five reference models and record them in `design.md`.
 
 ## 3. Operations (`geometry/features/ops/`)
 
-- [ ] 3.1 `pushPull.ts` for planar regions with holes, several coplanar faces, clamped negative distances, refusal of non-planar. Test with `expectValidSolid`: the cube scenarios of the spec, plate with hole, clamp message value.
-- [ ] 3.2 `edgeBreak3d.ts` chamfer and fillet for lines, circles and mixed chains, mitre joins at shared corners, limits (size, dihedral) with message values. Test: volumes of the spec scenarios, all-four-top-edges cube valid and closed, hole rim, concave corner, too-large radius message.
+- [x] 3.1 `pushPull.ts` for planar regions with holes, several coplanar faces, clamped negative distances, refusal of non-planar. Test with `expectValidSolid`: the cube scenarios of the spec, plate with hole, clamp message value.
+- [x] 3.2 `edgeBreak3d.ts` chamfer and fillet for lines, circles and mixed chains, mitre joins at shared corners, limits (size, dihedral) with message values. Test: volumes of the spec scenarios, all-four-top-edges cube valid and closed, hole rim, concave corner, too-large radius message.
 - [ ] 3.3 Register `pushPull` and `edgeBreak` in the stack (normalisation, summaries, failed reasons `face.error.*`, `edge.error.*`). Test: round trip through `migrateScene`, failed reference blocks later ops, editing size keeps refs.
 - [ ] 3.4 Face-based sketch plane: `{face, frame}` kind in `editor/sketch/plane.ts`, frame rule (longest straight edge, fallback axes), detached state, re-resolution; projection of loops and chains into sketch geometry. Test: frame for box faces, detached behaviour, projected circle and lines with coincident endpoints.
 

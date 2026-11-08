@@ -148,6 +148,28 @@ describe('Toolbar and EditorDropZone', () => {
     expect(screen.queryByTestId('toolbar-add-menu')).not.toBeInTheDocument()
   })
 
+  it('keeps dropdown menus out of the toolbar overflow', async () => {
+    const user = userEvent.setup()
+    renderToolbar()
+
+    // Тулбар прокручивается по горизонтали, поэтому выпадающие меню должны быть
+    // position: fixed — иначе overflow тулбара обрезает их.
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    const addMenu = screen.getByTestId('toolbar-add-menu')
+    expect(addMenu.className).toContain('fixed')
+    expect(addMenu.className).not.toContain('absolute')
+
+    await user.click(screen.getByTestId('toolbar-snap-menu-btn'))
+    const snapMenu = screen.getByTestId('toolbar-snap-menu')
+    expect(snapMenu.className).toContain('fixed')
+    expect(snapMenu.className).not.toContain('absolute')
+
+    await user.click(screen.getByTestId('toolbar-hotkeys-button'))
+    const hotkeys = screen.getByTestId('toolbar-hotkeys-popover')
+    expect(hotkeys.className).toContain('fixed')
+    expect(hotkeys.className).not.toContain('absolute')
+  })
+
   it('toggles snap and changes snap step', async () => {
     const user = userEvent.setup()
     renderToolbar({ snap: true, snapStepMm: 5 })

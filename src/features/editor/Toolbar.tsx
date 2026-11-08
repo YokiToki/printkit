@@ -1,4 +1,4 @@
-import { useState, useRef, type ChangeEvent, type DragEvent } from 'react'
+import { useState, useRef, useLayoutEffect, type ChangeEvent, type DragEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   IconUpload,
@@ -32,6 +32,43 @@ export type TransformTool =
   | 'cut'
   | 'hole'
   | 'text'
+
+/** Положение кнопки в координатах окна: нужно выпадающим меню, которые лежат поверх прокручиваемого тулбара. */
+export interface AnchorRect {
+  top: number
+  left: number
+  right: number
+}
+
+/**
+ * Прямоугольник кнопки-якоря для выпадающего меню.
+ * Меню позиционируется через `position: fixed`, поэтому не обрезается прокруткой тулбара.
+ */
+function useAnchorRect(open: boolean) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const [rect, setRect] = useState<AnchorRect | null>(null)
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setRect(null)
+      return
+    }
+    const update = () => {
+      const r = ref.current?.getBoundingClientRect()
+      if (r) setRect({ top: r.bottom, left: r.left, right: r.right })
+    }
+    update()
+    // Прокрутка тулбара и страницы двигает кнопку — держим меню под ней.
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [open])
+
+  return { ref, rect }
+}
 
 export interface ToolbarProps {
   tool: TransformTool
@@ -91,6 +128,10 @@ export function Toolbar({
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [hotkeysOpen, setHotkeysOpen] = useState(false)
   const [snapMenuOpen, setSnapMenuOpen] = useState(false)
+
+  const addAnchor = useAnchorRect(addMenuOpen)
+  const snapAnchor = useAnchorRect(snapMenuOpen)
+  const hotkeysAnchor = useAnchorRect(hotkeysOpen)
 
   // Unit choice dialog state
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null)
@@ -172,6 +213,7 @@ export function Toolbar({
           {/* Add primitive menu */}
           <div className="relative">
             <button
+              ref={addAnchor.ref}
               type="button"
               data-testid="toolbar-add-button"
               aria-expanded={addMenuOpen}
@@ -191,7 +233,8 @@ export function Toolbar({
                 />
                 <div
                   data-testid="toolbar-add-menu"
-                  className="absolute left-0 top-full mt-1 z-40 min-w-44 rounded-card border border-border bg-surface-1 py-1 shadow-float"
+                  className="fixed z-40 min-w-44 rounded-card border border-border bg-surface-1 py-1 shadow-float"
+                  style={addAnchor.rect ? { top: addAnchor.rect.top + 4, left: addAnchor.rect.left } : undefined}
                 >
                   <div className="px-3 py-1 text-[10px] font-semibold text-text-subtle uppercase tracking-wider">
                     {t('sketch.menu.title', 'Sketch')}
@@ -471,6 +514,7 @@ export function Toolbar({
                 <span className="font-mono text-[11px]">{snapStepMm}mm</span>
               </button>
               <button
+                ref={snapAnchor.ref}
                 type="button"
                 data-testid="toolbar-snap-menu-btn"
                 aria-expanded={snapMenuOpen}
@@ -486,7 +530,12 @@ export function Toolbar({
                 <div className="fixed inset-0 z-30" onClick={() => setSnapMenuOpen(false)} />
                 <div
                   data-testid="toolbar-snap-menu"
-                  className="absolute right-0 top-full mt-1 z-40 min-w-32 rounded-card border border-border bg-surface-1 p-2 shadow-float space-y-1.5"
+                  className="fixed z-40 min-w-32 rounded-card border border-border bg-surface-1 p-2 shadow-float space-y-1.5"
+                  style={
+                    snapAnchor.rect
+                      ? { top: snapAnchor.rect.top + 4, right: window.innerWidth - snapAnchor.rect.right }
+                      : undefined
+                  }
                 >
                   <div className="text-[11px] font-semibold text-text-muted">{t('editor.toolbar.snap')}</div>
                   <div className="flex flex-col gap-1">
@@ -551,6 +600,7 @@ export function Toolbar({
           {/* Hotkeys popover button */}
           <div className="relative">
             <button
+              ref={hotkeysAnchor.ref}
               type="button"
               data-testid="toolbar-hotkeys-button"
               aria-expanded={hotkeysOpen}
@@ -566,7 +616,12 @@ export function Toolbar({
                 <div className="fixed inset-0 z-30" onClick={() => setHotkeysOpen(false)} />
                 <div
                   data-testid="toolbar-hotkeys-popover"
-                  className="absolute right-0 top-full mt-1 z-40 w-64 rounded-card border border-border bg-surface-1 p-3 shadow-float text-xs"
+                  className="fixed z-40 w-64 rounded-card border border-border bg-surface-1 p-3 shadow-float text-xs"
+                  style={
+                    hotkeysAnchor.rect
+                      ? { top: hotkeysAnchor.rect.top + 4, right: window.innerWidth - hotkeysAnchor.rect.right }
+                      : undefined
+                  }
                 >
                   <h4 className="font-semibold text-text pb-2 border-b border-border">
                     {t('editor.toolbar.hotkeys')}

@@ -2,8 +2,8 @@
 
 ## 1. Grid Mathematics and Level Calculation
 
-- [ ] 1.1 Create pure helper `src/features/viewport/gridLevels.ts` calculating `minor`, `major`, and `fade` factors from camera distance, FOV, and screen pixel height with 5×5 stepping. Test: `src/features/viewport/gridLevels.test.ts` (asserts step sequence and fade continuity).
-- [ ] 1.2 Implement unified grid shader material supporting dynamic uniform updates (`uMinor`, `uMajor`, `uSubFade`, `uAlpha`, `uFade`). Test: unit test for shader initialization and uniforms.
+- [x] 1.1 Create pure helper `src/features/viewport/gridLevels.ts` calculating `minor`, `major`, and `fade` factors from camera distance, FOV, and screen pixel height with 5×5 stepping. Test: `src/features/viewport/gridLevels.test.ts` (asserts step sequence and fade continuity).
+- [x] 1.2 Implement unified grid shader material supporting dynamic uniform updates (`uMinor`, `uMajor`, `uSubFade`, `uAlpha`, `uFade`). Test: unit test for shader initialization and uniforms.
 
 ## 2. 3D Viewport Ground Grid
 

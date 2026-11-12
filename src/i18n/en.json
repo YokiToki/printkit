@@ -1751,6 +1751,8 @@
       "orthographic": "Orthographic view",
       "fit": "Fit view",
       "hotkeys": "Keyboard shortcuts",
+      "shiftDragPan": "Pan camera",
+      "ctrlDragBoxSelect": "Additive box select",
       "dropHint": "Drop STL files here to import",
       "selectionMode": "Selection mode"
     },

@@ -663,6 +663,14 @@ export function Toolbar({
                       <kbd className="font-mono bg-surface-2 px-1 rounded border border-border">D</kbd>
                       <span>{t('editor.properties.dropToBed')}</span>
                     </div>
+                    <div className="flex justify-between gap-2">
+                      <kbd className="font-mono bg-surface-2 px-1 rounded border border-border shrink-0">Shift + Drag</kbd>
+                      <span className="text-right">{t('editor.toolbar.shiftDragPan')}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <kbd className="font-mono bg-surface-2 px-1 rounded border border-border shrink-0">Ctrl/Cmd + Drag</kbd>
+                      <span className="text-right">{t('editor.toolbar.ctrlDragBoxSelect')}</span>
+                    </div>
                   </div>
                 </div>
               </>

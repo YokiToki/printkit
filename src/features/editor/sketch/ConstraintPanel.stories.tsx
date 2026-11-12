@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { useState } from 'react'
 import { ConstraintPanel } from './ConstraintPanel'
-import { createSketch, addLine } from '../../../editor/sketch/model'
+import { createSketch, addLine, type Constraint } from '../../../editor/sketch/model'
 
 const meta: Meta<typeof ConstraintPanel> = {
   title: 'Editor/ConstraintPanel',
@@ -12,16 +12,17 @@ export default meta
 type Story = StoryObj<typeof ConstraintPanel>
 
 const createMockSketch = () => {
-  let s = createSketch('Profile')
-  s = addLine(s, [0, 0], [50, 0])
-  s = addLine(s, [50, 0], [50, 30])
-  const curveId = Object.keys(s.curves)[0] || 'c1'
+  const s0 = createSketch('Profile')
+  const r1 = addLine(s0, { x: 0, y: 0 }, { x: 50, y: 0 })
+  const r2 = addLine(r1.sketch, { x: 50, y: 0 }, { x: 50, y: 30 })
+  const curveId = r1.curveId
+  const constraints: Constraint[] = [
+    { id: 'con-1', kind: 'distance', refs: [curveId], value: 50 },
+    { id: 'con-2', kind: 'horizontal', refs: [curveId] },
+  ]
   return {
-    ...s,
-    constraints: [
-      { id: 'con-1', kind: 'distance' as const, refs: [curveId], value: 50 },
-      { id: 'con-2', kind: 'horizontal' as const, refs: [curveId] },
-    ],
+    ...r2.sketch,
+    constraints,
   }
 }
 

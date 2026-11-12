@@ -51,7 +51,7 @@ describe('Storybook Stories Smoke Test', () => {
         it(`renders ${storyName} without crashing`, () => {
           const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
           const { container } = render(
-            React.createElement(UnitProvider, null, React.createElement(Story))
+            React.createElement(UnitProvider, null, React.createElement(Story as React.ComponentType))
           )
           expect(container).toBeDefined()
           expect(consoleSpy).not.toHaveBeenCalled()

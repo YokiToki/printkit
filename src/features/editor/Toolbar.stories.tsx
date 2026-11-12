@@ -17,7 +17,7 @@ export const Default: Story = {
     const [snap, setSnap] = useState(true)
     const [snapMm, setSnapMm] = useState(5)
     const [snapDeg, setSnapDeg] = useState(15)
-    const [proj, setProj] = useState<'perspective' | 'orthographic'>('perspective')
+    const [proj, setProj] = useState<'persp' | 'ortho'>('persp')
     const [mode, setMode] = useState<SelectionMode>('object')
 
     return (
@@ -59,7 +59,7 @@ export const FaceSelectionMode: Story = {
           onToolChange={setTool}
           snap={false}
           onSnapChange={() => {}}
-          projection="perspective"
+          projection="persp"
           onProjectionChange={() => {}}
           selectionMode={mode}
           onSelectionModeChange={setMode}

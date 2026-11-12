@@ -90,13 +90,11 @@ export const WithHealthIssues: Story = {
     const healthMap = new Map<string, MeshHealth>()
     healthMap.set('obj-3', {
       triangles: 1420,
-      vertices: 712,
-      components: 2,
       openEdges: 4,
       nonManifoldEdges: 2,
-      reversedNormalPairs: 0,
-      degenerateFaces: 1,
-      isSolid: false,
+      degenerate: 1,
+      volume: 1250,
+      closed: false,
     })
 
     return (

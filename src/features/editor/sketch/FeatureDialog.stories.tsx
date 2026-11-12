@@ -11,12 +11,12 @@ export default meta
 type Story = StoryObj<typeof FeatureDialog>
 
 const mockSketch = () => {
-  let s = createSketch('Base Profile')
-  s = addLine(s, [0, 0], [42, 0])
-  s = addLine(s, [42, 0], [42, 42])
-  s = addLine(s, [42, 42], [0, 42])
-  s = addLine(s, [0, 42], [0, 0])
-  return s
+  const s0 = createSketch('Base Profile')
+  const r1 = addLine(s0, { x: 0, y: 0 }, { x: 42, y: 0 })
+  const r2 = addLine(r1.sketch, { x: 42, y: 0 }, { x: 42, y: 42 })
+  const r3 = addLine(r2.sketch, { x: 42, y: 42 }, { x: 0, y: 42 })
+  const r4 = addLine(r3.sketch, { x: 0, y: 42 }, { x: 0, y: 0 })
+  return r4.sketch
 }
 
 export const Extrude: Story = {

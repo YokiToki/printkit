@@ -29,5 +29,5 @@
 
 ## 6. Verification
 
-- [ ] 6.1 Run `npm test` and `npm run build` to confirm clean test and TypeScript build.
-- [ ] 6.2 Run `npm run build-storybook` to confirm clean static build generation.
+- [x] 6.1 Run `npm test` and `npm run build` to confirm clean test and TypeScript build.
+- [x] 6.2 Run `npm run build-storybook` to confirm clean static build generation.

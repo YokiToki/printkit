@@ -21,7 +21,15 @@ The user SHALL be able to orbit the camera through the XY plane and view the mod
 - **THEN** the view does not roll or flip upside down
 
 ### Requirement: Ground grid below the model
-The ground grid and the build plate overlay SHALL be hidden while the camera is below the XY plane, and shown again when it comes back above; the change SHALL be smooth, not a sudden jump.
+The ground grid and the build plate overlay SHALL be hidden while the camera is below the XY plane, and shown again when it comes back above; the change SHALL be smooth, not a sudden jump. The ground grid SHALL dynamically subdivide its cell structure into 5×5 minor divisions as the camera approaches, with major lines every 5 minor subdivisions.
+
+#### Scenario: Zooming in reveals finer 5x5 divisions
+- **WHEN** the user zooms in closer to a surface
+- **THEN** nested 5×5 subdivisions fade in smoothly once on-screen cell spacing exceeds 12 pixels, continuing down to sub-millimetre resolution
+
+#### Scenario: Zooming out collapses divisions
+- **WHEN** the user zooms out
+- **THEN** minor lines fade out cleanly before becoming dense visual noise, leaving major lines visible
 
 #### Scenario: Camera goes below
 - **WHEN** the camera crosses below the XY plane

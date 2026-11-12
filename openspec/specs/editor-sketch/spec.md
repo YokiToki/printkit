@@ -6,7 +6,7 @@ Defines sketches on planes, the sketch mode, the drawing and editing tools and h
 ## Requirements
 
 ### Requirement: Sketch planes and mode
-The Editor SHALL create a sketch on the XY, XZ or YZ plane with an offset along the normal, enter a sketch mode that looks at the plane orthogonally with a 2D grid, and leave it with Finish sketch.
+The Editor SHALL create a sketch on the XY, XZ or YZ plane with an offset along the normal, enter a sketch mode that looks at the plane orthogonally with an adaptive 5×5 grid with major line emphasis every 5 divisions, support cursor-anchored smooth zooming matching the 3D viewport, allow camera panning via Shift+drag without creating selection boxes, and leave it with Finish sketch.
 
 #### Scenario: New sketch
 - **WHEN** the user chooses Add → Sketch → XZ plane
@@ -19,6 +19,18 @@ The Editor SHALL create a sketch on the XY, XZ or YZ plane with an offset along 
 #### Scenario: Finish
 - **WHEN** the user presses Enter or Finish
 - **THEN** the scene mode returns, the sketch stays visible as curves, and one history step "Edit sketch" is kept
+
+#### Scenario: Adaptive sketch grid
+- **WHEN** in sketch mode
+- **THEN** the grid displays major lines every 5 minor divisions and adaptively reveals 5×5 subdivisions as the user zooms in
+
+#### Scenario: Shift drag pans camera
+- **WHEN** the user holds Shift and drags with the left mouse button
+- **THEN** the camera pans across the sketch plane, and no box-selection rectangle or curve drag is initiated
+
+#### Scenario: Smooth zoom in sketch
+- **WHEN** the user scrolls the mouse wheel or pinches a trackpad in sketch mode
+- **THEN** the zoom operates smoothly and continuously around the cursor position without discrete 15% jumps
 
 ### Requirement: Sketches in the outliner
 Sketches SHALL be listed under "Sketches" with rename, show/hide, edit and delete, separately from bodies.

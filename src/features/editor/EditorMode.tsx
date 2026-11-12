@@ -1864,8 +1864,8 @@ export function EditorMode() {
     }
   }
 
-  const handleBoxSelect = (labels: string[]) => {
-    setSelection(labels)
+  const handleBoxSelect = (labels: string[], additive?: boolean) => {
+    setSelection((prev) => (additive ? Array.from(new Set([...prev, ...labels])) : labels))
   }
 
   const draftMatricesRef = useRef<Record<string, Matrix4Tuple> | null>(null)

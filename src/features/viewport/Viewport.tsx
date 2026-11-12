@@ -7,6 +7,9 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import type { ModelResult } from '../../geometry/model'
 import { groundOpacity } from './ground'
+import { gridLevelsFromCamera } from './gridLevels'
+import { createGridMaterial, updateGridMaterialUniforms } from './gridMaterial'
+import { classifyGesture, computeWheelZoomFactor } from './gesture'
 import { readRootVar, toolColor } from './toolColor'
 import { assembledMatrix, layoutBounds, type KeychainView } from './layout'
 import { createRenderMonitor, type RendererLike } from '../../app/resources/render'
@@ -94,7 +97,7 @@ export interface ViewportProps {
   scene?: ViewportSceneConfig
   sketch?: ViewportSketchConfig | null
   onPick?: (label: string | null, additive: boolean) => void
-  onBoxSelect?: (labels: string[]) => void
+  onBoxSelect?: (labels: string[], additive?: boolean) => void
   onGizmoChange?: (matrices: Record<string, Matrix4Tuple>) => void
   onGizmoCommit?: () => void
   onFitReady?: (fit: () => void) => void
@@ -177,26 +180,15 @@ function labelSprite(text: string, color: number, filled: boolean) {
   return s
 }
 
-// «бесконечная» сетка: мелкие линии 10 мм, крупные 50 мм, плавно гаснет с расстоянием
+// «бесконечная» адаптивная сетка 5×5: мелкие линии делятся на 5 при приближении, плавно гаснет с расстоянием
 function makeGrid() {
-  const mat = new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    uniforms: { uCenter: { value: new THREE.Vector3() }, uFade: { value: 600 }, uAlpha: { value: 1 } },
-    vertexShader: `varying vec3 vPos; void main(){ vec4 w = modelMatrix * vec4(position,1.); vPos = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: `
-      varying vec3 vPos; uniform vec3 uCenter; uniform float uFade; uniform float uAlpha;
-      float line(float size, float w){
-        vec2 c = vPos.xy / size; vec2 g = abs(fract(c - .5) - .5) / fwidth(c);
-        return 1. - min(min(g.x, g.y) / w, 1.);
-      }
-      void main(){
-        float d = distance(vPos.xy, uCenter.xy);
-        float fade = 1. - smoothstep(uFade * .25, uFade, d);
-        float minor = line(10., 1.) * .15, major = line(50., 1.5) * .45;
-        float a = max(minor, major) * fade * uAlpha;
-        if (a < .01) discard;
-        gl_FragColor = vec4(vec3(.17, .45, .75), a);
-      }`,
+  const mat = createGridMaterial({
+    color: 0x2b73bf,
+    fade: 600,
+    alpha: 1,
+    majorAlpha: 0.45,
+    minorAlpha: 0.15,
+    useLocal: false,
   })
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat)
   mesh.renderOrder = -1
@@ -1084,7 +1076,10 @@ export function Viewport({
     const onPointerDown = (e: MouseEvent) => {
       if (e.button !== 0 && e.button !== 1 && e.button !== 2) return
       // в эскизе рисует и выбирает только левая кнопка; средняя и правая двигают вид (OrbitControls)
-      if (sketchRef.current && e.button !== 0) return
+      if (sketchRef.current && e.button !== 0) {
+        controls.enabled = true
+        return
+      }
       isPointerDownOnCanvas = true
       mouseDownPos = { x: e.clientX, y: e.clientY }
       isDragging = false
@@ -1092,16 +1087,20 @@ export function Viewport({
 
       if (sketchRef.current) {
         controls.enableRotate = false
-        const planeCoords = sketchPlanePoint(e)
-        const mods = sketchMods(e)
-        if (planeCoords) {
-          callbacksRef.current.onSketchPointer?.('down', planeCoords, mods, e as unknown as PointerEvent)
+        // Shift + Left Drag панорамирует камеру через OrbitControls; обычное или Ctrl/Cmd + перетаскивание — для эскиза
+        controls.enabled = e.shiftKey
+        if (!e.shiftKey) {
+          const planeCoords = sketchPlanePoint(e)
+          const mods = sketchMods(e)
+          if (planeCoords) {
+            callbacksRef.current.onSketchPointer?.('down', planeCoords, mods, e as unknown as PointerEvent)
+          }
         }
         return
       }
 
-      // In Editor scene mode: Left Click without Option/Alt is for selection/box-select only, not rotation
-      if (sceneRef.current && e.button === 0 && !e.altKey) {
+      // In Editor scene mode: Left Click without Option/Alt or Shift is for selection/box-select only, not rotation/pan
+      if (sceneRef.current && e.button === 0 && !e.altKey && !e.shiftKey) {
         controls.enabled = false
       } else {
         controls.enabled = true
@@ -1151,25 +1150,33 @@ export function Viewport({
         const rect = el.getBoundingClientRect()
         const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom
         if (!inside && !isPointerDownOnCanvas) return
-        const planeCoords = sketchPlanePoint(e)
-        if (planeCoords) {
-          callbacksRef.current.onSketchPointer?.('move', planeCoords, sketchMods(e), e as unknown as PointerEvent)
-        }
         if (isPointerDownOnCanvas) {
           const dx = e.clientX - mouseDownPos.x
           const dy = e.clientY - mouseDownPos.y
-          if (Math.hypot(dx, dy) > 5) {
+          const moved = Math.hypot(dx, dy)
+          const gesture = classifyGesture(
+            { button: 0, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, moved },
+            { tool: sketchRef.current.tool },
+          )
+          if (gesture !== 'clickSelect') {
             isDragging = true
-            if (sketchRef.current.tool === 'select') {
-              isBoxSelecting = true
-              setBoxSelectRect({
-                x0: mouseDownPos.x - rect.left,
-                y0: mouseDownPos.y - rect.top,
-                x1: e.clientX - rect.left,
-                y1: e.clientY - rect.top,
-              })
-            }
           }
+          if (gesture === 'pan') {
+            return
+          }
+          if (gesture === 'boxSelect') {
+            isBoxSelecting = true
+            setBoxSelectRect({
+              x0: mouseDownPos.x - rect.left,
+              y0: mouseDownPos.y - rect.top,
+              x1: e.clientX - rect.left,
+              y1: e.clientY - rect.top,
+            })
+          }
+        }
+        const planeCoords = sketchPlanePoint(e)
+        if (planeCoords) {
+          callbacksRef.current.onSketchPointer?.('move', planeCoords, sketchMods(e), e as unknown as PointerEvent)
         }
         return
       }
@@ -1187,9 +1194,14 @@ export function Viewport({
 
       const dx = e.clientX - mouseDownPos.x
       const dy = e.clientY - mouseDownPos.y
-      if (Math.hypot(dx, dy) > 5) {
+      const moved = Math.hypot(dx, dy)
+      const gesture = classifyGesture(
+        { button: 0, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, moved },
+        'select',
+      )
+      if (gesture !== 'clickSelect') {
         isDragging = true
-        if (!transformControls.dragging && !e.altKey && sceneRef.current && (e.buttons & 1)) {
+        if (!transformControls.dragging && !e.altKey && gesture === 'boxSelect' && sceneRef.current && (e.buttons & 1)) {
           isBoxSelecting = true
           controls.enabled = false
           const rect = el.getBoundingClientRect()
@@ -1209,6 +1221,9 @@ export function Viewport({
       controls.enabled = true
 
       if (sketchRef.current) {
+        if (isDragging && e.shiftKey) {
+          return
+        }
         const rect = el.getBoundingClientRect()
         const x = e.clientX - rect.left
         const y = e.clientY - rect.top
@@ -1311,7 +1326,7 @@ export function Viewport({
               matched.push(p.label)
             }
           }
-          callbacksRef.current.onBoxSelect?.(matched)
+          callbacksRef.current.onBoxSelect?.(matched, e.ctrlKey || e.metaKey)
         }
         return
       }
@@ -1387,7 +1402,7 @@ export function Viewport({
       e.preventDefault()
       e.stopPropagation()
 
-      const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87
+      const zoomFactor = computeWheelZoomFactor(e.deltaY, e.deltaMode)
       const dist = camera.position.distanceTo(controls.target)
       const newDist = Math.max(5, Math.min(25000, dist * zoomFactor))
       const factor = newDist / dist
@@ -1418,7 +1433,7 @@ export function Viewport({
       setViewTick((v) => v + 1)
     }
 
-    renderer.domElement.addEventListener('pointerdown', onPointerDown)
+    renderer.domElement.addEventListener('pointerdown', onPointerDown, true)
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
     el.addEventListener('wheel', onWheel, { passive: false })
@@ -1428,24 +1443,37 @@ export function Viewport({
 
     renderer.setAnimationLoop(() => {
       controls.update()
-      grid.position.x = Math.round(controls.target.x / 50) * 50
-      grid.position.y = Math.round(controls.target.y / 50) * 50
-      ;(grid.material as THREE.ShaderMaterial).uniforms.uCenter.value.set(0, 0, 0)
       const dist = camera.position.distanceTo(controls.target)
-      ;(grid.material as THREE.ShaderMaterial).uniforms.uFade.value = Math.max(600, dist * 3)
-
+      const w = el.clientWidth, h = el.clientHeight
+      const isOrtho = sceneRef.current?.projection === 'ortho' || !!sketchRef.current
+      const oH = orthoHeightFromDistance(dist, camera.fov)
+      const levels = gridLevelsFromCamera({
+        distance: dist,
+        fov: camera.fov,
+        viewportHeight: h || 600,
+        orthoHeight: oH,
+        isOrtho,
+      })
+      grid.position.x = Math.round(controls.target.x / levels.major) * levels.major
+      grid.position.y = Math.round(controls.target.y / levels.major) * levels.major
       const ground = groundOpacity(camera.position.z, dist)
-      ;(grid.material as THREE.ShaderMaterial).uniforms.uAlpha.value = ground
-      grid.visible = ground > 0.01
+      updateGridMaterialUniforms(grid.material as THREE.ShaderMaterial, levels, {
+        center: tmp.set(controls.target.x, controls.target.y, 0),
+        alpha: ground,
+        fade: Math.max(600, dist * 3),
+      })
+      grid.visible = ground > 0.01 && !sketchRef.current
+      const sketchPlaneGroup = sketchGridGroup.children[0]
+      const sketchGridMat = sketchPlaneGroup?.userData?.gridMaterial as THREE.ShaderMaterial | undefined
+      if (sketchGridMat) {
+        updateGridMaterialUniforms(sketchGridMat, levels, { fade: 0 })
+      }
       plateGroup.visible = ground > 0.01 && !assembledNow
       if (plateMats) { plateMats.fill.opacity = 0.85 * ground; plateMats.line.opacity = ground; if (plateMats.safe) plateMats.safe.opacity = ground }
 
-      const w = el.clientWidth, h = el.clientHeight
-      const isOrtho = sceneRef.current?.projection === 'ortho' || !!sketchRef.current
       const activeCam = isOrtho ? orthoCamera : camera
 
       if (isOrtho) {
-        const oH = orthoHeightFromDistance(dist, camera.fov)
         const oW = oH * (w / h)
         orthoCamera.left = -oW / 2
         orthoCamera.right = oW / 2
@@ -1502,7 +1530,7 @@ export function Viewport({
       renderMon.dispose()
       ro.disconnect()
       renderer.setAnimationLoop(null)
-      renderer.domElement.removeEventListener('pointerdown', onPointerDown)
+      renderer.domElement.removeEventListener('pointerdown', onPointerDown, true)
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
       el.removeEventListener('wheel', onWheel)

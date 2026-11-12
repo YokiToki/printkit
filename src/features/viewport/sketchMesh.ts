@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { type PlaneDefinition, type Sketch, type Curve, planeFrame } from '../../editor/sketch/model'
+import { createGridMaterial } from './gridMaterial'
 
 export interface ViewportSketchConfig {
   plane: PlaneDefinition
@@ -121,27 +122,24 @@ export function buildSketchGrid(plane: PlaneDefinition, gridCfg?: ViewportSketch
   if (gridCfg?.visible === false) return group
 
   const gridSize = gridCfg?.size ?? 10
-  const halfRange = 250
-  const gridPositions: number[] = []
+  const halfRange = 5000
 
-  for (let x = -halfRange; x <= halfRange; x += gridSize) {
-    if (Math.abs(x) >= 1e-5) gridPositions.push(x, -halfRange, 0, x, halfRange, 0)
-  }
-  for (let y = -halfRange; y <= halfRange; y += gridSize) {
-    if (Math.abs(y) >= 1e-5) gridPositions.push(-halfRange, y, 0, halfRange, y, 0)
-  }
-
-  // Фоновые линии сетки
-  if (gridPositions.length > 0) {
-    const geom = new THREE.BufferGeometry()
-    geom.setAttribute('position', new THREE.Float32BufferAttribute(gridPositions, 3))
-    group.add(
-      new THREE.LineSegments(
-        geom,
-        cachedMaterial('grid', () => new THREE.LineBasicMaterial({ color: 0x272d36, transparent: true, opacity: 0.6 })),
-      ),
-    )
-  }
+  // Фоновая адаптивная 5×5 шейдерная сетка в локальных координатах плоскости эскиза
+  const gridMat = createGridMaterial({
+    color: 0x2b73bf,
+    useLocal: true,
+    fade: 0,
+    alpha: 1,
+    majorAlpha: 0.45,
+    minorAlpha: 0.15,
+  })
+  gridMat.uniforms.uMinor.value = gridSize
+  gridMat.uniforms.uMajor.value = gridSize * 5
+  const gridPlane = new THREE.Mesh(new THREE.PlaneGeometry(halfRange * 2, halfRange * 2), gridMat)
+  gridPlane.name = 'sketch-grid-plane'
+  gridPlane.renderOrder = -1
+  group.add(gridPlane)
+  group.userData.gridMaterial = gridMat
 
   // Красная ось X (Y = 0)
   const xAxisGeom = new THREE.BufferGeometry()

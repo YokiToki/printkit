@@ -14,9 +14,9 @@
 
 ## 3. Editor Shell Component Stories
 
-- [ ] 3.1 Add stories for editor navigation: `Toolbar.stories.tsx`, `SketchToolbar.stories.tsx`, `ViewCube.stories.tsx` with mocked callbacks and DoF states. No artboard exists; built from `ui/` components. Verification: Visual check in Storybook.
-- [ ] 3.2 Add stories for editor sidebars: `Outliner.stories.tsx` (object hierarchy, lock/visible, health icons) and `Properties.stories.tsx` (transforms, primitive params, mesh health). Verification: Visual check in Storybook.
-- [ ] 3.3 Add stories for contextual panels: `ConstraintPanel.stories.tsx`, `FeatureDialog.stories.tsx`, `CutPanel.stories.tsx`. Verification: Visual check in Storybook.
+- [x] 3.1 Add stories for editor navigation: `Toolbar.stories.tsx`, `SketchToolbar.stories.tsx`, `ViewCube.stories.tsx` with mocked callbacks and DoF states. No artboard exists; built from `ui/` components. Verification: Visual check in Storybook.
+- [x] 3.2 Add stories for editor sidebars: `Outliner.stories.tsx` (object hierarchy, lock/visible, health icons) and `Properties.stories.tsx` (transforms, primitive params, mesh health). Verification: Visual check in Storybook.
+- [x] 3.3 Add stories for contextual panels: `ConstraintPanel.stories.tsx`, `FeatureDialog.stories.tsx`, `CutPanel.stories.tsx`. Verification: Visual check in Storybook.
 
 ## 4. Automated Testing and Conventions
 

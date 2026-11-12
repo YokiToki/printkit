@@ -13,8 +13,8 @@
     "test": "vitest run",
     "art": "tsx scripts/render-art.ts",
     "poc:ai": "vite --config poc/ai/vite.config.ts",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "storybook": "storybook dev -p 6006 --disable-telemetry",
+    "build-storybook": "storybook build --disable-telemetry"
   },
   "dependencies": {
     "@fontsource-variable/caveat": "^5.3.0",

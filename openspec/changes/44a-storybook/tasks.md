@@ -2,9 +2,9 @@
 
 ## 1. Setup and Tooling
 
-- [ ] 1.1 Install Storybook dependencies (`@storybook/react-vite`, `@storybook/react`, etc.) and configure `.storybook/main.ts` with Vite config resolution and `__APP_VERSION__` definition. Verification: `npx storybook --version`.
-- [ ] 1.2 Configure `.storybook/preview.ts` with global CSS (`src/app/theme.css`), i18n decorator with EN/RU toolbar switcher, and `UnitProvider` decorator with mm/in switcher. Verification: Storybook preview loads dark theme tokens.
-- [ ] 1.3 Add scripts `storybook` and `build-storybook` to `package.json`, and add `storybook-static/` to `.gitignore`. Verification: `npm run build-storybook` succeeds.
+- [x] 1.1 Install Storybook dependencies (`@storybook/react-vite`, `@storybook/react`, etc.) and configure `.storybook/main.ts` with Vite config resolution and `__APP_VERSION__` definition. Verification: `npx storybook --version`.
+- [x] 1.2 Configure `.storybook/preview.ts` with global CSS (`src/app/theme.css`), i18n decorator with EN/RU toolbar switcher, and `UnitProvider` decorator with mm/in switcher. Verification: Storybook preview loads dark theme tokens.
+- [x] 1.3 Add scripts `storybook` and `build-storybook` to `package.json`, and add `storybook-static/` to `.gitignore`. Verification: `npm run build-storybook` succeeds.
 
 ## 2. Foundation UI Stories (`src/ui/`)
 

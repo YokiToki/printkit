@@ -20,8 +20,8 @@
 
 ## 4. Automated Testing and Conventions
 
-- [ ] 4.1 Create `src/stories.test.ts` using portable stories (`composeStories`) to mount every story in Vitest (jsdom) and assert no console errors or exceptions. Verification: `npm test` passes.
-- [ ] 4.2 Document Storybook convention in `AGENTS.md` (all new `src/ui/` components must ship with co-located `*.stories.tsx`). Verification: file check.
+- [x] 4.1 Create `src/stories.test.ts` using portable stories (`composeStories`) to mount every story in Vitest (jsdom) and assert no console errors or exceptions. Verification: `npm test` passes.
+- [x] 4.2 Document Storybook convention in `AGENTS.md` (all new `src/ui/` components must ship with co-located `*.stories.tsx`). Verification: file check.
 
 ## 5. Version
 

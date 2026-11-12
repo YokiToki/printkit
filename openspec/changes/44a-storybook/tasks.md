@@ -25,7 +25,7 @@
 
 ## 5. Version
 
-- [ ] 5.1 Bump `package.json` to 1.15.1 and add `1.15.1 — 44a-storybook` to `CHANGELOG.md`. Test: `npx vitest run src/site.test.ts`.
+- [x] 5.1 Bump `package.json` to 1.15.1 and add `1.15.1 — 44a-storybook` to `CHANGELOG.md`. Test: `npx vitest run src/site.test.ts`.
 
 ## 6. Verification
 

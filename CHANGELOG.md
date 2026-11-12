@@ -2,6 +2,20 @@
 
 Версии семантические (`MAJOR.MINOR.PATCH`), единственный источник — `version` в `package.json`; сайт показывает её как `v<version>`. Каждое изменение (OpenSpec change) поднимает версию: minor — новая возможность, режим, узор или опция; patch — исправление или переделка без новой возможности; major — несовместимое изменение (настройки без миграции, убранные или перенесённые маршруты). Новые записи — сверху.
 
+## 1.15.1 — 44a-storybook: изолированный каталог компонентов Storybook для UI-библиотеки и редактора
+
+- Интеграция Storybook (`@storybook/react-vite`):
+  - Конфигурация в `.storybook/main.ts` с резолвом Vite и пробросом `__APP_VERSION__`.
+  - Декораторы в `.storybook/preview.tsx`: подключение токенов темной темы `theme.css`, переключатель языков EN / RU в тулбаре через i18next и переключатель единиц измерения мм / дюйм с оберткой `UnitProvider`.
+  - Команды `npm run storybook` для запуска локального сервера и `npm run build-storybook` для статического экспорта в `storybook-static/`.
+- Истории базовых компонентов (`src/ui/`):
+  - `Button`, `Toggle`, `SegmentedControl`, `NumberField`, `LengthField`, `Section`, `Banner`, `ConfirmDialog`.
+- Истории компонентов оболочки редактора (`src/features/editor/`):
+  - `Toolbar`, `SketchToolbar`, `ViewCube`, `Outliner`, `Properties`, `ConstraintPanel`, `FeatureDialog`, `CutPanel`.
+- Автоматическое тестирование и конвенция:
+  - Тест `src/stories.test.ts` на базе portable stories (`composeStories`) в окружении jsdom для проверки отсутствия ошибок рендеринга и исключений консоли.
+  - Конвенция в `AGENTS.md`: все новые компоненты `src/ui/` создаются вместе с `*.stories.tsx`.
+
 ## 1.15.0 — 44-editor-face-tools: топологическое именование граней и рёбер, выдавливание, фаска и скругление, эскиз на грани
 
 - Распознавание геометрии в редакторе (`src/geometry/topology/`):

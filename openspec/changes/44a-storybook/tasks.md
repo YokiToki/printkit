@@ -8,9 +8,9 @@
 
 ## 2. Foundation UI Stories (`src/ui/`)
 
-- [ ] 2.1 Add stories for basic input controls: `Button.stories.tsx`, `Toggle.stories.tsx`, `SegmentedControl.stories.tsx`. Built from `design/artboards/Components.dc.html`. Verification: Stories render in Storybook with all variants.
-- [ ] 2.2 Add stories for numeric and measurement controls: `NumberField.stories.tsx`, `LengthField.stories.tsx` (stepper ±, min/max limits, mm and inches). Verification: Interactivity check in Storybook.
-- [ ] 2.3 Add stories for layout and container controls: `Section.stories.tsx` (default, modified highlight, reset), `Banner.stories.tsx`, `ConfirmDialog.stories.tsx`. Verification: Visual check in Storybook.
+- [x] 2.1 Add stories for basic input controls: `Button.stories.tsx`, `Toggle.stories.tsx`, `SegmentedControl.stories.tsx`. Built from `design/artboards/Components.dc.html`. Verification: Stories render in Storybook with all variants.
+- [x] 2.2 Add stories for numeric and measurement controls: `NumberField.stories.tsx`, `LengthField.stories.tsx` (stepper ±, min/max limits, mm and inches). Verification: Interactivity check in Storybook.
+- [x] 2.3 Add stories for layout and container controls: `Section.stories.tsx` (default, modified highlight, reset), `Banner.stories.tsx`, `ConfirmDialog.stories.tsx`. Verification: Visual check in Storybook.
 
 ## 3. Editor Shell Component Stories
 

@@ -342,6 +342,8 @@ export function Viewport({
 
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
+    // зум колесом в 3D идёт к точке под курсором, а не к центру орбиты
+    controls.zoomToCursor = true
     controls.maxPolarAngle = Math.PI // камера может уйти под плоскость XY и смотреть на низ модели; ось Z остаётся вверху
     controls.minDistance = 0.5
     controls.maxDistance = 20000
@@ -1436,7 +1438,9 @@ export function Viewport({
     renderer.domElement.addEventListener('pointerdown', onPointerDown, true)
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
-    el.addEventListener('wheel', onWheel, { passive: false })
+    // capture: обработчик эскиза срабатывает раньше OrbitControls на канвасе и гасит событие,
+    // иначе колесо в эскизе применялось дважды (dolly OrbitControls + якорь на плоскости)
+    el.addEventListener('wheel', onWheel, { passive: false, capture: true })
 
     const tmp = new THREE.Vector3()
     const renderMon = createRenderMonitor(renderer as unknown as RendererLike)
@@ -1533,7 +1537,7 @@ export function Viewport({
       renderer.domElement.removeEventListener('pointerdown', onPointerDown, true)
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
-      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('wheel', onWheel, { capture: true })
       transformControls.dispose()
       controls.dispose()
       renderer.dispose()

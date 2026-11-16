@@ -3,6 +3,8 @@ import { render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import '../../i18n'
 import type { ModelResult } from '../../geometry/model'
+import { computeWheelZoomFactor } from './gesture'
+import type { ViewportSketchConfig } from './sketchMesh'
 import { Viewport } from './Viewport'
 
 // Mock Three.js WebGLRenderer in jsdom
@@ -111,5 +113,90 @@ describe('Viewport', () => {
     lastAnimationLoop!()
     expect(mat.uniforms.uAlpha.value).toBe(0)
     expect(gridMesh.visible).toBe(false)
+  })
+
+  // jsdom не даёт элементам раскладку: размеры задаём вручную
+  const fakeRect = (w: number, h: number) =>
+    ({ x: 0, y: 0, left: 0, top: 0, right: w, bottom: h, width: w, height: h, toJSON: () => ({}) }) as DOMRect
+  const setSize = (node: HTMLElement, w: number, h: number) => {
+    Object.defineProperty(node, 'clientWidth', { value: w, configurable: true })
+    Object.defineProperty(node, 'clientHeight', { value: h, configurable: true })
+  }
+  const wheelAt = (canvas: HTMLCanvasElement, x: number, y: number) => {
+    canvas.dispatchEvent(
+      new WheelEvent('wheel', { deltaY: -100, clientX: x, clientY: y, bubbles: true, cancelable: true })
+    )
+  }
+
+  it('zooms the 3D view toward the cursor position', () => {
+    const zoomDisplacement = (cursorX: number, cursorY: number) => {
+      lastRenderedScene = null
+      lastRenderedCamera = null
+      const { container, unmount } = render(<Viewport model={model} plate={null} />)
+      const canvas = container.querySelector('canvas')!
+      canvas.getBoundingClientRect = () => fakeRect(800, 600)
+      lastAnimationLoop!()
+      const cam = lastRenderedCamera! as import('three').PerspectiveCamera
+      // resize() при маунте видел нулевые размеры jsdom — чиним проекцию до зума
+      cam.aspect = 800 / 600
+      cam.updateProjectionMatrix()
+      cam.updateMatrixWorld()
+      const before = cam.position.clone()
+      wheelAt(canvas, cursorX, cursorY)
+      const delta = cam.position.clone().sub(before)
+      unmount()
+      return delta
+    }
+
+    const center = zoomDisplacement(400, 300)
+    const corner = zoomDisplacement(760, 560)
+    expect(center.length()).toBeGreaterThan(0.01)
+    expect(corner.length()).toBeGreaterThan(0.01)
+    // направление движения камеры зависит от курсора: зум идёт к точке под ним
+    const cos = center.clone().normalize().dot(corner.clone().normalize())
+    expect(cos).toBeLessThan(0.99)
+  })
+
+  it('applies a single cursor-anchored zoom step in sketch mode', () => {
+    const sketch: ViewportSketchConfig = {
+      plane: { base: 'XY', offset: 0 },
+      sketch: {
+        id: 's1',
+        name: 'S1',
+        plane: { base: 'XY', offset: 0 },
+        visible: true,
+        points: {},
+        curves: {},
+        constraints: [],
+      },
+      tool: 'line',
+    }
+    const { container } = render(<Viewport model={model} plate={null} sketch={sketch} />)
+    // host-эффект закрылся над родителем канваса, а не над корнем компонента
+    const host = container.querySelector('canvas')!.parentElement as HTMLElement
+    const canvas = container.querySelector('canvas')!
+    setSize(host, 800, 600)
+    lastAnimationLoop!()
+    lastAnimationLoop!()
+    const cam = lastRenderedCamera!
+    cam.updateMatrixWorld()
+
+    // колесо в центре: якорь совпадает с целью, панорамирования нет —
+    // каждая координата умножается ровно на один множитель кривой зума
+    // (до правки dolly OrbitControls накладывался вторым множителем)
+    const before = cam.position.clone()
+    wheelAt(canvas, 400, 300)
+    lastAnimationLoop!()
+    const centered = cam.position.clone()
+    const factor = computeWheelZoomFactor(-100)
+    expect(centered.x).toBeCloseTo(before.x * factor, 6)
+    expect(centered.y).toBeCloseTo(before.y * factor, 6)
+    expect(centered.z).toBeCloseTo(before.z * factor, 6)
+
+    // колесо в углу: якорь смещается от цели — камера сдвигается в плоскости XY
+    wheelAt(canvas, 700, 450)
+    lastAnimationLoop!()
+    const cornered = cam.position.clone()
+    expect(Math.abs(cornered.x) + Math.abs(cornered.y)).toBeGreaterThan(0.1)
   })
 })

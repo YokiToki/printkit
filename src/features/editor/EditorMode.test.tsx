@@ -5,6 +5,8 @@ import userEvent from '@testing-library/user-event'
 import { EditorMode } from './EditorMode'
 import { UnitProvider } from '../../ui/UnitProvider'
 import '../../i18n'
+import { getWasm } from '../../geometry/wasm'
+import { meshOf } from '../../geometry/mesh'
 
 // Пропсы вьюпорта нужны тестам: имитация клика по объекту.
 const viewportProps = vi.hoisted(() => ({ current: null as any }))
@@ -251,5 +253,73 @@ describe('EditorMode', () => {
 
     // Still exactly 1 body with name Extrude (no duplicate created!)
     expect(screen.getAllByText('Extrude')).toHaveLength(1)
+  })
+
+  it('New Sketch picks a planar face in object mode and links the host body (44c)', async () => {
+    const user = userEvent.setup()
+    const w = await getWasm()
+    const mesh = meshOf(w.Manifold.cube([20, 20, 20], true))
+    const { rerender } = renderEditor()
+
+    // Примитив в сцене и его меш в модели — топология считается в воркере.
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    await user.click(screen.getByTestId('toolbar-add-box'))
+    const objId = document
+      .querySelector('[data-testid^="outliner-row-"]')!
+      .getAttribute('data-testid')!
+      .replace('outliner-row-', '')
+    mocks.model = { parts: [{ label: objId, col: 0, row: 0, oversize: false, mesh }] }
+    await act(async () => {
+      rerender(
+        <UnitProvider>
+          <EditorMode />
+        </UnitProvider>,
+      )
+    })
+
+    // «Выбрать грань в окне» из меню добавления включает режим выбора.
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    await user.click(screen.getByTestId('toolbar-add-sketch-face'))
+    expect(viewportProps.current.sketchFacePicking).toBe(true)
+    expect(screen.getByTestId('sketch-face-pick-hint')).toBeInTheDocument()
+
+    // Наведение на планарную грань: контур грани уходит в подсветку вьюпорта.
+    await act(async () => {
+      viewportProps.current.onSketchFaceHover({ objectId: objId, triangle: 0, point: [0, 0, 10] })
+    })
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50))
+    })
+    expect(viewportProps.current.sketchFaceHighlight).not.toBeNull()
+    expect(viewportProps.current.sketchFaceHighlight.loops.length).toBeGreaterThan(0)
+
+    // Щелчок: открывается режим эскиза, режим выбора выключен.
+    await act(async () => {
+      viewportProps.current.onSketchFacePick({ objectId: objId, triangle: 0, point: [0, 0, 10] })
+    })
+    expect(screen.getByTestId('sketch-tool-finish')).toBeInTheDocument()
+    expect(viewportProps.current.sketchFacePicking).toBe(false)
+
+    // Эскиз привязан к телу-хозяину (через подменённый документ сцены).
+    const scene = JSON.parse(localStorage.getItem('editor.scene') ?? '{}')
+    const sketches = scene.sketches ?? []
+    expect(sketches.length).toBe(1)
+    expect(sketches[0].hostObjectId).toBe(objId)
+    expect(sketches[0].plane.face).toBeDefined()
+
+    mocks.model = null
+  })
+
+  it('Escape cancels the face picking mode (44c)', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    await user.click(screen.getByTestId('toolbar-add-sketch-face'))
+    expect(viewportProps.current.sketchFacePicking).toBe(true)
+
+    await user.keyboard('{Escape}')
+    expect(viewportProps.current.sketchFacePicking).toBe(false)
+    expect(screen.queryByTestId('sketch-face-pick-hint')).not.toBeInTheDocument()
   })
 })

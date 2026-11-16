@@ -1,3 +1,4 @@
+import type { MeshTopology } from '../../geometry/topology'
 import {
   basePlaneFrame,
   planeFrame,
@@ -99,6 +100,11 @@ export interface Sketch {
   id: string
   name: string
   plane: PlaneDefinition
+  /**
+   * Тело-хозяин эскиза на грани: при изменении тела привязка (plane.face —
+   * идентификатор грани) пере-разрешается по свежей топологии.
+   */
+  hostObjectId?: string
   visible: boolean
   points: Record<string, SketchPoint>
   curves: Record<string, Curve>
@@ -125,6 +131,21 @@ export function createSketch(name: string, plane: PlaneDefinition = { base: 'XY'
     curves: {},
     constraints: [],
   }
+}
+
+/**
+ * Пере-разрешение привязки эскиза на грани тела-хозяина по свежей топологии.
+ * Возвращает тот же эскиз для базовой плоскости или когда кадр не изменился;
+ * detached — грань не нашлась, эскиз остался на закешированном кадре.
+ */
+export function resolveSketchHostPlane(
+  sketch: Sketch,
+  topology: MeshTopology,
+): { sketch: Sketch; detached: boolean } {
+  if (!isFacePlane(sketch.plane)) return { sketch, detached: false }
+  const res = resolveFacePlane(sketch.plane, topology)
+  if (res.definition === sketch.plane) return { sketch, detached: res.detached }
+  return { sketch: { ...sketch, plane: res.definition }, detached: res.detached }
 }
 
 export function addPoint(sketch: Sketch, x: number, y: number, fixed?: boolean): { sketch: Sketch; pointId: string } {

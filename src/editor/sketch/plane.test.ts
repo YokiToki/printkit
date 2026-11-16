@@ -11,6 +11,8 @@ import {
   resolveFacePlane,
   type FacePlaneDefinition,
 } from './plane'
+import { createSketch, resolveSketchHostPlane } from './model'
+import type { MeshTopology } from '../../geometry/topology'
 
 describe('editor/sketch/plane.ts — эскиз по грани (44)', () => {
   it('строит кадр для грани куба: нормаль грани и её самая длинная прямая', async () => {
@@ -151,6 +153,56 @@ describe('editor/sketch/plane.ts — эскиз по грани (44)', () => {
     expect(projected.points).toHaveLength(3)
     const ids = projected.curves.flatMap((c) => (c.kind === 'line' ? [c.a, c.b] : []))
     expect(new Set(ids).size).toBe(3)
+  })
+
+  it('resolveSketchHostPlane: эскиз хранит хозяина и следует за обновлением тела', async () => {
+    const w = await getWasm()
+    const cube = w.Manifold.cube([20, 20, 20], true)
+    const topo = topologyOfSolid(cube)
+    const top = topo.faces.find((f) => f.kind === 'planar' && f.normal?.[2] === 1)!
+    const frame = frameForFace(top, topo)!
+
+    const sketch = createSketch('OnFace', { face: faceRef(top), frame })
+    sketch.hostObjectId = 'obj-1'
+
+    // Тело не менялось: эскиз возвращается как есть, привязка не отсоединена.
+    const same = resolveSketchHostPlane(sketch, topo)
+    expect(same.detached).toBe(false)
+    expect(same.sketch).toBe(sketch)
+    expect(same.sketch.hostObjectId).toBe('obj-1')
+
+    // Хозяина изменили (верхняя грань поднята на 10 мм): кадр пересчитывается,
+    // эскиз остаётся на грани, точки не тронуты.
+    const moved = topologyOfSolid(cube.translate([0, 0, 10]))
+    const movedTop = moved.faces.find((f) => f.kind === 'planar' && f.normal?.[2] === 1)!
+    const tracked = createSketch('OnFace', { face: faceRef(movedTop), frame })
+    tracked.hostObjectId = 'obj-1'
+    const res = resolveSketchHostPlane(tracked, moved)
+    expect(res.detached).toBe(false)
+    expect(res.sketch).not.toBe(tracked)
+    expect(res.sketch.hostObjectId).toBe('obj-1')
+    expect(isFacePlane(res.sketch.plane)).toBe(true)
+    expect((res.sketch.plane as FacePlaneDefinition).frame.origin[2]).toBeCloseTo(20, 6)
+    expect(res.sketch.points).toBe(tracked.points)
+  })
+
+  it('resolveSketchHostPlane: базовая плоскость не меняется, пропавшая грань помечает отсоединение', async () => {
+    const baseSketch = createSketch('Base', { base: 'XY', offset: 0 })
+    const res = resolveSketchHostPlane(baseSketch, null as unknown as MeshTopology)
+    expect(res.sketch).toBe(baseSketch)
+    expect(res.detached).toBe(false)
+
+    const w = await getWasm()
+    const cube = w.Manifold.cube([20, 20, 20], true)
+    const topo = topologyOfSolid(cube)
+    const top = topo.faces.find((f) => f.kind === 'planar' && f.normal?.[2] === 1)!
+    const frame = frameForFace(top, topo)!
+    const sketch = createSketch('LostFace', { face: faceRef(top), frame })
+    const gone = topologyOfSolid(cube.translate([0, 0, 500]))
+    const res2 = resolveSketchHostPlane(sketch, gone)
+    // Грань уехала из зоны допуска: эскиз остаётся на закешированном кадре.
+    expect(res2.detached).toBe(true)
+    expect(res2.sketch).toBe(sketch)
   })
 
   it('различает базовую и привязанную плоскости', async () => {

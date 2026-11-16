@@ -84,6 +84,8 @@ export interface ToolbarProps {
   onAddPrimitive: (shape: PrimitiveShape) => void
   onImportFiles: (files: File[], unit: 'mm' | 'in') => void
   onAddSketch?: (plane: PlaneDefinition) => void
+  /** Войти в режим выбора грани для нового эскиза (44c). */
+  onPickFaceSketch?: () => void
   onOpenFeatureDialog?: (kind: 'extrude' | 'revolve') => void
   onOpenSplitDialog?: () => void
   onImportSvgFile?: (file: File) => void
@@ -112,6 +114,7 @@ export function Toolbar({
   onAddPrimitive,
   onImportFiles,
   onAddSketch,
+  onPickFaceSketch,
   onOpenFeatureDialog,
   onOpenSplitDialog,
   onImportSvgFile,
@@ -274,6 +277,17 @@ export function Toolbar({
                   >
                     <span>{t('sketch.plane.yz', 'Sketch (YZ Right)')}</span>
                     <span className="font-mono text-text-subtle text-[10px]">YZ</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="toolbar-add-sketch-face"
+                    onClick={() => {
+                      onPickFaceSketch?.()
+                      setAddMenuOpen(false)
+                    }}
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs text-text hover:bg-surface-3 cursor-pointer"
+                  >
+                    <span>{t('sketch.menu.pickFace', 'Pick face or plane in view')}</span>
                   </button>
                   <button
                     type="button"

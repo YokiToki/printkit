@@ -12,8 +12,10 @@ export function addSketchCommand(
   doc: SceneDoc,
   name: string,
   plane: PlaneDefinition,
+  hostObjectId?: string,
 ): { doc: SceneDoc; sketchId: string } {
   const sketch = createSketch(name, plane)
+  if (hostObjectId) sketch.hostObjectId = hostObjectId
   return {
     doc: {
       ...doc,

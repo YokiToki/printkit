@@ -133,6 +133,20 @@ export interface ViewportProps {
     objectId?: string
     screenPos: { x: number; y: number }
   }) => void
+  /** Режим выбора грани для нового эскиза прямо из объектного режима. */
+  sketchFacePicking?: boolean
+  /** Подсветка наведённой грани: граничные петли в мировых координатах и нормаль. */
+  sketchFaceHighlight?: { loops: [number, number, number][][]; normal: [number, number, number] } | null
+  onSketchFaceHover?: (hit: SketchFaceHit | null) => void
+  onSketchFacePick?: (hit: SketchFaceHit | null) => void
+}
+
+/** Попадание курсора на объект в режиме выбора грани эскиза. */
+export interface SketchFaceHit {
+  objectId: string
+  /** Номер треугольника попадания. */
+  triangle: number
+  point: [number, number, number]
 }
 
 interface Api {
@@ -151,6 +165,7 @@ interface Api {
   setClippingPlane?: (plane: { normal: [number, number, number]; constant: number } | null) => void
   setHighlight?: (h: MeshHighlight | null) => void
   setTopology?: (t: ViewportTopologyConfig | null) => void
+  setFaceHighlight?: (h: { loops: [number, number, number][][]; normal: [number, number, number] } | null) => void
 }
 
 const GIZMO_SIZE = 120
@@ -255,6 +270,10 @@ export function Viewport({
   onHoverEdge,
   measurePickActive,
   onMeasurePick,
+  sketchFacePicking,
+  sketchFaceHighlight,
+  onSketchFaceHover,
+  onSketchFacePick,
 }: ViewportProps) {
   const { t } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
@@ -271,6 +290,9 @@ export function Viewport({
 
   const topologyRef = useRef(topology)
   topologyRef.current = topology
+
+  const facePickingRef = useRef(sketchFacePicking)
+  facePickingRef.current = sketchFacePicking
 
   const callbacksRef = useRef({
     onPick,
@@ -292,6 +314,8 @@ export function Viewport({
     onPickEdge,
     onHoverFace,
     onHoverEdge,
+    onSketchFaceHover,
+    onSketchFacePick,
   })
   callbacksRef.current = {
     onPick,
@@ -313,6 +337,8 @@ export function Viewport({
     onPickEdge,
     onHoverFace,
     onHoverEdge,
+    onSketchFaceHover,
+    onSketchFacePick,
   }
 
   const [boxSelectRect, setBoxSelectRect] = useState<Rect2D | null>(null)
@@ -386,6 +412,16 @@ export function Viewport({
 
     const highlightGroup = new THREE.Group()
     scene.add(highlightGroup)
+
+    // Подсветка грани-кандидата при выборе плоскости нового эскиза
+    const faceHighlightLines = new THREE.LineSegments(
+      new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({ color: 0x35d0ff, depthTest: false, transparent: true }),
+    )
+    faceHighlightLines.visible = false
+    faceHighlightLines.renderOrder = 5
+    scene.add(faceHighlightLines)
+
     const disposeGeometries = (root: THREE.Object3D) => {
       root.traverse((o) => {
         const g = (o as THREE.Mesh).geometry
@@ -777,6 +813,31 @@ export function Viewport({
           controls.update()
         }
       },
+      setFaceHighlight(h) {
+        if (!h || h.loops.length === 0) {
+          faceHighlightLines.visible = false
+          faceHighlightLines.geometry.dispose()
+          faceHighlightLines.geometry = new THREE.BufferGeometry()
+          return
+        }
+        // Смещение вдоль нормали убирает мерцание линий на поверхности тела.
+        const off = 0.05
+        const [nx, ny, nz] = h.normal
+        const pts: number[] = []
+        for (const loop of h.loops) {
+          for (let i = 0; i < loop.length; i++) {
+            const a = loop[i]
+            const b = loop[(i + 1) % loop.length]
+            pts.push(a[0] + nx * off, a[1] + ny * off, a[2] + nz * off)
+            pts.push(b[0] + nx * off, b[1] + ny * off, b[2] + nz * off)
+          }
+        }
+        faceHighlightLines.geometry.dispose()
+        const g = new THREE.BufferGeometry()
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+        faceHighlightLines.geometry = g
+        faceHighlightLines.visible = true
+      },
       projectPoint(planePt) {
         if (!sketchRef.current) return null
         const frame = planeFrame(sketchRef.current.plane)
@@ -965,6 +1026,7 @@ export function Viewport({
     let isPointerDownOnCanvas = false
     let lastHoverFace: number | null = null
     let lastHoverEdge: number | null = null
+    let lastFacePickKey = ''
 
     /** Выбор грани под курсором: треугольник накладки → область грани. */
     const pickFaceAt = (x: number, y: number): number | null => {
@@ -1157,6 +1219,32 @@ export function Viewport({
             lastHoverEdge = null
             callbacksRef.current.onHoverEdge?.(null)
           }
+        }
+      }
+
+      // Выбор грани для нового эскиза: докладываем объект и треугольник под курсором.
+      if (facePickingRef.current && !sketchRef.current && !topoCfg) {
+        const rect = el.getBoundingClientRect()
+        const inside =
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        let hitInfo: SketchFaceHit | null = null
+        if (inside) {
+          const picked = pickObjectAt(e.clientX - rect.left, e.clientY - rect.top)
+          if (picked) {
+            hitInfo = {
+              objectId: picked.label,
+              triangle: picked.hit.faceIndex ?? 0,
+              point: [picked.hit.point.x, picked.hit.point.y, picked.hit.point.z],
+            }
+          }
+        }
+        const key = hitInfo ? `${hitInfo.objectId}:${hitInfo.triangle}` : ''
+        if (key !== lastFacePickKey) {
+          lastFacePickKey = key
+          callbacksRef.current.onSketchFaceHover?.(hitInfo)
         }
       }
 
@@ -1358,6 +1446,21 @@ export function Viewport({
           ray.setFromCamera(new THREE.Vector2((gx / GIZMO_SIZE) * 2 - 1, 1 - (gy / GIZMO_SIZE) * 2), gCam)
           const hit = ray.intersectObjects(hits)[0]
           if (hit) view(hit.object.userData.dir)
+          return
+        }
+
+        // Выбор грани для нового эскиза из объектного режима.
+        if (facePickingRef.current && !topologyRef.current) {
+          const picked = pickObjectAt(x, y)
+          callbacksRef.current.onSketchFacePick?.(
+            picked
+              ? {
+                  objectId: picked.label,
+                  triangle: picked.hit.faceIndex ?? 0,
+                  point: [picked.hit.point.x, picked.hit.point.y, picked.hit.point.z],
+                }
+              : null,
+          )
           return
         }
 
@@ -1610,6 +1713,7 @@ export function Viewport({
   useEffect(() => { api.current?.setClippingPlane?.(clippingPlane ?? null) }, [clippingPlane])
   useEffect(() => { api.current?.setHighlight?.(highlight ?? null) }, [highlight])
   useEffect(() => { api.current?.setTopology?.(topology ?? null) }, [topology])
+  useEffect(() => { api.current?.setFaceHighlight?.(sketchFaceHighlight ?? null) }, [sketchFaceHighlight])
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none">

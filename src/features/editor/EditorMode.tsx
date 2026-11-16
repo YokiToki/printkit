@@ -52,7 +52,7 @@ import {
   deleteSelectionCommand,
   dragPointCommand,
 } from './sketch/sketchCommands'
-import { newId, type PlaneDefinition as SketchPlaneDefinition, type Constraint, type Sketch, addProjectedGeometry } from '../../editor/sketch/model'
+import { newId, resolveSketchHostPlane, type PlaneDefinition as SketchPlaneDefinition, type Constraint, type Sketch, addProjectedGeometry } from '../../editor/sketch/model'
 import { frameForFace, facePlaneFrame, projectChains, type FacePlaneDefinition } from '../../editor/sketch/plane'
 import { faceRef, edgeRef } from '../../geometry/topology/reference'
 import type { MeshTopology } from '../../geometry/topology'
@@ -60,6 +60,8 @@ import { getMeshClient, TopologyLimitError } from '../../geometry/mesh/meshClien
 import { FaceToolsPanel, type SelectionMode } from './face/FaceToolsPanel'
 import { dimensionFor, constraintEntities } from '../../editor/sketch/measure'
 import type { ScreenPickResult } from '../viewport/sketchPicking'
+import type { SketchFaceHit } from '../viewport/Viewport'
+import { faceByTriangle } from '../viewport/topologyView'
 import type { ViewportSketchConfig } from '../viewport/sketchMesh'
 import type { HudCommit } from '../viewport/SketchOverlay'
 import type { MeshData } from '../../geometry/mesh'
@@ -153,6 +155,15 @@ export function EditorMode() {
     [doc.sketches, activeSketchId],
   )
   const [sketchToolState, setSketchToolState] = useState<ToolState>(initialToolState('select'))
+
+  // Выбор грани для нового эскиза прямо из объектного режима (44c)
+  const [facePicking, setFacePicking] = useState(false)
+  const [facePickHover, setFacePickHover] = useState<SketchFaceHit | null>(null)
+  const [facePickTopology, setFacePickTopology] = useState<{
+    objectId: string
+    topology: MeshTopology
+  } | null>(null)
+  const [facePickError, setFacePickError] = useState<string | null>(null)
 
   // Feature dialog state
   const [activeFeatureDialog, setActiveFeatureDialog] = useState<{
@@ -1043,6 +1054,12 @@ export function EditorMode() {
         key: 'Escape',
         labelKey: 'editor.toolbar.select',
         action: () => {
+          if (facePicking) {
+            setFacePicking(false)
+            setFacePickError(null)
+            setFacePickHover(null)
+            return
+          }
           setSelection([])
           if (selectionMode !== 'object') setSelectionMode('object')
         },
@@ -1144,7 +1161,7 @@ export function EditorMode() {
         },
       },
     ],
-    [selection, doc.objects, undo, redo, canUndo, canRedo, projection, selectionMode]
+    [selection, doc.objects, undo, redo, canUndo, canRedo, projection, selectionMode, facePicking]
   )
 
   // Viewport scene descriptor
@@ -1509,6 +1526,133 @@ export function EditorMode() {
       return updateSketchInDoc(res.doc, res.sketchId, (s) =>
         addProjectedGeometry(s, projected, true)
       )
+    })
+    setActiveSketchId(newSketchId)
+    setSketchToolState(initialToolState('select'))
+  }
+
+  // --- Выбор грани для нового эскиза из объектного режима --------------------
+
+  const handleSketchFaceHover = (hit: SketchFaceHit | null) => {
+    setFacePickHover(hit)
+    if (!hit) setFacePickError(null)
+  }
+
+  // Топология наведённого объекта для выбора грани: воркер кэширует по хэшу сетки.
+  const facePickMesh = facePicking && facePickHover ? meshesMap[facePickHover.objectId] : undefined
+  useEffect(() => {
+    if (!facePicking || !facePickHover || !facePickMesh) {
+      setFacePickTopology(null)
+      return
+    }
+    let cancelled = false
+    const client = getMeshClient()
+    client
+      .topologyOf(
+        {
+          vertProperties: facePickMesh.vertProperties,
+          triVerts: facePickMesh.triVerts,
+        },
+        { edgeAngleDeg: sharpness },
+      )
+      .then((topo) => {
+        if (!cancelled) setFacePickTopology({ objectId: facePickHover.objectId, topology: topo })
+      })
+      .catch(() => {
+        if (!cancelled) setFacePickTopology(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [facePicking, facePickHover, facePickMesh, sharpness])
+
+  // Наведённая грань: плоская — подсвечиваем её контур, кривая — только подсказка.
+  const facePickHighlight = useMemo(() => {
+    if (!facePicking || !facePickHover || !facePickTopology) return null
+    if (facePickTopology.objectId !== facePickHover.objectId) return null
+    const faceId = faceByTriangle(facePickTopology.topology, facePickHover.triangle)
+    if (faceId === null) return null
+    const region = facePickTopology.topology.faces.find((f) => f.id === faceId)
+    if (!region || region.kind !== 'planar' || !region.normal) return null
+    return { loops: region.loops, normal: region.normal as [number, number, number] }
+  }, [facePicking, facePickHover, facePickTopology])
+
+  /** Грань под курсором в режиме выбора: область топологии, если она плоская. */
+  const facePickRegion = useMemo(() => {
+    if (!facePickHover || !facePickTopology || facePickTopology.objectId !== facePickHover.objectId) {
+      return null
+    }
+    const faceId = faceByTriangle(facePickTopology.topology, facePickHover.triangle)
+    if (faceId === null) return null
+    const region = facePickTopology.topology.faces.find((f) => f.id === faceId)
+    return region && region.kind === 'planar' && region.normal ? region : null
+  }, [facePickHover, facePickTopology])
+
+  // Пере-разрешение привязки активного эскиза на грани при изменении тела-хозяина.
+  const hostMesh = useMemo(() => {
+    const hostId = activeSketch?.hostObjectId
+    return hostId ? meshesMap[hostId] : undefined
+  }, [activeSketch?.hostObjectId, meshesMap])
+
+  const [hostTopology, setHostTopology] = useState<MeshTopology | null>(null)
+  useEffect(() => {
+    if (!activeSketch?.hostObjectId || !hostMesh) {
+      setHostTopology(null)
+      return
+    }
+    let cancelled = false
+    const client = getMeshClient()
+    client
+      .topologyOf(
+        { vertProperties: hostMesh.vertProperties, triVerts: hostMesh.triVerts },
+        { edgeAngleDeg: sharpness },
+      )
+      .then((topo) => {
+        if (!cancelled) setHostTopology(topo)
+      })
+      .catch(() => {
+        if (!cancelled) setHostTopology(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activeSketch?.hostObjectId, hostMesh, sharpness])
+
+  useEffect(() => {
+    if (!activeSketch || !activeSketch.hostObjectId || !hostTopology) return
+    const res = resolveSketchHostPlane(activeSketch, hostTopology)
+    if (res.sketch !== activeSketch) {
+      dispatch('Update Sketch Plane', (prev) => updateSketchInDoc(prev, activeSketch.id, () => res.sketch))
+    }
+  }, [activeSketch, hostTopology, dispatch])
+
+  /** Щелчок в режиме выбора грани: эскиз на плоской грани с телом-хозяином. */
+  const handleSketchFacePick = (hit: SketchFaceHit | null) => {
+    if (!hit) return
+    if (!facePickTopology || facePickTopology.objectId !== hit.objectId) return
+    const faceId = faceByTriangle(facePickTopology.topology, hit.triangle)
+    const region = faceId !== null
+      ? facePickTopology.topology.faces.find((f) => f.id === faceId)
+      : undefined
+    if (!region || region.kind !== 'planar' || !region.normal) {
+      setFacePickError('sketch.pickFace.failed')
+      return
+    }
+    const frame = frameForFace(region, facePickTopology.topology, hit.point)
+    if (!frame) {
+      setFacePickError('sketch.pickFace.failed')
+      return
+    }
+    setFacePicking(false)
+    setFacePickError(null)
+    const plane: FacePlaneDefinition = { face: faceRef(region), frame }
+    const existingNames = (doc.sketches ?? []).map((s) => s.name)
+    const name = newName(t('sketch.defaultName', 'Sketch'), existingNames)
+    let newSketchId = ''
+    dispatch('Add Sketch', (prev) => {
+      const res = addSketchCommand(prev, name, plane, hit.objectId)
+      newSketchId = res.sketchId
+      return res.doc
     })
     setActiveSketchId(newSketchId)
     setSketchToolState(initialToolState('select'))
@@ -1903,6 +2047,10 @@ export function EditorMode() {
           onAddPrimitive={handleAddPrimitive}
           onImportFiles={handleImportFiles}
           onAddSketch={handleAddSketch}
+          onPickFaceSketch={() => {
+            setFacePicking(true)
+            setFacePickError(null)
+          }}
           onImportSvgClick={() => handleOpenSvgImport()}
           onImportSvgFile={(file) => handleOpenSvgImport(file)}
           hasSketches={(doc.sketches?.length ?? 0) > 0}
@@ -2044,6 +2192,10 @@ export function EditorMode() {
               onSketchSelectBox={handleSketchBoxSelect}
               onSubmitDraftInput={handleDraftInputSubmit}
               onCancelSketchStage={handleCancelSketchStage}
+              sketchFacePicking={facePicking && !activeSketch}
+              sketchFaceHighlight={facePickHighlight}
+              onSketchFaceHover={handleSketchFaceHover}
+              onSketchFacePick={handleSketchFacePick}
               onUpdateConstraint={(id, val) => {
                 if (activeSketchId) {
                   dispatch('Update Constraint', (prev) =>
@@ -2066,6 +2218,21 @@ export function EditorMode() {
               onMeasurePick={handleMeasurePick}
             />
           </EditorDropZone>
+
+          {/* Подсказка режима выбора грани для нового эскиза */}
+          {facePicking && !activeSketch && (
+            <div
+              data-testid="sketch-face-pick-hint"
+              className="absolute top-3 left-1/2 z-30 -translate-x-1/2 rounded-control border border-accent bg-surface-1/95 px-3 py-1.5 text-xs text-text shadow-float backdrop-blur-xs"
+            >
+              {t(
+                facePickError ?? 'sketch.pickFace.hint',
+                facePickError
+                  ? 'No planar face under the cursor'
+                  : 'Click a planar face to start a sketch — Esc to cancel',
+              )}
+            </div>
+          )}
 
           {/* Measurements and status */}
           <MeasurementsBar model={model} />

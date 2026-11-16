@@ -17,6 +17,11 @@ export interface ExtrudeParams {
   op: 'new' | 'join' | 'cut' | 'intersect'
   top?: EdgeBreak
   bottom?: EdgeBreak
+  /**
+   * Направление вдоль нормали плоскости эскиза: 1 — наружу (по умолчанию),
+   * −1 — внутрь тела (вырезание со стороны грани, 44c).
+   */
+  direction?: 1 | -1
 }
 
 import { applyEdgeBreaks } from './edgeBreak'
@@ -77,10 +82,18 @@ export async function buildExtrude(
   let localSolid: Manifold
   let zMin = 0
   let zMax = params.d1
+  const inward = params.direction === -1
   if (params.side === 'one') {
-    localSolid = combinedCs.extrude(params.d1)
-    zMin = 0
-    zMax = params.d1
+    if (inward) {
+      // Внутрь тела: выдавливание уходит под плоскость эскиза.
+      localSolid = combinedCs.extrude(params.d1).translate([0, 0, -params.d1])
+      zMin = -params.d1
+      zMax = 0
+    } else {
+      localSolid = combinedCs.extrude(params.d1)
+      zMin = 0
+      zMax = params.d1
+    }
   } else if (params.side === 'symmetric') {
     localSolid = combinedCs.extrude(params.d1).translate([0, 0, -params.d1 / 2])
     zMin = -params.d1 / 2

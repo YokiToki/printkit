@@ -477,6 +477,7 @@ export function featureToOp(f: any): Op {
         op: f.op ?? 'new',
         top: f.top,
         bottom: f.bottom,
+        direction: f.direction,
       },
     }
   }

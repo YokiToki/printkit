@@ -36,6 +36,8 @@ export interface ExtrudeFeature extends BaseFeature {
   d2?: number
   top?: EdgeBreak
   bottom?: EdgeBreak
+  /** Направление: 1 — по нормали (наружу), −1 — внутрь тела (44c). */
+  direction?: 1 | -1
 }
 
 export interface RevolveFeature extends BaseFeature {

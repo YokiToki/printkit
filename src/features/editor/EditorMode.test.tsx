@@ -310,6 +310,41 @@ describe('EditorMode', () => {
     mocks.model = null
   })
 
+  it('finishing a sketch with closed profiles shows the Extrude quick action (44c)', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+
+    // Прямоугольник с замкнутым контуром через редьюсер значений HUD.
+    await user.click(screen.getByTestId('toolbar-add-button'))
+    await user.click(screen.getByTestId('toolbar-add-sketch-xy'))
+    // Прямоугольник: инструмент, затем ступени ввода значениями HUD.
+    await user.click(screen.getByTestId('sketch-tool-rect'))
+    await act(async () => {
+      viewportProps.current.onSubmitDraftInput({ stage: 0, values: { x: 0, y: 0 } })
+    })
+    await act(async () => {
+      viewportProps.current.onSubmitDraftInput({ stage: 1, values: { w: 40, h: 20 }, pos: { x: 5, y: 5 } })
+    })
+
+    // Завершение: панель быстрых действий появляется.
+    expect(Object.keys(viewportProps.current.sketch?.sketch?.curves ?? {}).length).toBe(4)
+    await user.click(screen.getByTestId('sketch-tool-finish'))
+    const bar = screen.getByTestId('sketch-quick-actions')
+    expect(bar).toBeInTheDocument()
+    expect(screen.getByTestId('sketch-quick-extrude')).toBeInTheDocument()
+    expect(screen.getByTestId('sketch-quick-revolve')).toBeInTheDocument()
+
+    // Кнопка Extrude открывает диалог с этим эскизом.
+    await user.click(screen.getByTestId('sketch-quick-extrude'))
+    expect(screen.getByTestId('feature-dialog')).toBeInTheDocument()
+    expect(screen.queryByTestId('sketch-quick-actions')).not.toBeInTheDocument()
+
+    const select = screen.getByTestId('feature-dialog-sketch-select') as HTMLSelectElement
+    expect(select.value).toBe(select.options[0]?.value)
+    await user.click(screen.getByTestId('feature-dialog-apply'))
+    expect(screen.queryByTestId('feature-dialog')).not.toBeInTheDocument()
+  })
+
   it('Escape cancels the face picking mode (44c)', async () => {
     const user = userEvent.setup()
     renderEditor()

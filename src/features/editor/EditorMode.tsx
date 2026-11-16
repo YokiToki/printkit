@@ -8,6 +8,7 @@ import {
   IconList,
   IconAdjustmentsHorizontal,
   IconChevronDown,
+  IconX,
 } from '@tabler/icons-react'
 import { matrixOf, newName, type EditorObject, type PrimitiveShape } from '../../editor/scene'
 import { dropToBed, centerOnBed } from '../../editor/transform'
@@ -52,13 +53,14 @@ import {
   deleteSelectionCommand,
   dragPointCommand,
 } from './sketch/sketchCommands'
-import { newId, resolveSketchHostPlane, type PlaneDefinition as SketchPlaneDefinition, type Constraint, type Sketch, addProjectedGeometry } from '../../editor/sketch/model'
+import { newId, resolveSketchHostPlane, isFacePlane, type PlaneDefinition as SketchPlaneDefinition, type Constraint, type Sketch, addProjectedGeometry } from '../../editor/sketch/model'
 import { frameForFace, facePlaneFrame, projectChains, type FacePlaneDefinition } from '../../editor/sketch/plane'
 import { faceRef, edgeRef } from '../../geometry/topology/reference'
 import type { MeshTopology } from '../../geometry/topology'
 import { getMeshClient, TopologyLimitError } from '../../geometry/mesh/meshClient'
 import { FaceToolsPanel, type SelectionMode } from './face/FaceToolsPanel'
 import { dimensionFor, constraintEntities } from '../../editor/sketch/measure'
+import { extractProfiles } from '../../geometry/features/profile'
 import type { ScreenPickResult } from '../viewport/sketchPicking'
 import type { SketchFaceHit } from '../viewport/Viewport'
 import { faceByTriangle } from '../viewport/topologyView'
@@ -170,7 +172,15 @@ export function EditorMode() {
     kind: 'extrude' | 'revolve'
     targetObjectId?: string
     featureIndex?: number
+    /** Эскиз, из которого запущена операция (быстрое действие после завершения). */
+    sketchId?: string
   } | null>(null)
+
+  // Быстрое действие «Выдавить/Вращать» после завершения эскиза с профилями (44c)
+  const [sketchQuickAction, setSketchQuickAction] = useState<{ sketchId: string } | null>(null)
+  useEffect(() => {
+    if (activeSketchId) setSketchQuickAction(null)
+  }, [activeSketchId])
 
   // SVG import modal state
   const [svgImportState, setSvgImportState] = useState<{
@@ -681,6 +691,7 @@ export function EditorMode() {
           op: p.op ?? 'new',
           top: p.top,
           bottom: p.bottom,
+          direction: p.direction,
         }
       } else {
         const p = op.params as any
@@ -703,8 +714,9 @@ export function EditorMode() {
     kind: 'extrude' | 'revolve',
     targetObjectId?: string,
     featureIndex?: number,
+    sketchId?: string,
   ) => {
-    setActiveFeatureDialog({ kind, targetObjectId, featureIndex })
+    setActiveFeatureDialog({ kind, targetObjectId, featureIndex, sketchId })
   }
 
   const handleEditFeature = (objId: string, fIdx: number) => {
@@ -1258,6 +1270,15 @@ export function EditorMode() {
       hoverEdge,
     }
   }, [selectionMode, topology, topologyObjectId, faceSelection, edgeSelection, hoverFace, hoverEdge])
+
+  // Эскиз, из которого открыт диалог операции: хозяин и привязка к грани.
+  const featureDialogSketch = useMemo(
+    () =>
+      activeFeatureDialog?.sketchId
+        ? (doc.sketches ?? []).find((s) => s.id === activeFeatureDialog.sketchId)
+        : undefined,
+    [activeFeatureDialog?.sketchId, doc.sketches],
+  )
 
   // Sketch Viewport config
   const viewportSketch = useMemo((): ViewportSketchConfig | null => {
@@ -2026,7 +2047,13 @@ export function EditorMode() {
           onAddConstraint={handleAddConstraint}
           onImportSvg={() => handleOpenSvgImport()}
           onFinish={() => {
+            const finished = activeSketch
             setActiveSketchId(null)
+            if (finished) {
+              // Есть замкнутые профили — сразу предлагаем выдавливание или вращение.
+              const hasClosedProfiles = extractProfiles(finished).regions.length > 0
+              setSketchQuickAction(hasClosedProfiles ? { sketchId: finished.id } : null)
+            }
           }}
           sketchName={activeSketch.name}
           dof={dofInfo.dof}
@@ -2234,6 +2261,54 @@ export function EditorMode() {
             </div>
           )}
 
+          {/* Быстрые действия после завершения эскиза с замкнутыми профилями */}
+          {sketchQuickAction && !activeSketch && (() => {
+            const finishedSketch = (doc.sketches ?? []).find(
+              (s) => s.id === sketchQuickAction.sketchId,
+            )
+            if (!finishedSketch) return null
+            return (
+              <div
+                data-testid="sketch-quick-actions"
+                className="absolute bottom-14 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-card border border-border bg-surface-1/95 px-3 py-2 shadow-float backdrop-blur-xs"
+              >
+                <span className="text-xs text-text-muted">
+                  {t('sketch.action.title', { name: finishedSketch.name, defaultValue: `Finished ${finishedSketch.name}` })}
+                </span>
+                <button
+                  type="button"
+                  data-testid="sketch-quick-extrude"
+                  onClick={() => {
+                    setSketchQuickAction(null)
+                    handleOpenFeatureDialog('extrude', undefined, undefined, finishedSketch.id)
+                  }}
+                  className="inline-flex h-7 items-center rounded-control bg-accent px-3 text-xs font-semibold text-accent-on hover:brightness-110 cursor-pointer"
+                >
+                  {t('sketch.action.extrude', 'Extrude')}
+                </button>
+                <button
+                  type="button"
+                  data-testid="sketch-quick-revolve"
+                  onClick={() => {
+                    setSketchQuickAction(null)
+                    handleOpenFeatureDialog('revolve', undefined, undefined, finishedSketch.id)
+                  }}
+                  className="inline-flex h-7 items-center rounded-control border border-border bg-bg px-3 text-xs font-medium text-text hover:border-accent hover:text-accent cursor-pointer"
+                >
+                  {t('sketch.action.revolve', 'Revolve')}
+                </button>
+                <button
+                  type="button"
+                  aria-label={t('sketch.action.dismiss', 'Dismiss')}
+                  onClick={() => setSketchQuickAction(null)}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded text-text-muted hover:text-text cursor-pointer"
+                >
+                  <IconX size={14} />
+                </button>
+              </div>
+            )
+          })()}
+
           {/* Measurements and status */}
           <MeasurementsBar model={model} />
           <ActivityLogPanel />
@@ -2306,6 +2381,9 @@ export function EditorMode() {
                 objects={doc.objects}
                 targetObjectId={activeFeatureDialog.targetObjectId}
                 featureIndex={activeFeatureDialog.featureIndex}
+                initialSketchId={activeFeatureDialog.sketchId}
+                hostObjectId={featureDialogSketch?.hostObjectId}
+                faceLinked={!!featureDialogSketch?.hostObjectId && isFacePlane(featureDialogSketch.plane)}
                 initialFeature={getInitialFeature(
                   activeFeatureDialog.targetObjectId
                     ? doc.objects.find((o) => o.id === activeFeatureDialog.targetObjectId)
@@ -2552,6 +2630,9 @@ export function EditorMode() {
                   objects={doc.objects}
                   targetObjectId={activeFeatureDialog.targetObjectId}
                   featureIndex={activeFeatureDialog.featureIndex}
+                  initialSketchId={activeFeatureDialog.sketchId}
+                  hostObjectId={featureDialogSketch?.hostObjectId}
+                  faceLinked={!!featureDialogSketch?.hostObjectId && isFacePlane(featureDialogSketch.plane)}
                   initialFeature={getInitialFeature(
                     activeFeatureDialog.targetObjectId
                       ? doc.objects.find((o) => o.id === activeFeatureDialog.targetObjectId)

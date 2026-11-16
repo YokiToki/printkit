@@ -14,9 +14,9 @@
 
 ## 3. Sequential Modeling Workflow (Sketch ➔ Extrude)
 
-- [ ] 3.1 Display contextual `Extrude` action upon finishing a sketch with closed profiles. Verification: visual check in browser.
-- [ ] 3.2 Pre-populate `FeatureDialog` with `hostObjectId` and directional `Join` / `Cut` default operation based on extrude sign. Test: component test in `FeatureDialog.test.tsx`.
-- [ ] 3.3 End-to-end test of sequential modeling: create box ➔ sketch circle on top face with typed center and diameter ➔ extrude join 10 mm ➔ sketch circle on top of new cylinder ➔ extrude cut 5 mm. Verify closed manifold and volume. Test: `src/features/editor/sequentialModeling.test.ts`.
+- [x] 3.1 Display contextual `Extrude` action upon finishing a sketch with closed profiles. Verification: visual check in browser.
+- [x] 3.2 Pre-populate `FeatureDialog` with `hostObjectId` and directional `Join` / `Cut` default operation based on extrude sign. Test: component test in `FeatureDialog.test.tsx`.
+- [x] 3.3 End-to-end test of sequential modeling: create box ➔ sketch circle on top face with typed center and diameter ➔ extrude join 10 mm ➔ sketch circle on top of new cylinder ➔ extrude cut 5 mm. Verify closed manifold and volume. Test: `src/features/editor/sequentialModeling.test.ts`.
 
 ## 4. Version
 

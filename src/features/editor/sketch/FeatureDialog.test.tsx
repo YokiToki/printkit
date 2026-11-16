@@ -7,6 +7,7 @@ import { UnitProvider } from '../../../ui/UnitProvider'
 import { expectAllNumericSteppers } from '../../../ui/stepperAssert'
 import '../../../i18n'
 import type { Sketch } from '../../../editor/sketch/model'
+import type { EditorObject } from '../../../editor/scene'
 
 describe('FeatureDialog', () => {
   const dummySketch: Sketch = {
@@ -157,6 +158,63 @@ describe('FeatureDialog', () => {
       }),
       'body-1',
       0
+    )
+  })
+
+  it('face sketch: preselects the host body, defaults to Join and flips to Cut (44c)', async () => {
+    const user = userEvent.setup()
+    const onApply = vi.fn()
+
+    const hostBody = {
+      id: 'host-1',
+      name: 'Box',
+      visible: true,
+      locked: false,
+      color: 0,
+      source: { kind: 'primitive', shape: 'box', params: {} },
+      transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+    } as unknown as EditorObject
+
+    render(
+      <UnitProvider>
+        <FeatureDialog
+          kind="extrude"
+          sketches={[dummySketch]}
+          objects={[hostBody]}
+          initialSketchId="sk-1"
+          hostObjectId="host-1"
+          faceLinked
+          onApply={onApply}
+          onCancel={vi.fn()}
+        />
+      </UnitProvider>
+    )
+
+    // Хозяин предвыбран целью, операция по умолчанию — Join (наружу).
+    const targetSelect = screen.getByTestId('feature-dialog-target-select') as HTMLSelectElement
+    expect(targetSelect.value).toBe('host-1')
+    expect(screen.getByText('Join')).toBeInTheDocument()
+    expect(screen.getByText('Out of the body (Join)')).toBeInTheDocument()
+
+    // Применение: Join в тело-хозяин.
+    await user.click(screen.getByTestId('feature-dialog-apply'))
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'extrude', sketch: 'sk-1', op: 'join', d1: 10 }),
+      'host-1',
+      undefined,
+    )
+
+    // Разворот направления: операция становится Cut (внутрь тела).
+    onApply.mockClear()
+    await user.click(screen.getByTestId('feature-dialog-flip'))
+    expect(screen.getByText('Into the body (Cut)')).toBeInTheDocument()
+    expect(screen.getByText('Cut')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('feature-dialog-apply'))
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'extrude', sketch: 'sk-1', op: 'cut', direction: -1 }),
+      'host-1',
+      undefined,
     )
   })
 })

@@ -6,6 +6,7 @@ import {
   IconCheck,
   IconX,
   IconAlertCircle,
+  IconArrowsSort,
 } from '@tabler/icons-react'
 import type {
   Feature,
@@ -27,6 +28,10 @@ export interface FeatureDialogProps {
   initialSketchId?: string
   targetObjectId?: string
   featureIndex?: number
+  /** Тело-хозяин эскиза: предвыбирается целью операции (44c). */
+  hostObjectId?: string
+  /** Эскиз лежит на грани тела-хозяина: направление задаёт Join/Cut (44c). */
+  faceLinked?: boolean
   onApply: (feature: Feature, targetObjectId?: string, featureIndex?: number) => void
   onCancel: () => void
 }
@@ -39,6 +44,8 @@ export function FeatureDialog({
   initialSketchId,
   targetObjectId: initialTargetObjectId,
   featureIndex,
+  hostObjectId,
+  faceLinked,
   onApply,
   onCancel,
 }: FeatureDialogProps) {
@@ -59,15 +66,31 @@ export function FeatureDialog({
     [objects],
   )
   const [targetId, setTargetId] = useState<string>(
-    initialTargetObjectId ?? featureBodies[0]?.id ?? '',
+    initialTargetObjectId ?? hostObjectId ?? featureBodies[0]?.id ?? '',
   )
 
   // Operation: new | join | cut | intersect
-  const initialOp = initialFeature?.op ?? (featureBodies.length > 0 && initialTargetObjectId ? 'join' : 'new')
+  const initialOp = initialFeature?.op ?? (faceLinked && hostObjectId
+    ? 'join'
+    : featureBodies.length > 0 && initialTargetObjectId
+      ? 'join'
+      : 'new')
   const [op, setOp] = useState<'new' | 'join' | 'cut' | 'intersect'>(initialOp)
 
-  // Extrude params
+  // Направление относительно тела-хозяина: наружу (Join) или внутрь (Cut).
   const initialExtrude = initialFeature?.kind === 'extrude' ? (initialFeature as ExtrudeFeature) : null
+  const [flipped, setFlipped] = useState(initialExtrude?.direction === -1)
+  const [direction, setDirection] = useState<1 | -1>(initialExtrude?.direction ?? 1)
+  const canFlip = kind === 'extrude' && faceLinked && !initialFeature
+  const handleFlip = () => {
+    const next = !flipped
+    setFlipped(next)
+    setDirection(next ? -1 : 1)
+    // Разворот меняет и операцию, пока пользователь не выбрал её вручную.
+    if (op === 'join' || op === 'cut') setOp(next ? 'cut' : 'join')
+  }
+
+  // Extrude params
   const [side, setSide] = useState<'one' | 'symmetric' | 'two'>(initialExtrude?.side ?? 'one')
   const [d1, setD1] = useState<number>(initialExtrude?.d1 ?? 10)
   const [d2, setD2] = useState<number>(initialExtrude?.d2 ?? 10)
@@ -132,6 +155,7 @@ export function FeatureDialog({
         op,
         side,
         d1,
+        ...(direction === -1 ? { direction: -1 as const } : {}),
         ...(side === 'two' ? { d2 } : {}),
         ...(top ? { top } : {}),
         ...(bottom ? { bottom } : {}),
@@ -245,6 +269,27 @@ export function FeatureDialog({
 
         {kind === 'extrude' && (
           <>
+            {/* Direction flip for sketches on a host face */}
+            {canFlip && (
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  data-testid="feature-dialog-flip"
+                  onClick={handleFlip}
+                  title={t('sketch.feature.flipDirection', 'Flip direction')}
+                  className="inline-flex h-7 items-center gap-1 rounded-control border border-border bg-bg px-2 text-text hover:border-accent hover:text-accent cursor-pointer font-medium"
+                >
+                  <IconArrowsSort size={14} stroke={1.75} />
+                  <span>{t('sketch.feature.flipDirection', 'Flip direction')}</span>
+                </button>
+                <span className="text-[11px] text-text-muted">
+                  {flipped
+                    ? t('sketch.feature.directionIn', 'Into the body (Cut)')
+                    : t('sketch.feature.directionOut', 'Out of the body (Join)')}
+                </span>
+              </div>
+            )}
+
             {/* Side selection */}
             <div className="flex flex-col gap-1.5">
               <label className="font-medium text-text-muted">{t('sketch.feature.side', 'Direction')}</label>

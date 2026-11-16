@@ -50,6 +50,7 @@ export function SketchToolbar({
 }: SketchToolbarProps) {
   const { t } = useTranslation()
   const [rectMenuOpen, setRectMenuOpen] = useState(false)
+  const [arcMenuOpen, setArcMenuOpen] = useState(false)
   const [constraintsMenuOpen, setConstraintsMenuOpen] = useState(false)
 
   const isRect = tool === 'rect-2pt' || tool === 'rect-center'
@@ -153,21 +154,54 @@ export function SketchToolbar({
           <IconCircle size={16} stroke={1.75} />
         </button>
 
-        {/* 3-Point Arc */}
-        <button
-          type="button"
-          data-testid="sketch-tool-arc"
-          aria-pressed={tool === 'arc-3pt'}
-          title={`${t('sketch.tool.arc3pt', '3-Point Arc')} (A)`}
-          onClick={() => onToolChange('arc-3pt')}
-          className={`inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 font-medium cursor-pointer ${
-            tool === 'arc-3pt'
-              ? 'bg-surface-3 text-text shadow-[inset_0_0_0_1px_var(--color-border-strong)]'
-              : 'text-text-muted hover:text-text'
-          }`}
-        >
-          <IconVectorSpline size={16} stroke={1.75} />
-        </button>
+        {/* 3-Point Arc with centre-start-end option */}
+        <div className="relative inline-flex h-8 items-center rounded-control border border-border bg-bg overflow-hidden">
+          <button
+            type="button"
+            data-testid="sketch-tool-arc"
+            aria-pressed={tool === 'arc-3pt' || tool === 'arc-center'}
+            title={`${t('sketch.tool.arc3pt', '3-Point Arc')} (A)`}
+            onClick={() => onToolChange(tool === 'arc-center' ? 'arc-center' : 'arc-3pt')}
+            className={`inline-flex h-full items-center gap-1 px-2 cursor-pointer ${
+              tool === 'arc-3pt' || tool === 'arc-center'
+                ? 'bg-surface-3 text-text'
+                : 'text-text-muted hover:text-text'
+            }`}
+          >
+            <IconVectorSpline size={16} stroke={1.75} />
+          </button>
+          <button
+            type="button"
+            data-testid="sketch-tool-arc-menu"
+            aria-expanded={arcMenuOpen}
+            onClick={() => setArcMenuOpen(!arcMenuOpen)}
+            className="h-full px-1 border-l border-border text-text-muted hover:text-text cursor-pointer"
+          >
+            <IconChevronDown size={12} />
+          </button>
+
+          {arcMenuOpen && (
+            <div
+              className="absolute left-0 top-full mt-1 z-30 min-w-40 rounded-card border border-border-strong bg-surface-1 p-1 shadow-float"
+              onClick={() => setArcMenuOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={() => onToolChange('arc-3pt')}
+                className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
+              >
+                {t('sketch.tool.arc3pt', '3-Point Arc')}
+              </button>
+              <button
+                type="button"
+                onClick={() => onToolChange('arc-center')}
+                className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-left text-text hover:bg-surface-2 cursor-pointer"
+              >
+                {t('sketch.tool.arcCenter', 'Center Arc')}
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Slot */}
         <button
@@ -200,6 +234,22 @@ export function SketchToolbar({
           }`}
         >
           <IconPolygon size={16} stroke={1.75} />
+        </button>
+
+        {/* Point */}
+        <button
+          type="button"
+          data-testid="sketch-tool-point"
+          aria-pressed={tool === 'point'}
+          title={t('sketch.tool.point', 'Point')}
+          onClick={() => onToolChange('point')}
+          className={`inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 font-medium cursor-pointer ${
+            tool === 'point'
+              ? 'bg-surface-3 text-text shadow-[inset_0_0_0_1px_var(--color-border-strong)]'
+              : 'text-text-muted hover:text-text'
+          }`}
+        >
+          <IconPoint size={16} stroke={1.75} />
         </button>
 
         <div className="h-4 w-px bg-border mx-1" />

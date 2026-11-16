@@ -2,9 +2,9 @@
 
 ## 1. Universal Tool HUD Input System
 
-- [ ] 1.1 Implement declarative HUD descriptors for circle, arc, point, and polygon in `src/features/viewport/sketchHudSchema.ts`. Test: unit test validating stage transitions and field schemas.
-- [ ] 1.2 Refactor `SketchOverlay.tsx` to render floating HUD inputs according to the active tool schema with Tab cycling, Enter commit, and Esc cancel. Test: component test in `SketchOverlay.test.tsx`.
-- [ ] 1.3 Connect HUD commitments to `toolStateMachine.ts` so submitted values create points, circles, and driving dimension constraints. Test: unit test in `toolStateMachine.test.ts`.
+- [x] 1.1 Implement declarative HUD descriptors for circle, arc, point, and polygon in `src/features/viewport/sketchHudSchema.ts`. Test: unit test validating stage transitions and field schemas.
+- [x] 1.2 Refactor `SketchOverlay.tsx` to render floating HUD inputs according to the active tool schema with Tab cycling, Enter commit, and Esc cancel. Test: component test in `SketchOverlay.test.tsx`.
+- [x] 1.3 Connect HUD commitments to `toolStateMachine.ts` so submitted values create points, circles, and driving dimension constraints. Test: unit test in `toolStateMachine.test.ts`.
 
 ## 2. Direct Face Selection for New Sketch
 

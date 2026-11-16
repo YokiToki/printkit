@@ -52,16 +52,16 @@ import {
   deleteSelectionCommand,
   dragPointCommand,
 } from './sketch/sketchCommands'
-import { newId, type PlaneDefinition as SketchPlaneDefinition, type Constraint, type Sketch, addLine, addPoint, addProjectedGeometry } from '../../editor/sketch/model'
+import { newId, type PlaneDefinition as SketchPlaneDefinition, type Constraint, type Sketch, addProjectedGeometry } from '../../editor/sketch/model'
 import { frameForFace, facePlaneFrame, projectChains, type FacePlaneDefinition } from '../../editor/sketch/plane'
 import { faceRef, edgeRef } from '../../geometry/topology/reference'
 import type { MeshTopology } from '../../geometry/topology'
 import { getMeshClient, TopologyLimitError } from '../../geometry/mesh/meshClient'
 import { FaceToolsPanel, type SelectionMode } from './face/FaceToolsPanel'
 import { dimensionFor, constraintEntities } from '../../editor/sketch/measure'
-import { rectangleMacro } from '../../editor/sketch/tools/rectangle'
 import type { ScreenPickResult } from '../viewport/sketchPicking'
 import type { ViewportSketchConfig } from '../viewport/sketchMesh'
+import type { HudCommit } from '../viewport/SketchOverlay'
 import type { MeshData } from '../../geometry/mesh'
 import type { Op } from '../../editor/stack'
 import { addOp, updateOp, removeOp, toggleOp, moveOp, featureToOp } from '../../editor/stack'
@@ -1268,70 +1268,24 @@ export function EditorMode() {
     }
   }, [activeSketch, sketchToolState, dofInfo, constraintHighlight, sketchCursorPos])
 
-  const handleDraftInputSubmit = (val1: number, val2: number) => {
+  // Ввод значений с клавиатуры через плавающий HUD: редьюсер создаёт
+  // геометрию с управляющими размерами.
+  const handleDraftInputSubmit = (commit: HudCommit) => {
     if (!activeSketch) return
-    const tool = sketchToolState.tool
-
-    if (tool === 'rect-2pt' || tool === 'rect-center') {
-      if (sketchToolState.stage === 0) {
-        setSketchToolState((prev) => ({
-          ...prev,
-          stage: 1,
-          startPt: { x: val1, y: val2 },
-        }))
-      } else if (sketchToolState.stage === 1 && sketchToolState.startPt) {
-        const p1 = sketchToolState.startPt
-        const cursor = sketchCursorPos ?? p1
-        const sx = cursor.x >= p1.x ? 1 : -1
-        const sy = cursor.y >= p1.y ? 1 : -1
-        const p2 = {
-          x: p1.x + sx * Math.abs(val1),
-          y: p1.y + sy * Math.abs(val2),
-        }
-        const res = rectangleMacro(activeSketch, {
-          p1,
-          p2,
-          isCenter: tool === 'rect-center',
-          widthDim: Math.abs(val1),
-          heightDim: Math.abs(val2),
-        })
-        dispatch('Add Rectangle', (prev) => updateSketchInDoc(prev, activeSketch.id, () => res.sketch))
-        setSketchToolState((prev) => ({
-          ...prev,
-          tool: 'select',
-          stage: 0,
-          startPt: undefined,
-          secondPt: undefined,
-          preview: undefined,
-        }))
-      }
-    } else if (tool === 'line') {
-      if (sketchToolState.stage === 0) {
-        setSketchToolState((prev) => ({
-          ...prev,
-          stage: 1,
-          startPt: { x: val1, y: val2 },
-        }))
-      } else if (sketchToolState.stage === 1 && sketchToolState.startPt) {
-        const p1 = sketchToolState.startPt
-        const resPt = addPoint(activeSketch, val1, val2)
-        let s = resPt.sketch
-        const p1Id = p1.pointId ?? addPoint(s, p1.x, p1.y).pointId
-        const lineRes = addLine(s, p1Id, resPt.pointId, sketchToolState.construction)
-        s = lineRes.sketch
-        const len = Math.hypot(val1 - p1.x, val2 - p1.y)
-        if (len > 1e-4) {
-          s.constraints.push({ id: newId('con'), kind: 'distance', refs: [lineRes.curveId], value: len })
-        }
-        dispatch('Add Line', (prev) => updateSketchInDoc(prev, activeSketch.id, () => s))
-        setSketchToolState((prev) => ({
-          ...prev,
-          tool: 'select',
-          stage: 0,
-          startPt: undefined,
-          preview: undefined,
-        }))
-      }
+    const res = sketchToolReducer(activeSketch, sketchToolState, {
+      type: 'hud',
+      stage: commit.stage,
+      values: commit.values,
+      sizeMode: commit.sizeMode,
+      pos: sketchCursorPos ?? undefined,
+    })
+    setSketchToolState(res.state)
+    if (res.sketch !== activeSketch) {
+      dispatch(
+        res.command?.label ?? 'Sketch Edit',
+        (prev) => updateSketchInDoc(prev, activeSketch.id, () => res.sketch),
+        res.command?.mergeKey,
+      )
     }
   }
 
@@ -1342,6 +1296,8 @@ export function EditorMode() {
         stage: 0,
         startPt: undefined,
         secondPt: undefined,
+        hud: undefined,
+        sizeMode: undefined,
         preview: undefined,
       }))
     } else if (

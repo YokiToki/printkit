@@ -1874,7 +1874,8 @@
     "toggleConstruction": "Toggle construction geometry",
     "menu": {
       "title": "Sketch",
-      "features": "Features"
+      "features": "Features",
+      "pickFace": "Pick face or plane in view"
     },
     "plane": {
       "xy": "Sketch (XY Top)",
@@ -1895,7 +1896,9 @@
       "mirror": "Mirror",
       "dimension": "Dimension",
       "construction": "Construction",
-      "finish": "Finish"
+      "finish": "Finish",
+      "point": "Point",
+      "arcCenter": "Center-Start-End Arc"
     },
     "constraint": {
       "title": "Constraints",
@@ -1992,7 +1995,10 @@
       "bottomEdge": "Bottom edge",
       "bottomEdgeSize": "Bottom break size",
       "chamfer": "Chamfer",
-      "fillet": "Fillet"
+      "fillet": "Fillet",
+      "flipDirection": "Flip direction",
+      "directionIn": "Into the body (Cut)",
+      "directionOut": "Out of the body (Join)"
     },
     "notice": {
       "unsupportedSvgElement": "Unsupported SVG elements ignored: {{tags}}"
@@ -2021,6 +2027,16 @@
       "tooManySegments": "File contains too many segments (max 50,000)",
       "invalidSvg": "Invalid SVG file",
       "invalidSelection": "Invalid entity selection"
+    },
+    "pickFace": {
+      "hint": "Click a planar face to start a sketch — Esc to cancel",
+      "failed": "No planar face under the cursor"
+    },
+    "action": {
+      "title": "Finished {name}",
+      "extrude": "Extrude",
+      "revolve": "Revolve",
+      "dismiss": "Dismiss"
     }
   },
   "mesh": {

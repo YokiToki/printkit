@@ -26,6 +26,7 @@ export type SketchTool =
   | 'rect-2pt'
   | 'rect-center'
   | 'circle'
+  | 'point'
   | 'arc-3pt'
   | 'arc-center'
   | 'slot'
@@ -42,6 +43,10 @@ export interface ToolState {
   stage: number
   startPt?: { x: number; y: number; pointId?: string }
   secondPt?: { x: number; y: number; pointId?: string }
+  /** Значения, введённые в HUD на пройденных ступенях (радиус дуги по центру). */
+  hud?: Record<string, number>
+  /** В каких единицах введено поле размера: радиус или диаметр. */
+  sizeMode?: 'radius' | 'diameter'
   selectedPointIds: string[]
   selectedCurveIds: string[]
   inferred?: SnapResult
@@ -52,7 +57,7 @@ export interface ToolState {
 }
 
 export interface ToolEvent {
-  type: 'down' | 'move' | 'up' | 'key'
+  type: 'down' | 'move' | 'up' | 'key' | 'hud'
   pos?: { x: number; y: number }
   key?: string
   shift?: boolean
@@ -60,6 +65,11 @@ export interface ToolEvent {
   alt?: boolean
   /** Масштаб вида: допуски привязки заданы в пикселях экрана, а не в мм. */
   pixelsPerMm?: number
+  /** Для типа 'hud': номер ступени и значения полей, введённые с клавиатуры. */
+  stage?: number
+  values?: Record<string, number>
+  /** Единицы поля размера в этом вводе: радиус или диаметр. */
+  sizeMode?: 'radius' | 'diameter'
 }
 
 export function initialToolState(tool: SketchTool = 'select', construction = false): ToolState {
@@ -116,6 +126,239 @@ export interface StateMachineResult {
   }
 }
 
+/** Направление из центра на точку в градусах, 0…360. */
+function angleFromCenterDeg(center: { x: number; y: number }, p: { x: number; y: number }): number {
+  let deg = (Math.atan2(p.y - center.y, p.x - center.x) * 180) / Math.PI
+  if (deg < 0) deg += 360
+  return deg
+}
+
+/** Дуга по центру, радиусу и углам в градусах с управляющим радиусом. */
+function centerArc(
+  sketch: Sketch,
+  center: { x: number; y: number },
+  r: number,
+  a1Deg: number,
+  a2Deg: number,
+  construction = false,
+): { sketch: Sketch; curveId: string } {
+  const a1 = (a1Deg * Math.PI) / 180
+  const a2 = (a2Deg * Math.PI) / 180
+  const res = addArc(
+    sketch,
+    { x: center.x, y: center.y },
+    { x: center.x + r * Math.cos(a1), y: center.y + r * Math.sin(a1) },
+    { x: center.x + r * Math.cos(a2), y: center.y + r * Math.sin(a2) },
+    construction,
+  )
+  res.sketch.constraints.push({ id: newId('con'), kind: 'radius', refs: [res.curveId], value: r })
+  return { sketch: res.sketch, curveId: res.curveId }
+}
+
+/**
+ * Завершение ступени ввода значениями из HUD: координаты и размеры создают
+ * геометрию сразу с управляющими размерами (ограничениями-размерами).
+ */
+function handleHudCommit(
+  sketch: Sketch,
+  state: ToolState,
+  stage: number,
+  values: Record<string, number>,
+  sizeMode: 'radius' | 'diameter',
+  cursor?: { x: number; y: number },
+): StateMachineResult {
+  let s = sketch
+  const nextState: ToolState = { ...state, hud: { ...state.hud, ...values }, sizeMode }
+  let label: string | undefined
+  const num = (name: string, fallback = 0): number => {
+    const v = values[name]
+    return typeof v === 'number' && isFinite(v) ? v : fallback
+  }
+  const x = num('x')
+  const y = num('y')
+  const selectResult = (): StateMachineResult => {
+    nextState.stage = 0
+    nextState.startPt = undefined
+    nextState.secondPt = undefined
+    nextState.hud = undefined
+    nextState.preview = undefined
+    nextState.tool = 'select' // фигура готова: следующий щелчок выбирает, а не рисует новую
+    return { state: nextState, sketch: s, command: label ? { label } : undefined }
+  }
+
+  switch (state.tool) {
+    case 'line': {
+      if (stage === 0) {
+        const res = addPoint(s, x, y)
+        s = res.sketch
+        nextState.stage = 1
+        nextState.startPt = { x, y, pointId: res.pointId }
+        nextState.preview = undefined
+        return { state: nextState, sketch: s }
+      }
+      if (stage === 1 && state.startPt) {
+        const p1 = state.startPt
+        const resPt = addPoint(s, x, y)
+        s = resPt.sketch
+        let p1Id = p1.pointId
+        if (!p1Id || !s.points[p1Id]) {
+          const res = addPoint(s, p1.x, p1.y)
+          s = res.sketch
+          p1Id = res.pointId
+        }
+        const lineRes = addLine(s, p1Id, resPt.pointId, state.construction)
+        s = lineRes.sketch
+        const len = Math.hypot(x - p1.x, y - p1.y)
+        if (len > 1e-4) {
+          s.constraints.push({ id: newId('con'), kind: 'distance', refs: [lineRes.curveId], value: len })
+        }
+        return selectResult()
+      }
+      return { state: nextState, sketch: s }
+    }
+
+    case 'rect-2pt':
+    case 'rect-center': {
+      if (stage === 0) {
+        nextState.stage = 1
+        nextState.startPt = { x, y }
+        nextState.preview = undefined
+        return { state: nextState, sketch: s }
+      }
+      if (stage === 1 && state.startPt) {
+        const p1 = state.startPt
+        const w = Math.max(0.01, Math.abs(num('w')))
+        const h = Math.max(0.01, Math.abs(num('h')))
+        const sx = (cursor?.x ?? p1.x) >= p1.x ? 1 : -1
+        const sy = (cursor?.y ?? p1.y) >= p1.y ? 1 : -1
+        const isCenter = state.tool === 'rect-center'
+        const res = rectangleMacro(s, {
+          p1,
+          p2: { x: p1.x + sx * w, y: p1.y + sy * h },
+          isCenter,
+          widthDim: w,
+          heightDim: h,
+        })
+        s = res.sketch
+        label = isCenter ? 'Add Center Rectangle' : 'Add Rectangle'
+        return selectResult()
+      }
+      return { state: nextState, sketch: s }
+    }
+
+    case 'circle': {
+      if (stage === 0) {
+        const res = addPoint(s, x, y)
+        s = res.sketch
+        nextState.stage = 1
+        nextState.startPt = { x, y, pointId: res.pointId }
+        nextState.preview = undefined
+        return { state: nextState, sketch: s }
+      }
+      if (stage === 1 && state.startPt) {
+        const size = Math.abs(num('size'))
+        if (size <= 0) return { state: nextState, sketch: s }
+        const r = Math.max(0.1, sizeMode === 'diameter' ? size / 2 : size)
+        const res = addCircle(s, state.startPt.pointId!, r, state.construction)
+        s = res.sketch
+        s.constraints.push(
+          sizeMode === 'diameter'
+            ? { id: newId('con'), kind: 'diameter', refs: [res.curveId], value: size }
+            : { id: newId('con'), kind: 'radius', refs: [res.curveId], value: r },
+        )
+        label = 'Add Circle'
+        return selectResult()
+      }
+      return { state: nextState, sketch: s }
+    }
+
+    case 'point': {
+      const res = addPoint(s, x, y)
+      s = res.sketch
+      label = 'Add Point'
+      return selectResult()
+    }
+
+    case 'arc-3pt': {
+      if (stage === 0) {
+        nextState.stage = 1
+        nextState.startPt = { x, y }
+        nextState.preview = undefined
+        return { state: nextState, sketch: s }
+      }
+      if (stage === 1 && state.startPt) {
+        nextState.stage = 2
+        nextState.secondPt = { x, y }
+        nextState.preview = undefined
+        return { state: nextState, sketch: s }
+      }
+      if (stage === 2 && state.startPt && state.secondPt) {
+        const arc = arcThrough(state.startPt, state.secondPt, { x, y })
+        if (!arc) return { state: nextState, sketch: s } // три точки на одной прямой: дуги нет
+        const res = addArc(s, arc.center, arc.a, arc.b, state.construction)
+        s = res.sketch
+        const r = Math.hypot(arc.a.x - arc.center.x, arc.a.y - arc.center.y)
+        s.constraints.push({ id: newId('con'), kind: 'radius', refs: [res.curveId], value: r })
+        label = 'Add Arc'
+        return selectResult()
+      }
+      return { state: nextState, sketch: s }
+    }
+
+    case 'arc-center': {
+      if (stage === 0) {
+        nextState.stage = 1
+        nextState.startPt = { x, y }
+        nextState.preview = undefined
+        return { state: nextState, sketch: s }
+      }
+      if (stage === 1 && state.startPt) {
+        const r = Math.abs(num('size'))
+        if (r <= 0) return { state: nextState, sketch: s }
+        nextState.stage = 2
+        nextState.hud = { ...nextState.hud, size: r }
+        nextState.preview = undefined
+        return { state: nextState, sketch: s }
+      }
+      if (stage === 2 && state.startPt) {
+        const c = state.startPt
+        const r = Math.max(0.1, nextState.hud?.size ?? 1)
+        const arcRes = centerArc(s, c, r, num('a1'), num('a2'), state.construction)
+        s = arcRes.sketch
+        label = 'Add Center Arc'
+        return selectResult()
+      }
+      return { state: nextState, sketch: s }
+    }
+
+    case 'polygon': {
+      if (stage === 0) {
+        nextState.stage = 1
+        nextState.startPt = { x, y }
+        nextState.preview = undefined
+        return { state: nextState, sketch: s }
+      }
+      if (stage === 1 && state.startPt) {
+        const r = Math.max(0.5, Math.abs(num('size')))
+        const sides = num('n', 6)
+        const res = polygonMacro(s, { center: state.startPt, radius: r, sides })
+        s = res.sketch
+        // Радиус на вспомогательной окружности задаёт размер многоугольника.
+        const circleId = res.createdCurves[0]
+        if (circleId) {
+          s.constraints.push({ id: newId('con'), kind: 'radius', refs: [circleId], value: r })
+        }
+        label = 'Add Polygon'
+        return selectResult()
+      }
+      return { state: nextState, sketch: s }
+    }
+
+    default:
+      return { state: nextState, sketch: s }
+  }
+}
+
 export function sketchToolReducer(
   sketch: Sketch,
   state: ToolState,
@@ -130,6 +373,8 @@ export function sketchToolReducer(
       nextState.stage = 0
       nextState.startPt = undefined
       nextState.secondPt = undefined
+      nextState.hud = undefined
+      nextState.sizeMode = undefined
       nextState.preview = undefined
       nextState.inferred = undefined
       return { state: nextState, sketch: s }
@@ -138,6 +383,18 @@ export function sketchToolReducer(
     nextState.selectedCurveIds = []
     nextState.preview = undefined
     return { state: nextState, sketch: s }
+  }
+
+  // Ввод значений с клавиатуры через плавающий HUD
+  if (event.type === 'hud' && event.values) {
+    return handleHudCommit(
+      sketch,
+      state,
+      event.stage ?? state.stage,
+      event.values,
+      event.sizeMode ?? 'radius',
+      event.pos,
+    )
   }
 
   // Handle pointer move: update inference and preview
@@ -205,6 +462,28 @@ export function sketchToolReducer(
         points: { pr_c: state.startPt },
         curves: {
           pr_circ: { id: 'pr_circ', kind: 'circle', c: 'pr_c', r, construction: state.construction },
+        },
+      }
+    } else if (state.tool === 'arc-center' && state.stage === 1 && state.startPt) {
+      nextState.preview = {
+        points: { preview_start: state.startPt, preview_end: activePos },
+        curves: {
+          preview_line: {
+            id: 'preview_line',
+            kind: 'line',
+            a: 'preview_start',
+            b: 'preview_end',
+            construction: true,
+          },
+        },
+      }
+    } else if (state.tool === 'arc-center' && state.stage === 2 && state.startPt) {
+      // Радиус уже введён: показываем окружность, из которой вырежется дуга.
+      const r = Math.max(0.1, state.hud?.size ?? Math.hypot(activePos.x - state.startPt.x, activePos.y - state.startPt.y))
+      nextState.preview = {
+        points: { pr_c: state.startPt },
+        curves: {
+          pr_circ: { id: 'pr_circ', kind: 'circle', c: 'pr_c', r, construction: true },
         },
       }
     } else if (state.tool === 'arc-3pt' && state.stage === 1 && state.startPt) {
@@ -434,6 +713,36 @@ export function sketchToolReducer(
         nextState.preview = undefined
         nextState.tool = 'select'
         return { state: nextState, sketch: s, command: { label: 'Add Arc' } }
+      }
+    } else if (state.tool === 'point') {
+      const res = addPoint(s, pt.x, pt.y)
+      s = res.sketch
+      nextState.tool = 'select' // точка готова: следующий щелчок выбирает
+      return { state: nextState, sketch: s, command: { label: 'Add Point' } }
+    } else if (state.tool === 'arc-center') {
+      // Щелчки: центр → начало (радиус и первый угол) → конец.
+      if (state.stage === 0) {
+        nextState.stage = 1
+        nextState.startPt = pt
+        return { state: nextState, sketch: s }
+      } else if (state.stage === 1 && state.startPt) {
+        const r = Math.max(0.1, Math.hypot(pt.x - state.startPt.x, pt.y - state.startPt.y))
+        nextState.stage = 2
+        nextState.hud = { ...state.hud, size: r, a1: angleFromCenterDeg(state.startPt, pt) }
+        nextState.preview = undefined
+        return { state: nextState, sketch: s }
+      } else if (state.stage === 2 && state.startPt) {
+        const r = Math.max(0.1, state.hud?.size ?? 1)
+        const a1 = state.hud?.a1 ?? 0
+        const a2 = angleFromCenterDeg(state.startPt, pt)
+        const arcRes = centerArc(s, state.startPt, r, a1, a2, state.construction)
+        s = arcRes.sketch
+        nextState.stage = 0
+        nextState.startPt = undefined
+        nextState.hud = undefined
+        nextState.preview = undefined
+        nextState.tool = 'select'
+        return { state: nextState, sketch: s, command: { label: 'Add Center Arc' } }
       }
     } else if (state.tool === 'dimension') {
       const target = snap?.targetId

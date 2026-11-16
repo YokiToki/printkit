@@ -25,7 +25,7 @@ import {
 import { ViewCube } from '../editor/ViewCube'
 import { buildSketchContent, buildSketchGrid, type ViewportSketchConfig } from './sketchMesh'
 import { lookAtPlane, pointerToPlaneCoordinates, screenPick, type ScreenPickResult } from './sketchPicking'
-import { SketchOverlay } from './SketchOverlay'
+import { SketchOverlay, type HudCommit } from './SketchOverlay'
 import { planeFrame, planeKey } from '../../editor/sketch/model'
 import type { MeshHighlight } from '../editor/mesh/MeshSection'
 import type { MeshTopology } from '../../geometry/topology'
@@ -110,7 +110,7 @@ export interface ViewportProps {
   ) => void
   onSketchSelect?: (hit: ScreenPickResult | null, additive: boolean) => void
   onSketchSelectBox?: (box: { points: string[]; curves: string[] }, additive: boolean) => void
-  onSubmitDraftInput?: (val1: number, val2: number) => void
+  onSubmitDraftInput?: (commit: HudCommit) => void
   onCancelSketchStage?: () => void
   onUpdateConstraint?: (id: string, value: number) => void
   onDeleteConstraint?: (id: string) => void

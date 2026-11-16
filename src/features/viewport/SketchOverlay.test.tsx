@@ -134,7 +134,7 @@ describe('4.2 SketchOverlay: Constraint glyphs and dimension labels', () => {
     fireEvent.change(inputs0[0], { target: { value: '30' } })
     fireEvent.keyDown(inputs0[0], { key: 'Tab' })
     fireEvent.keyDown(inputs0[1], { key: 'Enter' })
-    expect(onSubmitDraft).toHaveBeenCalledWith(30, 15)
+    expect(onSubmitDraft).toHaveBeenCalledWith({ stage: 0, values: { x: 30, y: 15 } })
 
     // 2. Stage 1: Point 2 extending rectangle with sides W and H
     onSubmitDraft.mockClear()
@@ -170,6 +170,164 @@ describe('4.2 SketchOverlay: Constraint glyphs and dimension labels', () => {
     fireEvent.change(inputs1[0], { target: { value: '50' } })
     fireEvent.change(inputs1[1], { target: { value: '20' } })
     fireEvent.keyDown(inputs1[1], { key: 'Enter' })
-    expect(onSubmitDraft).toHaveBeenCalledWith(50, 20)
+    expect(onSubmitDraft).toHaveBeenCalledWith({
+      stage: 1,
+      values: { w: 50, h: 20 },
+      sizeMode: undefined,
+    })
+  })
+
+  it('circle HUD: stage 0 typed centre, stage 1 R field toggles to diameter with D', () => {
+    const s = createSketch('CircleHud')
+    const project = (pt: { x: number; y: number }) => ({ x: pt.x + 200, y: 200 - pt.y })
+    const onSubmitDraft = vi.fn()
+
+    const configStage0: ViewportSketchConfig = {
+      plane: { base: 'XY', offset: 0 },
+      sketch: s,
+      tool: 'circle',
+      toolStage: 0,
+      cursorPlanePos: { x: 10, y: 20 },
+    }
+
+    const { rerender } = render(
+      <UnitProvider>
+        <SketchOverlay
+          config={configStage0}
+          project={project}
+          onSubmitDraftInput={onSubmitDraft}
+        />
+      </UnitProvider>,
+    )
+
+    const hud0 = screen.getByTestId('sketch-draft-hud-stage0')
+    const inputs0 = hud0.querySelectorAll('input')
+    expect(inputs0[0].value).toBe('10.0')
+    expect(inputs0[1].value).toBe('20.0')
+    fireEvent.keyDown(inputs0[1], { key: 'Enter' })
+    expect(onSubmitDraft).toHaveBeenCalledWith({ stage: 0, values: { x: 10, y: 20 } })
+
+    // Stage 1: radius field defaults to the cursor distance (already at the centre -> 0)
+    onSubmitDraft.mockClear()
+    rerender(
+      <UnitProvider>
+        <SketchOverlay
+          config={{
+            ...configStage0,
+            toolStage: 1,
+            toolStartPt: { x: 10, y: 20 },
+            cursorPlanePos: { x: 25, y: 20 },
+          }}
+          project={project}
+          onSubmitDraftInput={onSubmitDraft}
+        />
+      </UnitProvider>,
+    )
+
+    const hud1 = screen.getByTestId('sketch-draft-hud-stage1')
+    expect(screen.getByText('R')).toBeDefined()
+    const sizeInput = hud1.querySelector('input')!
+    expect(sizeInput.value).toBe('15.0')
+
+    // Press D: label becomes Ø and the value doubles (radius -> diameter)
+    fireEvent.keyDown(sizeInput, { key: 'd' })
+    expect(screen.getByText('Ø')).toBeDefined()
+    expect(sizeInput.value).toBe('30')
+
+    fireEvent.change(sizeInput, { target: { value: '30' } })
+    fireEvent.keyDown(sizeInput, { key: 'Enter' })
+    expect(onSubmitDraft).toHaveBeenCalledWith({
+      stage: 1,
+      values: { size: 30 },
+      sizeMode: 'diameter',
+    })
+  })
+
+  it('point and polygon HUD stages follow the tool schema', () => {
+    const s = createSketch('PointHud')
+    const project = (pt: { x: number; y: number }) => ({ x: pt.x + 200, y: 200 - pt.y })
+    const onSubmitDraft = vi.fn()
+
+    const { rerender } = render(
+      <UnitProvider>
+        <SketchOverlay
+          config={{
+            plane: { base: 'XY', offset: 0 },
+            sketch: s,
+            tool: 'point',
+            toolStage: 0,
+            cursorPlanePos: { x: 3, y: -4 },
+          }}
+          project={project}
+          onSubmitDraftInput={onSubmitDraft}
+        />
+      </UnitProvider>,
+    )
+
+    const hud = screen.getByTestId('sketch-draft-hud-stage0')
+    const inputs = hud.querySelectorAll('input')
+    expect(inputs.length).toBe(2)
+    expect(inputs[1].value).toBe('-4.0')
+    fireEvent.keyDown(inputs[0], { key: 'Enter' })
+    expect(onSubmitDraft).toHaveBeenCalledWith({ stage: 0, values: { x: 3, y: -4 } })
+
+    // Polygon stage 1 has R and N fields; N defaults to 6
+    onSubmitDraft.mockClear()
+    rerender(
+      <UnitProvider>
+        <SketchOverlay
+          config={{
+            plane: { base: 'XY', offset: 0 },
+            sketch: s,
+            tool: 'polygon',
+            toolStage: 1,
+            toolStartPt: { x: 0, y: 0 },
+            cursorPlanePos: { x: 3, y: 4 },
+          }}
+          project={project}
+          onSubmitDraftInput={onSubmitDraft}
+        />
+      </UnitProvider>,
+    )
+
+    const hudPoly = screen.getByTestId('sketch-draft-hud-stage1')
+    expect(screen.getByText('N')).toBeDefined()
+    const polyInputs = hudPoly.querySelectorAll('input')
+    expect(polyInputs.length).toBe(2)
+    expect(polyInputs[0].value).toBe('5.0')
+    expect(polyInputs[1].value).toBe('6')
+    fireEvent.keyDown(polyInputs[1], { key: 'Enter' })
+    expect(onSubmitDraft).toHaveBeenCalledWith({
+      stage: 1,
+      values: { size: 5, n: 6 },
+      sizeMode: undefined,
+    })
+  })
+
+  it('Escape in a HUD field cancels the current stage', () => {
+    const s = createSketch('EscHud')
+    const project = (pt: { x: number; y: number }) => ({ x: pt.x + 200, y: 200 - pt.y })
+    const onCancel = vi.fn()
+
+    render(
+      <UnitProvider>
+        <SketchOverlay
+          config={{
+            plane: { base: 'XY', offset: 0 },
+            sketch: s,
+            tool: 'circle',
+            toolStage: 1,
+            toolStartPt: { x: 0, y: 0 },
+            cursorPlanePos: { x: 5, y: 0 },
+          }}
+          project={project}
+          onCancelStage={onCancel}
+        />
+      </UnitProvider>,
+    )
+
+    const input = screen.getByTestId('sketch-draft-hud-stage1').querySelector('input')!
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onCancel).toHaveBeenCalled()
   })
 })

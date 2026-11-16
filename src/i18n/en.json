@@ -2033,7 +2033,7 @@
       "failed": "No planar face under the cursor"
     },
     "action": {
-      "title": "Finished {name}",
+      "title": "Finished {{name}}",
       "extrude": "Extrude",
       "revolve": "Revolve",
       "dismiss": "Dismiss"

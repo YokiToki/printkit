@@ -14,7 +14,7 @@ import type {
   RevolveFeature,
 } from '../../../geometry/features/evaluate'
 import type { EdgeBreak } from '../../../geometry/features/extrude'
-import type { Sketch, LineCurve } from '../../../editor/sketch/model'
+import { isFacePlane, type Sketch, type LineCurve } from '../../../editor/sketch/model'
 import type { EditorObject } from '../../../editor/scene'
 import { LengthField } from '../../../ui/LengthField'
 import { NumberField } from '../../../ui/NumberField'
@@ -81,7 +81,15 @@ export function FeatureDialog({
   const initialExtrude = initialFeature?.kind === 'extrude' ? (initialFeature as ExtrudeFeature) : null
   const [flipped, setFlipped] = useState(initialExtrude?.direction === -1)
   const [direction, setDirection] = useState<1 | -1>(initialExtrude?.direction ?? 1)
-  const canFlip = kind === 'extrude' && faceLinked && !initialFeature
+  // Привязка к грани хозяина — из самого эскиза, доступна и при редактировании.
+  const activeSketchDef = useMemo(
+    () => sketches.find((s) => s.id === sketchId),
+    [sketches, sketchId],
+  )
+  const linked =
+    faceLinked ||
+    (!!activeSketchDef?.hostObjectId && isFacePlane(activeSketchDef.plane))
+  const canFlip = kind === 'extrude' && linked
   const handleFlip = () => {
     const next = !flipped
     setFlipped(next)

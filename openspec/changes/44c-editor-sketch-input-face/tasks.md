@@ -9,7 +9,7 @@
 ## 2. Direct Face Selection for New Sketch
 
 - [x] 2.1 Add plane/face picker state in `EditorMode.tsx` when clicking "New Sketch" without requiring Face selection mode. Test: interaction test in `EditorMode.test.tsx`.
-- [ ] 2.2 Highlight planar face under cursor in the viewport during plane picking. Verification: visual check in browser on a 3D box.
+- [x] 2.2 Highlight planar face under cursor in the viewport during plane picking. Verification: visual check in browser on a 3D box.
 - [x] 2.3 Store `hostObjectId` and `faceId` in `Sketch` definition and re-resolve frame when the host body is updated. Test: unit test in `sketch/plane.test.ts`.
 
 ## 3. Sequential Modeling Workflow (Sketch ➔ Extrude)
@@ -24,5 +24,5 @@
 
 ## 5. Verification
 
-- [ ] 5.1 Run `npm test` and `npm run build` to ensure clean build.
-- [ ] 5.2 Browser verification in EN and RU: draw circle with typed coordinates and diameter, create sketch directly on a face, and execute join/cut extrusions.
+- [x] 5.1 Run `npm test` and `npm run build` to ensure clean build.
+- [x] 5.2 Browser verification in EN and RU: draw circle with typed coordinates and diameter, create sketch directly on a face, and execute join/cut extrusions.

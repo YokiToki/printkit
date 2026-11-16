@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as THREE from 'three'
 import '../../i18n'
 import type { ModelResult } from '../../geometry/model'
 import { computeWheelZoomFactor } from './gesture'
@@ -122,39 +123,87 @@ describe('Viewport', () => {
     Object.defineProperty(node, 'clientWidth', { value: w, configurable: true })
     Object.defineProperty(node, 'clientHeight', { value: h, configurable: true })
   }
-  const wheelAt = (canvas: HTMLCanvasElement, x: number, y: number) => {
+  const wheelAt = (canvas: HTMLCanvasElement, x: number, y: number, deltaY = -100) => {
     canvas.dispatchEvent(
-      new WheelEvent('wheel', { deltaY: -100, clientX: x, clientY: y, bubbles: true, cancelable: true })
+      new WheelEvent('wheel', { deltaY, clientX: x, clientY: y, bubbles: true, cancelable: true })
     )
   }
 
-  it('zooms the 3D view toward the cursor position', () => {
-    const zoomDisplacement = (cursorX: number, cursorY: number) => {
-      lastRenderedScene = null
-      lastRenderedCamera = null
-      const { container, unmount } = render(<Viewport model={model} plate={null} />)
-      const canvas = container.querySelector('canvas')!
-      canvas.getBoundingClientRect = () => fakeRect(800, 600)
-      lastAnimationLoop!()
-      const cam = lastRenderedCamera! as import('three').PerspectiveCamera
-      // resize() при маунте видел нулевые размеры jsdom — чиним проекцию до зума
-      cam.aspect = 800 / 600
-      cam.updateProjectionMatrix()
-      cam.updateMatrixWorld()
-      const before = cam.position.clone()
-      wheelAt(canvas, cursorX, cursorY)
-      const delta = cam.position.clone().sub(before)
-      unmount()
-      return delta
+  it('zooms the 3D view toward the cursor position and stops at the distance limit', () => {
+    // плоская плита 400x400 мм: лучи и в центре, и в углу экрана попадают в модель
+    const plate: ModelResult = {
+      parts: [
+        {
+          label: 'plate',
+          col: 0,
+          row: 0,
+          oversize: false,
+          mesh: {
+            vertProperties: new Float32Array([
+              -200, -200, 0, 200, -200, 0, -200, 200, 0, 200, 200, 0,
+            ]),
+            triVerts: new Uint32Array([0, 1, 2, 1, 3, 2]),
+            numProp: 3,
+            min: [-200, -200, 0] as [number, number, number],
+            max: [200, 200, 0] as [number, number, number],
+            volume: 1,
+          },
+        },
+      ],
+    }
+    const { container } = render(<Viewport model={plate} plate={null} />)
+    const canvas = container.querySelector('canvas')!
+    const host = canvas.parentElement as HTMLElement
+    canvas.getBoundingClientRect = () => fakeRect(800, 600)
+    host.getBoundingClientRect = () => fakeRect(800, 600)
+    setSize(host, 800, 600)
+    lastAnimationLoop!()
+    const cam = lastRenderedCamera! as THREE.PerspectiveCamera
+    // resize() при маунте видел нулевые размеры jsdom — чиним проекцию до зума
+    cam.aspect = 800 / 600
+    cam.updateProjectionMatrix()
+    cam.updateMatrixWorld()
+
+    const ndcOf = (pt: THREE.Vector3) => {
+      const v = pt.clone().project(cam)
+      return { x: v.x, y: v.y }
+    }
+    // точка плоскости z=0 под курсором — тот же якорь, что возвращает pickAnchorAt для плиты
+    const anchorUnder = (x: number, y: number) => {
+      const rc = new THREE.Raycaster()
+      rc.setFromCamera(new THREE.Vector2((x / 800) * 2 - 1, 1 - (y / 600) * 2), cam)
+      const t = -rc.ray.origin.z / rc.ray.direction.z
+      return rc.ray.origin.clone().addScaledVector(rc.ray.direction, t)
     }
 
-    const center = zoomDisplacement(400, 300)
-    const corner = zoomDisplacement(760, 560)
-    expect(center.length()).toBeGreaterThan(0.01)
-    expect(corner.length()).toBeGreaterThan(0.01)
-    // направление движения камеры зависит от курсора: зум идёт к точке под ним
-    const cos = center.clone().normalize().dot(corner.clone().normalize())
-    expect(cos).toBeLessThan(0.99)
+    // зум в центре: якорь совпадает с центром орбиты, камера приближается радиально на один множитель
+    const before = cam.position.clone()
+    wheelAt(canvas, 400, 300)
+    const afterCenter = cam.position.clone()
+    expect(afterCenter.length()).toBeCloseTo(before.length() * computeWheelZoomFactor(-100), 4)
+
+    // зум к точке модели не в центре экрана: луч через (520, 380) попадает в плиту
+    const cornerX = 520
+    const cornerY = 380
+    const anchor = anchorUnder(cornerX, cornerY)
+    const ndcBefore = ndcOf(anchor)
+    wheelAt(canvas, cornerX, cornerY)
+    cam.updateMatrixWorld()
+    const ndcAfter = ndcOf(anchor)
+    expect(Math.abs(ndcAfter.x - ndcBefore.x)).toBeLessThan(1e-6)
+    expect(Math.abs(ndcAfter.y - ndcBefore.y)).toBeLessThan(1e-6)
+    // и направление движения отличается от радиального: центр зума зависит от курсора
+    const centerDir = afterCenter.clone().sub(before).normalize()
+    const cornerDir = cam.position.clone().sub(afterCenter).normalize()
+    expect(centerDir.dot(cornerDir)).toBeLessThan(0.999)
+
+    // предел: длительное отдаление от курсора не уводит камеру в бесконечность
+    for (let i = 0; i < 80; i++) {
+      wheelAt(canvas, cornerX, cornerY, 100)
+    }
+    cam.updateMatrixWorld()
+    // дистанция к цели <= 20000 и цель не дальше 20000 от точки зума на модели
+    expect(cam.position.length()).toBeLessThan(42000)
   })
 
   it('applies a single cursor-anchored zoom step in sketch mode', () => {

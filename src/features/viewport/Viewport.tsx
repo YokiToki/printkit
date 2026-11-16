@@ -342,8 +342,6 @@ export function Viewport({
 
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
-    // зум колесом в 3D идёт к точке под курсором, а не к центру орбиты
-    controls.zoomToCursor = true
     controls.maxPolarAngle = Math.PI // камера может уйти под плоскость XY и смотреть на низ модели; ось Z остаётся вверху
     controls.minDistance = 0.5
     controls.maxDistance = 20000
@@ -1051,6 +1049,21 @@ export function Viewport({
       return { label, hit }
     }
 
+    // Точка на ближайшей к камере поверхности модели под курсором — якорь зума колеса.
+    // В отличие от выбора здесь учитываются и заблокированные детали (они видны), но не скрытые.
+    const pickAnchorAt = (x: number, y: number): THREE.Vector3 | null => {
+      const isOrtho = sceneRef.current?.projection === 'ortho'
+      const activeCam = isOrtho ? orthoCamera : camera
+      ray.setFromCamera(
+        new THREE.Vector2((x / (el.clientWidth || 1)) * 2 - 1, 1 - (y / (el.clientHeight || 1)) * 2),
+        activeCam,
+      )
+      const hiddenSet = new Set(sceneRef.current?.hidden ?? [])
+      const bodies = partGroups.filter((p) => !hiddenSet.has(p.label)).map((p) => p.body)
+      const intersects = ray.intersectObjects(bodies, false)
+      return intersects.length > 0 ? intersects[0].point.clone() : null
+    }
+
     // эскиз: координаты указателя на плоскости и масштаб вида (пикселей на мм) для допусков в пикселях
     const sketchPlanePoint = (e: MouseEvent) => {
       if (!sketchRef.current) return null
@@ -1400,39 +1413,81 @@ export function Viewport({
     }
 
     const onWheel = (e: WheelEvent) => {
-      if (!sketchRef.current) return
+      // capture: перехватываем колесо до OrbitControls, чтобы зум шёл к одной точке
+      // (плоскость эскиза / поверхность модели под курсором) и был ограничен пределами камеры
       e.preventDefault()
       e.stopPropagation()
-
       const zoomFactor = computeWheelZoomFactor(e.deltaY, e.deltaMode)
+      const camDir = camera.position.clone().sub(controls.target).normalize()
       const dist = camera.position.distanceTo(controls.target)
-      const newDist = Math.max(5, Math.min(25000, dist * zoomFactor))
-      const factor = newDist / dist
 
-      const planePtBefore = sketchPlanePoint(e)
-      if (planePtBefore) {
-        const frame = planeFrame(sketchRef.current.plane)
-        const worldP = new THREE.Vector3(
-          frame.origin[0] + planePtBefore.x * frame.xDir[0] + planePtBefore.y * frame.yDir[0],
-          frame.origin[1] + planePtBefore.x * frame.xDir[1] + planePtBefore.y * frame.yDir[1],
-          frame.origin[2] + planePtBefore.x * frame.xDir[2] + planePtBefore.y * frame.yDir[2],
-        )
-        const newTarget = controls.target.clone().add(worldP.clone().sub(controls.target).multiplyScalar(1 - factor))
-        const camDir = camera.position.clone().sub(controls.target).normalize()
-        controls.target.copy(newTarget)
-        camera.position.copy(newTarget).addScaledVector(camDir, newDist)
-      } else {
-        const camDir = camera.position.clone().sub(controls.target).normalize()
-        camera.position.copy(controls.target).addScaledVector(camDir, newDist)
+      if (sketchRef.current) {
+        const minDist = 5
+        const maxDist = 25000
+        const newDist = Math.max(minDist, Math.min(maxDist, dist * zoomFactor))
+        // фокус: точка плоскости эскиза под курсором или центр орбиты, если луч плоскость не пересёк
+        const planePtBefore = sketchPlanePoint(e)
+        const focus =
+          (planePtBefore && worldPointOnSketchPlane(planePtBefore)) ?? controls.target.clone()
+        applyWheelZoom(focus, maxDist, dist, newDist, camDir, zoomFactor)
+
+        controls.update()
+
+        const newCoords = sketchPlanePoint(e)
+        if (newCoords) {
+          callbacksRef.current.onSketchPointer?.('move', newCoords, sketchMods(e), e as unknown as PointerEvent)
+        }
+        setViewTick((v) => v + 1)
+        return
       }
+
+      // 3D: якорь — ближайшая точка модели под курсором; мимо модели — центр орбиты
+      const rect = el.getBoundingClientRect()
+      const anchor = pickAnchorAt(e.clientX - rect.left, e.clientY - rect.top)
+      const newDist = Math.max(controls.minDistance, Math.min(controls.maxDistance, dist * zoomFactor))
+      applyWheelZoom(
+        anchor ?? controls.target.clone(),
+        controls.maxDistance,
+        dist,
+        newDist,
+        camDir,
+        zoomFactor,
+      )
 
       controls.update()
-
-      const newCoords = sketchPlanePoint(e)
-      if (newCoords) {
-        callbacksRef.current.onSketchPointer?.('move', newCoords, sketchMods(e), e as unknown as PointerEvent)
-      }
       setViewTick((v) => v + 1)
+    }
+
+    const worldPointOnSketchPlane = (planePt: { x: number; y: number }) => {
+      const frame = planeFrame(sketchRef.current!.plane)
+      return new THREE.Vector3(
+        frame.origin[0] + planePt.x * frame.xDir[0] + planePt.y * frame.yDir[0],
+        frame.origin[1] + planePt.x * frame.xDir[1] + planePt.y * frame.yDir[1],
+        frame.origin[2] + planePt.x * frame.xDir[2] + planePt.y * frame.yDir[2],
+      )
+    }
+
+    // Сдвигает камеру и цель так, чтобы точка фокуса осталась под курсором (её NDC не меняется),
+    // а дистанция камеры к цели уложилась в пределы. При отдалении цель уходит от точки фокуса:
+    // ограничение её удаления держит связку камера-цель в пределах сцены — без него зум от курсора
+    // (как OrbitControls.zoomToCursor) уезжал в бесконечность.
+    const applyWheelZoom = (
+      focus: THREE.Vector3,
+      maxDist: number,
+      dist: number,
+      newDist: number,
+      camDir: THREE.Vector3,
+      factor: number,
+    ) => {
+      const target = controls.target.clone().add(
+        focus.clone().sub(controls.target).multiplyScalar(1 - factor),
+      )
+      const toFocus = target.clone().sub(focus)
+      if (toFocus.length() > maxDist) {
+        target.copy(focus).addScaledVector(toFocus.normalize(), maxDist)
+      }
+      controls.target.copy(target)
+      camera.position.copy(target).addScaledVector(camDir, newDist)
     }
 
     renderer.domElement.addEventListener('pointerdown', onPointerDown, true)

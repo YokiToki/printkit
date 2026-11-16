@@ -45,10 +45,13 @@ export function classifyGesture(
 }
 
 /**
- * Вычисляет плавный коэффициент масштабирования колеса мыши / трекпада,
- * согласованный с кривой OrbitControls.dolly и учитывающий deltaMode.
+ * Вычисляет плавный коэффициент масштабирования колеса мыши / трекпада.
+ * Кривая и нормализация deltaMode совпадают с OrbitControls (`_getZoomScale`
+ * при zoomSpeed 1 и `_customWheelEvent`): один щелчок колеса (±100) меняет
+ * дистанцию на ±5 %, как зум к центру в 3D.
  */
 export function computeWheelZoomFactor(deltaY: number, deltaMode = 0): number {
-  const normalizedDeltaY = deltaMode === 1 ? deltaY * 20 : deltaMode === 2 ? deltaY * 100 : deltaY
-  return Math.pow(0.95, -normalizedDeltaY * 0.002)
+  const normalizedDeltaY = deltaMode === 1 ? deltaY * 16 : deltaMode === 2 ? deltaY * 100 : deltaY
+  const scale = Math.pow(0.95, Math.abs(normalizedDeltaY) * 0.01)
+  return normalizedDeltaY < 0 ? scale : 1 / scale
 }

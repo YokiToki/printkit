@@ -20,7 +20,7 @@
 
 ## 4. Version
 
-- [ ] 4.1 Bump `package.json` to 1.17.0 and add `1.17.0 — 44c-editor-sketch-input-face` to `CHANGELOG.md`. Test: `npx vitest run src/site.test.ts`.
+- [x] 4.1 Bump `package.json` to 1.17.0 and add `1.17.0 — 44c-editor-sketch-input-face` to `CHANGELOG.md`. Test: `npx vitest run src/site.test.ts`.
 
 ## 5. Verification
 
